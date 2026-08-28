@@ -12,6 +12,7 @@ const handler = createApiHandler({
   store,
   helpdesk,
   basePath: '/api/admin',
+  admin: true,
   tokens: process.env.HELPDECK_API_TOKEN ? [process.env.HELPDECK_API_TOKEN] : undefined,
 })
 

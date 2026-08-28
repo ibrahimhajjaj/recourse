@@ -121,6 +121,7 @@ export type {
 } from './helpdesk/index.js'
 
 export { createApiHandler, type ApiOptions } from './api/index.js'
+export { createHelpPage, type HelpPageOptions } from './api/helppage.js'
 
 export { runCampaign, renderTemplate, validateRecipients } from './outbound/index.js'
 export type {

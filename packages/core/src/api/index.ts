@@ -436,5 +436,6 @@ function withCors(response: Response, cors: Record<string, string>): Response {
   return new Response(response.body, { status: response.status, headers })
 }
 
+export { createHelpPage, type HelpPageOptions } from './helppage.js'
 export { createRouter } from './router.js'
 export type { Params, RouteHandler } from './router.js'
