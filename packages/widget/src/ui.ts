@@ -22,9 +22,41 @@ export interface UiContext {
   submit: (text: string) => void
   /** Returns a client action's result, for forms. */
   respond: (values: Record<string, unknown>) => void
+  /**
+   * Runs a handler the host page registered, without going back through the
+   * model. For the buttons whose whole job is to do one thing: cancel a
+   * booking, copy a code, add to a basket.
+   */
+  run?: (name: string, payload: Record<string, unknown>) => Promise<unknown>
 }
 
 const SAFE_URL = /^(https?:|mailto:|tel:|\/|#)/i
+
+/**
+ * Whether a part of a component should be shown.
+ *
+ * A component is data emitted by an action you wrote, so most conditionals
+ * belong in that action where a real language is available. This covers the
+ * one case that cannot: a value the visitor changes after the component was
+ * already drawn.
+ */
+export function visible(item: { showIf?: unknown }, data: Record<string, unknown>): boolean {
+  const condition = item.showIf
+  if (condition === undefined) return true
+  if (typeof condition === 'boolean') return condition
+
+  if (typeof condition === 'string') {
+    // "status" is truthy, "!status" is falsy, "status=shipped" compares.
+    const negated = condition.startsWith('!')
+    const body = negated ? condition.slice(1) : condition
+    const [key, expected] = body.split('=', 2)
+    const value = data[(key ?? '').trim()]
+    const result = expected === undefined ? Boolean(value) : String(value) === expected.trim()
+    return negated ? !result : result
+  }
+
+  return true
+}
 
 function text(tag: string, value: string, className?: string): HTMLElement {
   const node = document.createElement(tag)
@@ -66,6 +98,52 @@ const button: UiRenderer = (data) => {
  * are label and value pairs, which is what makes it readable without the model
  * having to compose a sentence out of six numbers.
  */
+interface ActionSpec {
+  label?: unknown
+  url?: unknown
+  send?: unknown
+  /** Name of a handler the host registered, run without asking the model. */
+  run?: unknown
+  payload?: Record<string, unknown>
+  /** Shown after the handler succeeds, in place of the button. */
+  done?: unknown
+  showIf?: unknown
+}
+
+/** One action: a link, a message on the visitor's behalf, or a handler call. */
+function actionButton(action: ActionSpec, context: UiContext): HTMLElement | null {
+  const label = str(action.label)
+  if (!label) return null
+
+  if (action.url) return link(label, str(action.url), 'ui-button')
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'ui-button'
+  button.textContent = label
+
+  if (action.run) {
+    button.addEventListener('click', async () => {
+      if (!context.run) return
+      button.disabled = true
+      try {
+        await context.run(str(action.run), action.payload ?? {})
+        // Replaced by its own confirmation, so it cannot be pressed twice.
+        button.replaceWith(text('span', str(action.done) || 'Done', 'ui-muted'))
+      } catch (error) {
+        button.disabled = false
+        button.textContent = error instanceof Error ? error.message : 'That did not work'
+      }
+    })
+    return button
+  }
+
+  // A send action types on the visitor's behalf, which keeps the conversation
+  // in one place instead of opening a tab.
+  button.addEventListener('click', () => context.submit(str(action.send) || label))
+  return button
+}
+
 const card: UiRenderer = (data, context) => {
   const root = document.createElement('div')
   root.className = 'ui-card'
@@ -85,7 +163,9 @@ const card: UiRenderer = (data, context) => {
   if (data.title) body.appendChild(text('h3', str(data.title)))
   if (data.subtitle) body.appendChild(text('p', str(data.subtitle), 'ui-muted'))
 
-  const fields = Array.isArray(data.fields) ? data.fields : []
+  const fields = (Array.isArray(data.fields) ? data.fields : []).filter((field) =>
+    visible(field as { showIf?: unknown }, data),
+  )
   if (fields.length > 0) {
     const list = document.createElement('dl')
     list.className = 'ui-fields'
@@ -97,31 +177,16 @@ const card: UiRenderer = (data, context) => {
     body.appendChild(list)
   }
 
-  const actions = Array.isArray(data.actions) ? data.actions : []
+  const actions = (Array.isArray(data.actions) ? data.actions : []).filter((action) =>
+    visible(action as { showIf?: unknown }, data),
+  )
   if (actions.length > 0) {
     const row = document.createElement('div')
     row.className = 'ui-actions'
-
     for (const raw of actions) {
-      const action = raw as { label?: unknown; url?: unknown; send?: unknown }
-      const label = str(action.label)
-      if (!label) continue
-
-      if (action.url) {
-        row.appendChild(link(label, str(action.url), 'ui-button'))
-        continue
-      }
-
-      // A send action types on the visitor's behalf, which keeps the
-      // conversation in one place instead of opening a tab.
-      const send = document.createElement('button')
-      send.type = 'button'
-      send.className = 'ui-button'
-      send.textContent = label
-      send.addEventListener('click', () => context.submit(str(action.send) || label))
-      row.appendChild(send)
+      const node = actionButton(raw as ActionSpec, context)
+      if (node) row.appendChild(node)
     }
-
     if (row.childElementCount > 0) body.appendChild(row)
   }
 
@@ -164,7 +229,9 @@ const table: UiRenderer = (data) => {
 
 /** A list of choices the visitor can pick from. */
 const list: UiRenderer = (data, context) => {
-  const items = Array.isArray(data.items) ? data.items : []
+  const items = (Array.isArray(data.items) ? data.items : []).filter((item) =>
+    visible(item as { showIf?: unknown }, data),
+  )
   if (items.length === 0) return null
 
   const root = document.createElement('div')

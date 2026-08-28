@@ -467,6 +467,11 @@ export function createWidget(options: WidgetOptions) {
   const uiContext: UiContext = {
     submit: (value) => void ask(value),
     respond: (values) => void continueWithResult(values),
+    run: async (name, payload) => {
+      const handler = handlers[name]
+      if (!handler) throw new Error('That is not available here')
+      return handler(payload)
+    },
   }
 
   /** Pending client actions that a form will answer once it is filled in. */

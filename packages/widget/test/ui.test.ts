@@ -166,3 +166,126 @@ describe('forms', () => {
     expect(form.querySelectorAll('input')).toHaveLength(0)
   })
 })
+
+describe('conditional visibility', () => {
+  it('hides a field whose condition is false', () => {
+    const { node } = render('card', {
+      title: 'Order',
+      shipped: false,
+      fields: [
+        { label: 'Status', value: 'Preparing' },
+        { label: 'Tracking', value: 'AB123', showIf: 'shipped' },
+      ],
+    })
+    expect([...(node?.querySelectorAll('dt') ?? [])].map((d) => d.textContent)).toEqual(['Status'])
+  })
+
+  it('shows it once the condition holds', () => {
+    const { node } = render('card', {
+      title: 'Order',
+      shipped: true,
+      fields: [{ label: 'Tracking', value: 'AB123', showIf: 'shipped' }],
+    })
+    expect(node?.querySelector('dt')?.textContent).toBe('Tracking')
+  })
+
+  it('supports negation and comparison', () => {
+    // "!shipped" hides the chase-it row once the order has actually shipped.
+    const hidden = render('card', {
+      title: 'T',
+      shipped: true,
+      fields: [{ label: 'Chase it', value: 'x', showIf: '!shipped' }],
+    })
+    expect(hidden.node?.querySelector('dt')).toBeNull()
+
+    const shown = render('card', {
+      title: 'T',
+      status: 'shipped',
+      fields: [{ label: 'Delivered', value: 'x', showIf: 'status=shipped' }],
+    })
+    expect(shown.node?.querySelector('dt')?.textContent).toBe('Delivered')
+  })
+
+  it('shows anything with no condition at all', () => {
+    const { node } = render('card', { title: 'T', fields: [{ label: 'Always', value: 'x' }] })
+    expect(node?.querySelector('dt')?.textContent).toBe('Always')
+  })
+
+  it('hides a whole action', () => {
+    const { node } = render('card', {
+      title: 'T',
+      cancellable: false,
+      actions: [{ label: 'Cancel', run: 'cancel', showIf: 'cancellable' }],
+    })
+    expect(node?.querySelector('button')).toBeNull()
+  })
+})
+
+describe('element functions', () => {
+  function withRun(handler: (name: string, payload: Record<string, unknown>) => Promise<unknown>) {
+    const ctx = {
+      submitted: [] as string[],
+      responded: [] as Record<string, unknown>[],
+      submit: (t: string) => void ctx.submitted.push(t),
+      respond: (v: Record<string, unknown>) => void ctx.responded.push(v),
+      run: handler,
+    }
+    return ctx
+  }
+
+  it('calls the registered handler without going back through the model', async () => {
+    const calls: Array<{ name: string; payload: unknown }> = []
+    const ctx = withRun(async (name, payload) => {
+      calls.push({ name, payload })
+      return { ok: true }
+    })
+
+    const node = renderUi(
+      {
+        kind: 'card',
+        id: 'x',
+        data: { title: 'Booking', actions: [{ label: 'Cancel', run: 'cancel_booking', payload: { id: 7 } }] },
+      },
+      ctx,
+    )
+
+    node?.querySelector('button')?.click()
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(calls).toEqual([{ name: 'cancel_booking', payload: { id: 7 } }])
+    // Nothing was typed on the visitor's behalf.
+    expect(ctx.submitted).toEqual([])
+  })
+
+  it('replaces the button once it has run, so it cannot fire twice', async () => {
+    const ctx = withRun(async () => ({ ok: true }))
+    const node = renderUi(
+      { kind: 'card', id: 'x', data: { title: 'T', actions: [{ label: 'Cancel', run: 'cancel', done: 'Cancelled' }] } },
+      ctx,
+    )
+
+    node?.querySelector('button')?.click()
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(node?.querySelector('button')).toBeNull()
+    expect(node?.textContent).toContain('Cancelled')
+  })
+
+  it('shows the failure and lets them try again', async () => {
+    const ctx = withRun(async () => {
+      throw new Error('Booking already cancelled')
+    })
+
+    const node = renderUi(
+      { kind: 'card', id: 'x', data: { title: 'T', actions: [{ label: 'Cancel', run: 'cancel' }] } },
+      ctx,
+    )
+
+    node?.querySelector('button')?.click()
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const button = node?.querySelector('button') as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    expect(button.textContent).toBe('Booking already cancelled')
+  })
+})
