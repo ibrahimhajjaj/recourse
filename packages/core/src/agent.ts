@@ -217,7 +217,9 @@ export function createAgent(options: AgentOptions) {
       },
     })
 
-    const clientActions = new Set(actions.filter((action) => action.runs === 'client').map((a) => a.name))
+    const clientActions = new Map(
+      actions.filter((action) => action.runs === 'client').map((action) => [action.name, action]),
+    )
 
     let answered = ''
 
@@ -232,11 +234,13 @@ export function createAgent(options: AgentOptions) {
         failure = part.error instanceof Error ? part.error.message : String(part.error)
       } else if (part.type === 'tool-call' && clientActions.has(part.toolName)) {
         // No execute() ran, so the browser owes us a result.
+        const definition = clientActions.get(part.toolName)
         yield {
           type: 'client-action',
           id: part.toolCallId,
           name: part.toolName,
           input: (part.input ?? {}) as Record<string, unknown>,
+          ...(definition?.clientPayload ? { payload: definition.clientPayload } : {}),
         }
       }
 

@@ -162,6 +162,13 @@ export {
   httpAction,
   clientAction,
   suggestedMessages,
+  customButton,
+  customForm,
+  formSchema,
+  slackNotify,
+  scheduleMeeting,
+  stripeBilling,
+  shopifyOrders,
 } from './actions/index.js'
 export type {
   Action,
@@ -178,6 +185,13 @@ export type {
   HttpActionOptions,
   ClientActionOptions,
   SuggestionsOptions,
+  CustomButtonOptions,
+  CustomFormOptions,
+  FormField,
+  SlackNotifyOptions,
+  BookingOptions,
+  StripeOptions,
+  ShopifyOptions,
 } from './actions/index.js'
 
 export {

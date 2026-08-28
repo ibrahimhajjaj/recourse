@@ -141,7 +141,14 @@ export type StreamFrame =
    * open a URL, call an API only the visitor is authenticated for. The client
    * runs it and returns the result on the next request.
    */
-  | { type: 'client-action'; id: string; name: string; input: Record<string, unknown> }
+  | {
+      type: 'client-action'
+      id: string
+      name: string
+      input: Record<string, unknown>
+      /** Static configuration the browser needs, such as a form's fields. */
+      payload?: Record<string, unknown>
+    }
   /** Inline UI the client should render: a form, a card, buttons, a table. */
   | { type: 'ui'; kind: string; id: string; data: Record<string, unknown> }
   /** Clickable replies to offer under the answer. */

@@ -1,0 +1,100 @@
+import { defineAction } from '../define.js'
+import type { Action, ActionField } from '../types.js'
+
+export interface CustomButtonOptions {
+  name?: string
+  whenToUse: string
+  /** Fixed buttons, or let the agent choose the label and url from a set. */
+  buttons: Array<{ label: string; url: string }>
+  procedureOnly?: boolean
+}
+
+/**
+ * Shows the customer a button rather than a bare link.
+ *
+ * The url set is fixed at configuration time and the agent only picks which of
+ * them to show. Letting a model compose the destination is how a support widget
+ * ends up linking somewhere it should not, on your domain, with your branding
+ * around it.
+ */
+export function customButton(options: CustomButtonOptions): Action {
+  const allowed = new Map(options.buttons.map((button) => [button.label, button.url]))
+
+  return defineAction({
+    name: options.name ?? 'show_button',
+    whenToUse: options.whenToUse,
+    procedureOnly: options.procedureOnly,
+    collect: [
+      {
+        name: 'label',
+        type: 'string',
+        description: 'Which button to show.',
+        options: [...allowed.keys()],
+      },
+    ],
+    async execute(input, ctx) {
+      const label = String(input.label ?? '')
+      const url = allowed.get(label)
+      if (!url) throw new Error(`no button called "${label}"`)
+
+      ctx.emit({ type: 'ui', kind: 'button', id: `btn_${label}`, data: { label, url } })
+      return { shown: label, message: 'The button is displayed. Do not repeat the link as text.' }
+    },
+  })
+}
+
+export interface FormField extends ActionField {
+  label: string
+  placeholder?: string
+}
+
+export interface CustomFormOptions {
+  name: string
+  whenToUse: string
+  title: string
+  fields: FormField[]
+  submitLabel?: string
+  procedureOnly?: boolean
+}
+
+/**
+ * Renders a form in the chat instead of asking for six things in a row.
+ *
+ * Conversational collection is better for two or three fields and worse for
+ * six: nobody wants to be interviewed. The form is drawn by the widget and its
+ * values come back the same way any client action's do.
+ */
+export function customForm(options: CustomFormOptions): Action {
+  return defineAction({
+    name: options.name,
+    whenToUse: options.whenToUse,
+    procedureOnly: options.procedureOnly,
+    runs: 'client',
+    collect: [
+      {
+        name: 'reason',
+        type: 'string',
+        description: 'One short line telling the customer why you need these details.',
+        required: false,
+      },
+    ],
+    // The widget draws it, so the field list travels with the request.
+    clientPayload: { form: formSchema(options) },
+  })
+}
+
+/** The form definition a widget needs in order to draw it. */
+export function formSchema(options: CustomFormOptions) {
+  return {
+    title: options.title,
+    submitLabel: options.submitLabel ?? 'Send',
+    fields: options.fields.map((field) => ({
+      name: field.name,
+      label: field.label,
+      type: field.type,
+      placeholder: field.placeholder,
+      required: field.required !== false,
+      options: field.options,
+    })),
+  }
+}

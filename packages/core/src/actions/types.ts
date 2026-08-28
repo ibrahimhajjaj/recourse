@@ -66,6 +66,12 @@ export interface Action {
    * runs them, and the result comes back on the next request.
    */
   runs?: 'server' | 'client'
+  /**
+   * Configuration the browser needs in order to carry the action out, sent
+   * with the request. A form ships its fields this way, since the model
+   * decides when to show it but not what is on it.
+   */
+  clientPayload?: Record<string, unknown>
   execute?(input: ActionInput, ctx: ActionContext): Promise<unknown>
 }
 

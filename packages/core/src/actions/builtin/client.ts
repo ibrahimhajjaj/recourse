@@ -7,6 +7,8 @@ export interface ClientActionOptions {
   collect?: ActionField[]
   /** Keeps it off the agent's own initiative; only a procedure can call it. */
   procedureOnly?: boolean
+  /** Configuration the browser needs, sent with the request. */
+  clientPayload?: Record<string, unknown>
 }
 
 /**
@@ -23,6 +25,7 @@ export function clientAction(options: ClientActionOptions): Action {
     whenToUse: options.whenToUse,
     collect: options.collect,
     procedureOnly: options.procedureOnly,
+    clientPayload: options.clientPayload,
     runs: 'client',
   })
 }
