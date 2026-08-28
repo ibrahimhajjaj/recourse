@@ -134,6 +134,22 @@ export type StreamFrame =
   | { type: 'delta'; text: string }
   | { type: 'done'; finishReason?: string }
   | { type: 'error'; message: string }
+  /** A server action ran. Lets the client show progress and react. */
+  | { type: 'action'; name: string; status: 'running' | 'done' | 'failed'; summary?: string }
+  /**
+   * The agent wants the browser to run something it cannot: read page state,
+   * open a URL, call an API only the visitor is authenticated for. The client
+   * runs it and returns the result on the next request.
+   */
+  | { type: 'client-action'; id: string; name: string; input: Record<string, unknown> }
+  /** Inline UI the client should render: a form, a card, buttons, a table. */
+  | { type: 'ui'; kind: string; id: string; data: Record<string, unknown> }
+  /** Clickable replies to offer under the answer. */
+  | { type: 'suggestions'; items: string[] }
+  /** A lead or custom data set was captured during the turn. */
+  | { type: 'captured'; kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }
+  /** The conversation was handed to a person. */
+  | { type: 'handoff'; ticketId?: string; message: string }
 
 export interface SourceRef {
   title: string

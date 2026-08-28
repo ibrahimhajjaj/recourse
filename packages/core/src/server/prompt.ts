@@ -1,4 +1,5 @@
 import type { Match, Message, SourceRef } from '../types.js'
+import type { Action } from '../actions/types.js'
 
 export interface PersonaOptions {
   /** What the agent calls itself. */
@@ -20,7 +21,11 @@ const DEFAULT_FALLBACK =
  * support-bot behaviour is a missing third job: a model with no sanctioned way
  * to say "I don't know" will invent something instead.
  */
-export function buildInstructions(persona: PersonaOptions, matches: Match[]): string {
+export function buildInstructions(
+  persona: PersonaOptions,
+  matches: Match[],
+  actions: Action[] = [],
+): string {
   const name = persona.name ?? 'the support assistant'
   const business = persona.business ? ` for ${persona.business}` : ''
   const fallback = persona.fallback ?? DEFAULT_FALLBACK
@@ -32,22 +37,42 @@ export function buildInstructions(persona: PersonaOptions, matches: Match[]): st
     })
     .join('\n\n---\n\n')
 
-  return [
+  const lines = [
     `You are ${name}, a customer support agent${business}.`,
     '',
-    'Rules:',
-    '- Answer only from the numbered sources below. They are the entire truth you have.',
-    `- If the sources do not answer the question, say exactly this and stop: "${fallback}"`,
-    '- Never invent prices, policies, dates, URLs or availability. A wrong answer costs more than no answer.',
+    'Answering:',
+    '- Answer from the numbered sources below and from what actions return. Nothing else.',
+    `- If neither answers the question, say exactly this and stop: "${fallback}"`,
+    '- Never invent prices, policies, dates, URLs, order details or availability. A wrong answer costs more than no answer.',
     '- Cite the sources you used inline as [1], [2]. Cite only what you actually relied on.',
     '- Be brief. Two or three sentences unless the question genuinely needs steps.',
     '- Reply in the language the customer wrote in.',
-    persona.instructions ? `\n${persona.instructions}` : '',
-    '',
-    matches.length > 0 ? `Sources:\n\n${context}` : 'Sources: none matched this question.',
   ]
-    .filter((line) => line !== '')
-    .join('\n')
+
+  if (actions.length > 0) {
+    lines.push(
+      '',
+      'Using your actions:',
+      // Models narrate tool use by default, which reads like a machine talking
+      // to itself rather than a support agent helping someone.
+      '- Do not announce that you are about to use one, and do not mention their names. Use it, then reply as if you simply knew.',
+      '- Ask the customer for anything an action needs that you do not have. Never guess an email address, an order number or an amount.',
+      '- One action at a time. Read what it returns before deciding on the next.',
+      '- If an action fails, say plainly what did not work and offer the next best step. Do not retry it more than once.',
+      '',
+      'Your actions:',
+      ...actions.map((action) => `- ${action.name}: ${action.whenToUse}`),
+    )
+  }
+
+  if (persona.instructions) lines.push('', persona.instructions)
+
+  lines.push(
+    '',
+    matches.length > 0 ? `Sources:\n\n${context}` : 'Sources: nothing in the documentation matched this question.',
+  )
+
+  return lines.join('\n')
 }
 
 /**

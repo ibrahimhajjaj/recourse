@@ -1,5 +1,7 @@
-import { streamText, type LanguageModel } from 'ai'
+import { stepCountIs, streamText, type LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame } from './types.js'
+import { actionsToTools } from './actions/define.js'
+import type { Action, ActionContext, Contact } from './actions/types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
 import { gatewayEmbedder } from './embed.js'
@@ -15,6 +17,19 @@ export interface AgentOptions {
   topK?: number
   /** `false` forces keyword-only retrieval. */
   embedder?: Embedder | false
+  /**
+   * What the agent can do besides answer: capture a lead, open a ticket, call
+   * your API, search the web. Without these it is a search box that talks.
+   */
+  actions?: Action[]
+  /**
+   * How many model round trips one question may take. Each action call costs
+   * one, so this caps a runaway loop rather than the useful work.
+   */
+  maxSteps?: number
+  /** Who the agent is talking to, when the host knows. */
+  contact?: Contact
+  conversationId?: string
 }
 
 export interface StreamOptions {
@@ -65,6 +80,8 @@ export function createAgent(options: AgentOptions) {
       : (options.embedder ?? gatewayEmbedder({ model: index.vectors.model.replace(/^gateway:/, '') }))
 
   const retriever = createRetriever({ index, embedder, topK: options.topK })
+  const actions = options.actions ?? []
+  const maxSteps = options.maxSteps ?? 6
 
   /**
    * The question on its own first. Only a question that finds nothing gets the
@@ -100,21 +117,55 @@ export function createAgent(options: AgentOptions) {
     // Sources first, so a UI can render citations while text is still arriving.
     yield { type: 'sources', sources: toSourceRefs(matches) }
 
+    // Actions run inside the model's tool loop and have things to tell the
+    // client while they do. They cannot yield from here, so they push frames
+    // into this queue and the loop below drains it between model chunks.
+    const pending: StreamFrame[] = []
+    const context: ActionContext = {
+      conversationId: options.conversationId,
+      contact: options.contact,
+      signal,
+      emit: (frame) => pending.push(frame),
+    }
+
     // streamText reports provider failures to onError and ends the stream
     // cleanly, so without capturing this a dead provider looks like silence.
     let failure: string | null = null
 
     const result = streamText({
       model,
-      instructions: buildInstructions(options.persona ?? {}, matches),
+      instructions: buildInstructions(options.persona ?? {}, matches, actions),
       messages: messages.map((message) => ({ role: message.role, content: message.content })),
       abortSignal: signal,
+      tools: actionsToTools(actions, { context }),
+      // Without this the turn ends the moment a tool is called, and the
+      // customer gets an action but no answer explaining what happened.
+      stopWhen: stepCountIs(maxSteps),
       onError: ({ error }) => {
         failure = error instanceof Error ? error.message : String(error)
       },
     })
 
-    for await (const delta of result.textStream) yield { type: 'delta', text: delta }
+    const clientActions = new Set(actions.filter((action) => action.runs === 'client').map((a) => a.name))
+
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') yield { type: 'delta', text: part.text }
+      else if (part.type === 'error') {
+        failure = part.error instanceof Error ? part.error.message : String(part.error)
+      } else if (part.type === 'tool-call' && clientActions.has(part.toolName)) {
+        // No execute() ran, so the browser owes us a result.
+        yield {
+          type: 'client-action',
+          id: part.toolCallId,
+          name: part.toolName,
+          input: (part.input ?? {}) as Record<string, unknown>,
+        }
+      }
+
+      while (pending.length > 0) yield pending.shift() as StreamFrame
+    }
+
+    while (pending.length > 0) yield pending.shift() as StreamFrame
 
     if (failure) yield { type: 'error', message: failure }
     else yield { type: 'done' }

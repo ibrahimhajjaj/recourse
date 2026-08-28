@@ -47,6 +47,35 @@ export { createRetriever, fuse, type RetrieverOptions } from './retrieve/index.j
 export { gatewayEmbedder, canReachGateway, type GatewayEmbedderOptions } from './embed.js'
 
 export {
+  defineAction,
+  actionsToTools,
+  fieldsToSchema,
+  collectLeads,
+  collectData,
+  escalate,
+  webSearch,
+  httpAction,
+  clientAction,
+  suggestedMessages,
+} from './actions/index.js'
+export type {
+  Action,
+  ActionContext,
+  ActionField,
+  ActionInput,
+  ActionResult,
+  Contact,
+  Ticket,
+  CollectLeadsOptions,
+  CollectDataOptions,
+  EscalateOptions,
+  WebSearchOptions,
+  HttpActionOptions,
+  ClientActionOptions,
+  SuggestionsOptions,
+} from './actions/index.js'
+
+export {
   knowledgeTool,
   createKnowledgeSearch,
   type KnowledgeToolOptions,

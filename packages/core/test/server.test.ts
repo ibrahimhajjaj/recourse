@@ -42,7 +42,7 @@ function mockModel(text = 'You have 30 days to request a refund [1].') {
           { type: 'text-end' as const, id: '0' },
           {
             type: 'finish' as const,
-            finishReason: 'stop' as const,
+            finishReason: { unified: 'stop', raw: 'stop' } as const,
             usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
           },
         ],
@@ -72,7 +72,7 @@ describe('prompt', () => {
   it('gives the model an explicit way to say it does not know', async () => {
     const instructions = buildInstructions({ fallback: 'I cannot help with that.' }, [])
     expect(instructions).toContain('I cannot help with that.')
-    expect(instructions).toContain('none matched')
+    expect(instructions).toContain('nothing in the documentation matched')
   })
 
   it('numbers the sources so citations line up', async () => {
