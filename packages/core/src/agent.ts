@@ -337,3 +337,6 @@ export function citedOnly(sources: SourceRef[], text: string): SourceRef[] {
 function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
 }
+
+/** The shape `createAgent` returns, for anything that takes one. */
+export type Agent = ReturnType<typeof createAgent>

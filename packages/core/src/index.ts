@@ -110,6 +110,30 @@ export type {
 
 export { createApiHandler, type ApiOptions } from './api/index.js'
 
+export {
+  whatsappChannel,
+  slackChannel,
+  twilioChannel,
+  emailChannel,
+  parseCommonEmail,
+  stripQuoted,
+  verifyMeta,
+  verifySlack,
+  verifyTwilio,
+  signMeta,
+  signSlack,
+  signTwilio,
+} from './channels/index.js'
+export type {
+  WhatsAppOptions,
+  SlackOptions,
+  TwilioOptions,
+  EmailOptions,
+  InboundEmail,
+  ChannelBase,
+  InboundMessage,
+} from './channels/index.js'
+
 export { memoryStore, fileStore, computeStats, paginate } from './store/index.js'
 export type {
   Store,
