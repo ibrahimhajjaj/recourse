@@ -37,7 +37,7 @@ async function collect(fetchImpl: typeof fetch) {
   try {
     await streamChat(
       'https://api.example/chat',
-      [{ role: 'user', content: 'refund?' }],
+      { messages: [{ role: 'user', content: 'refund?' }] },
       {
         onDelta: (text) => deltas.push(text),
         onSources: (refs) => sources.push(...refs),
@@ -105,5 +105,66 @@ describe('the event stream client', () => {
   it('reports a server failure with its status', async () => {
     const result = await collect(respondWith('', 1, 500))
     expect(result.errors[0]).toContain('500')
+  })
+})
+
+describe('the request the client sends', () => {
+  it('carries identity, conversation and action results alongside the messages', async () => {
+    const original = globalThis.fetch
+    let sent: Record<string, unknown> = {}
+
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      sent = JSON.parse((init as RequestInit).body as string) as Record<string, unknown>
+      return new Response('data: {"type":"done"}\n\n', { status: 200 })
+    }) as unknown as typeof fetch
+
+    try {
+      await streamChat(
+        'https://api.example/chat',
+        {
+          messages: [{ role: 'user', content: 'hi' }],
+          conversationId: 'c1',
+          userId: 'u1',
+          userHash: 'h'.repeat(64),
+          actionResults: [{ name: 'read_cart', output: { items: 2 } }],
+        },
+        {},
+      )
+    } finally {
+      globalThis.fetch = original
+    }
+
+    expect(sent.conversationId).toBe('c1')
+    expect(sent.userId).toBe('u1')
+    expect(sent.actionResults).toEqual([{ name: 'read_cart', output: { items: 2 } }])
+    // Messages are reduced to role and content; nothing local leaks to the server.
+    expect(sent.messages).toEqual([{ role: 'user', content: 'hi' }])
+  })
+
+  it('surfaces every frame to onFrame, including ones it has no handler for', async () => {
+    const original = globalThis.fetch
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          'data: {"type":"client-action","id":"a1","name":"read_cart","input":{}}\n\n' +
+            'data: {"type":"suggestions","items":["one"]}\n\n' +
+            'data: {"type":"done"}\n\n',
+          { status: 200 },
+        ),
+    ) as unknown as typeof fetch
+
+    const seen: string[] = []
+    try {
+      await streamChat(
+        'https://api.example/chat',
+        { messages: [{ role: 'user', content: 'hi' }] },
+        { onFrame: (frame) => seen.push(frame.type) },
+      )
+    } finally {
+      globalThis.fetch = original
+    }
+
+    expect(seen).toContain('client-action')
+    expect(seen).toContain('suggestions')
   })
 })

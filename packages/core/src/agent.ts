@@ -6,7 +6,14 @@ import type { Channel, Store, StoredMessage } from './store/types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
-import { buildInstructions, contextualQuery, retrievalQuery, toSourceRefs, type PersonaOptions } from './server/prompt.js'
+import {
+  buildInstructions,
+  contextualQuery,
+  retrievalQuery,
+  toSourceRefs,
+  type ActionOutcome,
+  type PersonaOptions,
+} from './server/prompt.js'
 
 export interface AgentOptions {
   /** The index from `helpdeck ingest`. */
@@ -46,6 +53,11 @@ export interface StreamOptions {
   conversationId?: string
   contact?: Contact
   channel?: Channel
+  /**
+   * Results of client actions the browser has since run. Sending these back
+   * completes a turn the agent paused halfway through.
+   */
+  clientResults?: ActionOutcome[]
   /**
    * Receives what retrieval found, before generation starts. The frames
    * deliberately carry only display-safe citations, so this is how a caller
@@ -166,7 +178,7 @@ export function createAgent(options: AgentOptions) {
 
     const result = streamText({
       model,
-      instructions: buildInstructions(options.persona ?? {}, matches, actions),
+      instructions: buildInstructions(options.persona ?? {}, matches, actions, call.clientResults ?? []),
       messages: messages.map((message) => ({ role: message.role, content: message.content })),
       abortSignal: signal,
       tools: actionsToTools(actions, { context }),

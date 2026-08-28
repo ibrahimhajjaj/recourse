@@ -89,15 +89,39 @@ export function createChatHandler(options: ChatHandlerOptions) {
     }
 
     let body: unknown
-    let messages: Message[]
     try {
       body = await request.json()
+    } catch {
+      return json({ error: 'expected a JSON body' }, 400, cors)
+    }
+
+    // Thumbs arrive on the same endpoint, so the widget needs no second URL to
+    // configure and no second CORS entry to get wrong.
+    const feedback = (body as { feedback?: unknown }).feedback
+    if (feedback) {
+      return recordFeedback(feedback, options.store, cors)
+    }
+
+    let messages: Message[]
+    try {
       messages = parseMessages(body, maxMessageLength)
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'bad request' }, 400, cors)
     }
 
-    const claim = body as { userId?: string; userHash?: string; contact?: IdentityClaim['contact']; conversationId?: string }
+    const claim = body as {
+      userId?: string
+      userHash?: string
+      contact?: IdentityClaim['contact']
+      conversationId?: string
+      actionResults?: Array<{ name?: unknown; input?: unknown; output?: unknown }>
+    }
+
+    // Whatever the browser ran, capped so a page cannot flood the prompt.
+    const clientResults = (Array.isArray(claim?.actionResults) ? claim.actionResults : [])
+      .filter((result) => typeof result?.name === 'string')
+      .slice(0, 8)
+      .map((result) => ({ name: String(result.name), input: result.input, output: result.output }))
     const identity = await resolveIdentity(
       { userId: claim?.userId, userHash: claim?.userHash, contact: claim?.contact },
       options.identity,
@@ -124,6 +148,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
             signal: request.signal,
             contact: identity.contact,
             conversationId: typeof claim?.conversationId === 'string' ? claim.conversationId : undefined,
+            clientResults,
             // Captured from the single retrieval the agent already ran, rather
             // than retrieving a second time just to log what was used.
             onMatches: (found) => {
@@ -167,6 +192,54 @@ export function createChatHandler(options: ChatHandlerOptions) {
       },
     })
   }
+}
+
+/**
+ * Records a thumb against an answer.
+ *
+ * The browser counts assistant replies, not message ids, because it never sees
+ * them. Resolving the index here keeps ids server-side where they belong.
+ */
+async function recordFeedback(
+  raw: unknown,
+  store: Store | undefined,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const { conversationId, messageIndex, value } = (raw ?? {}) as {
+    conversationId?: unknown
+    messageIndex?: unknown
+    value?: unknown
+  }
+
+  if (typeof conversationId !== 'string' || typeof messageIndex !== 'number') {
+    return json({ error: 'feedback needs conversationId and messageIndex' }, 400, cors)
+  }
+  if (value !== 'positive' && value !== 'negative' && value !== null) {
+    return json({ error: 'feedback value must be positive, negative or null' }, 400, cors)
+  }
+  if (!store) return json({ error: 'no store configured to record feedback' }, 501, cors)
+
+  const found = await store.getConversation(conversationId)
+  if (!found) return json({ error: 'unknown conversation' }, 404, cors)
+
+  const replies = found.messages.filter((message) => message.role === 'assistant')
+  const target = replies[messageIndexToReply(messageIndex, found.messages)]
+  if (!target) return json({ error: 'unknown message' }, 404, cors)
+
+  await store.setFeedback(conversationId, target.id, value)
+  return new Response(null, { status: 204, headers: cors })
+}
+
+/**
+ * The widget indexes into its own list, which counts the greeting and the
+ * customer's own turns. Only assistant replies can be rated, so map across.
+ */
+function messageIndexToReply(index: number, stored: Array<{ role: string }>): number {
+  let replies = -1
+  for (let i = 0; i <= index && i < stored.length; i++) {
+    if (stored[i]?.role === 'assistant') replies++
+  }
+  return Math.max(replies, 0)
 }
 
 /** Accepts either a full transcript or a single message with optional history. */

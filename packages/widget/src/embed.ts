@@ -27,6 +27,9 @@ function readConfig(): WidgetOptions | null {
 
   return {
     endpoint,
+    userId: data.userId,
+    userHash: data.userHash,
+    feedback: data.feedback !== 'false',
     title: data.title,
     subtitle: data.subtitle,
     greeting: data.greeting,

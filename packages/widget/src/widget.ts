@@ -1,7 +1,15 @@
 import { renderMarkdown } from './render.js'
 import { streamChat } from './stream.js'
 import { styles } from './styles.js'
-import type { ChatMessage, SourceRef, WidgetOptions } from './types.js'
+import type {
+  ChatMessage,
+  ClientActionHandler,
+  EventName,
+  SourceRef,
+  StreamFrame,
+  WidgetEvents,
+  WidgetOptions,
+} from './types.js'
 
 /**
  * Namespaced by endpoint, so two widgets on one page (or two sites sharing an
@@ -40,10 +48,34 @@ export function createWidget(options: WidgetOptions) {
   applyTheme(host, options.theme ?? 'auto')
 
   const side = options.position === 'bottom-left' ? 'pos-left' : 'pos-right'
-  const state: { messages: ChatMessage[]; busy: boolean; controller: AbortController | null } = {
+  const state: {
+    messages: ChatMessage[]
+    busy: boolean
+    controller: AbortController | null
+    conversationId: string
+    suggestions: string[]
+  } = {
     messages: options.persist === false ? [] : restore(options.endpoint),
     busy: false,
     controller: null,
+    // Groups this tab's turns into one thread in the transcript log.
+    conversationId: `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
+    suggestions: options.suggestions ?? [],
+  }
+
+  /** Handlers the agent can ask the page to run, by action name. */
+  const handlers: Record<string, ClientActionHandler> = { ...options.actions }
+  const listeners = new Map<EventName, Set<(payload: never) => void>>()
+
+  function emit<K extends EventName>(name: K, payload: WidgetEvents[K]) {
+    for (const listener of listeners.get(name) ?? []) {
+      try {
+        ;(listener as (value: WidgetEvents[K]) => void)(payload)
+      } catch (error) {
+        // A broken host listener must not take the conversation down.
+        console.error(`[helpdeck] listener for "${name}" threw`, error)
+      }
+    }
   }
 
   // ---- structure -----------------------------------------------------------
@@ -118,6 +150,7 @@ export function createWidget(options: WidgetOptions) {
   // ---- behaviour -----------------------------------------------------------
 
   function setOpen(open: boolean) {
+    emit(open ? 'open' : 'close', {})
     panel.dataset.open = String(open)
     launcher.setAttribute('aria-expanded', String(open))
     launcher.setAttribute('aria-label', open ? 'Close the support chat' : 'Open the support chat')
@@ -204,10 +237,9 @@ export function createWidget(options: WidgetOptions) {
 
   function paintSuggestions() {
     suggestions.replaceChildren()
-    // Starters are only useful before the conversation has a subject.
-    if (state.messages.length > 0 || !options.suggestions?.length) return
+    if (state.suggestions.length === 0) return
 
-    for (const text of options.suggestions.slice(0, 4)) {
+    for (const text of state.suggestions.slice(0, 4)) {
       const button = document.createElement('button')
       button.type = 'button'
       button.textContent = text
@@ -225,6 +257,49 @@ export function createWidget(options: WidgetOptions) {
     paintSuggestions()
   }
 
+  /** Thumbs, so the host learns which answers were actually any good. */
+  function paintFeedback(wrapper: HTMLElement, messageIndex: number) {
+    if (options.feedback === false) return
+
+    const row = document.createElement('div')
+    row.className = 'feedback'
+
+    for (const [value, label, glyph] of [
+      ['positive', 'This answered my question', 'M7 11v9H3v-9h4zm3 9V11l4-8a2 2 0 013 2l-1 5h5a2 2 0 012 2l-2 7a2 2 0 01-2 2h-9z'],
+      ['negative', 'This did not help', 'M17 13V4h4v9h-4zm-3-9v9l-4 8a2 2 0 01-3-2l1-5H3a2 2 0 01-2-2l2-7a2 2 0 012-2h9z'],
+    ] as const) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'icon-button'
+      button.setAttribute('aria-label', label)
+      button.appendChild(icon(glyph, true))
+      button.addEventListener('click', () => {
+        button.setAttribute('aria-pressed', 'true')
+        row.querySelectorAll('button').forEach((other) => {
+          if (other !== button) other.removeAttribute('aria-pressed')
+        })
+        void sendFeedback(messageIndex, value)
+      })
+      row.appendChild(button)
+    }
+
+    wrapper.appendChild(row)
+  }
+
+  async function sendFeedback(messageIndex: number, value: 'positive' | 'negative') {
+    try {
+      await fetch(options.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback: { conversationId: state.conversationId, messageIndex, value },
+        }),
+      })
+    } catch {
+      // Feedback is a nicety; failing to record it must not surface an error.
+    }
+  }
+
   async function ask(question: string) {
     const text = question.trim()
     if (!text || state.busy) return
@@ -236,8 +311,30 @@ export function createWidget(options: WidgetOptions) {
     const outgoing: ChatMessage = { role: 'user', content: text }
     state.messages.push(outgoing)
     paintMessage(outgoing)
+    emit('message', { text })
+
+    // Starters belong to the blank slate; the server can offer new ones later.
+    state.suggestions = []
     paintSuggestions()
 
+    state.controller = new AbortController()
+    await runTurn()
+
+    state.busy = false
+    send.disabled = false
+    state.controller = null
+    scrollToEnd()
+    input.focus()
+  }
+
+  /**
+   * One request, plus the follow-up request a paused turn needs.
+   *
+   * When the agent asks the page to run something, the server has no answer to
+   * give yet. The browser runs the handler and asks again with the result, and
+   * only that second pass produces the reply the customer reads.
+   */
+  async function runTurn(actionResults?: Array<{ name: string; input?: unknown; output: unknown }>) {
     const { bubble, wrapper } = paintMessage({ role: 'assistant', content: '' })
     const typing = document.createElement('span')
     typing.className = 'typing'
@@ -246,11 +343,18 @@ export function createWidget(options: WidgetOptions) {
 
     const answer: ChatMessage = { role: 'assistant', content: '' }
     let sources: SourceRef[] = []
-    state.controller = new AbortController()
+    const requested: Array<{ id: string; name: string; input: Record<string, unknown> }> = []
 
     await streamChat(
       options.endpoint,
-      state.messages,
+      {
+        messages: state.messages,
+        conversationId: state.conversationId,
+        userId: options.userId,
+        userHash: options.userHash,
+        contact: options.contact,
+        actionResults,
+      },
       {
         onSources: (refs) => {
           sources = refs
@@ -258,38 +362,94 @@ export function createWidget(options: WidgetOptions) {
         onDelta: (delta) => {
           typing.remove()
           answer.content += delta
-          // Re-rendering the whole bubble keeps partial markdown coherent as it
-          // streams; the text is small enough that this costs nothing.
           bubble.replaceChildren(renderMarkdown(answer.content))
           scrollToEnd()
         },
         onError: (message) => {
           typing.remove()
           showError(message)
+          emit('error', { message })
         },
+        onFrame: (frame) => handleFrame(frame, requested),
       },
-      state.controller.signal,
+      state.controller?.signal,
     )
 
     typing.remove()
+
+    // A paused turn produced no reply worth keeping; run what it asked for and
+    // let the next pass render the real answer in its place.
+    if (requested.length > 0 && !actionResults) {
+      wrapper.remove()
+      const results = await runClientActions(requested)
+      await runTurn(results)
+      return
+    }
 
     if (answer.content.trim()) {
       answer.sources = citedOnly(sources, answer.content)
       state.messages.push(answer)
       paintSources(wrapper, answer.sources)
+      paintFeedback(wrapper, state.messages.length - 1)
       persist(options.endpoint, state.messages, options.persist !== false)
+      emit('response', { text: answer.content, sources: answer.sources })
     } else {
       // Nothing came back, so leave no empty bubble behind.
       wrapper.remove()
-      state.messages.pop()
-      paintSuggestions()
     }
 
-    state.busy = false
-    send.disabled = false
-    state.controller = null
+    paintSuggestions()
+  }
+
+  function handleFrame(
+    frame: StreamFrame,
+    requested: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+  ) {
+    if (frame.type === 'client-action') {
+      requested.push({ id: frame.id, name: frame.name, input: frame.input })
+    } else if (frame.type === 'suggestions') {
+      state.suggestions = frame.items
+    } else if (frame.type === 'action') {
+      emit('action', { name: frame.name, status: frame.status })
+    } else if (frame.type === 'captured') {
+      emit('captured', { kind: frame.kind, name: frame.name, values: frame.values })
+    } else if (frame.type === 'handoff') {
+      emit('handoff', { ticketId: frame.ticketId, message: frame.message })
+      paintNotice(frame.message)
+    }
+  }
+
+  async function runClientActions(
+    requested: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+  ) {
+    return Promise.all(
+      requested.map(async (request) => {
+        const handler = handlers[request.name]
+        if (!handler) {
+          // Told to the agent rather than thrown, so it can apologise properly
+          // instead of the turn dying with an empty bubble.
+          return { name: request.name, input: request.input, output: { error: 'no handler registered on this page' } }
+        }
+        try {
+          return { name: request.name, input: request.input, output: await handler(request.input) }
+        } catch (error) {
+          return {
+            name: request.name,
+            input: request.input,
+            output: { error: error instanceof Error ? error.message : String(error) },
+          }
+        }
+      }),
+    )
+  }
+
+  /** A small centred line for things that happened rather than were said. */
+  function paintNotice(message: string) {
+    const notice = document.createElement('div')
+    notice.className = 'notice'
+    notice.textContent = message
+    log.appendChild(notice)
     scrollToEnd()
-    input.focus()
   }
 
   launcher.addEventListener('click', () => setOpen(panel.dataset.open !== 'true'))
@@ -326,8 +486,23 @@ export function createWidget(options: WidgetOptions) {
     open: () => setOpen(true),
     close: () => setOpen(false),
     ask,
+
+    /** Subscribes to widget events. Returns an unsubscribe function. */
+    on<K extends EventName>(name: K, listener: (payload: WidgetEvents[K]) => void): () => void {
+      const set = listeners.get(name) ?? new Set()
+      set.add(listener as (payload: never) => void)
+      listeners.set(name, set)
+      return () => set.delete(listener as (payload: never) => void)
+    },
+
+    /** Registers a handler for an action the agent can ask the page to run. */
+    handle(name: string, handler: ClientActionHandler): void {
+      handlers[name] = handler
+    },
     clear() {
       state.messages = []
+      state.suggestions = options.suggestions ?? []
+      state.conversationId = `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
       persist(options.endpoint, [], options.persist !== false)
       repaint()
     },

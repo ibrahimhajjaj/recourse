@@ -491,3 +491,103 @@ describe('identity on the chat endpoint', () => {
     expect((await handle(post({ message: 'refund?' }))).status).toBe(200)
   })
 })
+
+describe('feedback on the chat endpoint', () => {
+  async function withStore() {
+    const { memoryStore } = await import('../src/store/index.js')
+    const store = memoryStore()
+    const handle = createChatHandler({ index: await index(), model: mockModel('Thirty days.'), store })
+    await (await handle(post({ message: 'refund window?', conversationId: 'c1' }))).text()
+    // The store write happens as the stream finishes.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    return { store, handle }
+  }
+
+  it('records a thumb against the answer the visitor rated', async () => {
+    const { store, handle } = await withStore()
+
+    const response = await handle(
+      post({ feedback: { conversationId: 'c1', messageIndex: 1, value: 'positive' } }),
+    )
+    expect(response.status).toBe(204)
+
+    const found = await store.getConversation('c1')
+    expect(found?.messages.find((m) => m.role === 'assistant')?.feedback).toBe('positive')
+  })
+
+  it('shows up in the stats a support lead reads', async () => {
+    const { store, handle } = await withStore()
+    await handle(post({ feedback: { conversationId: 'c1', messageIndex: 1, value: 'negative' } }))
+    expect((await store.stats()).thumbsDown).toBe(1)
+  })
+
+  it('rejects a malformed feedback payload', async () => {
+    const { handle } = await withStore()
+    expect((await handle(post({ feedback: { conversationId: 'c1' } }))).status).toBe(400)
+    expect((await handle(post({ feedback: { conversationId: 'c1', messageIndex: 1, value: 'meh' } }))).status).toBe(
+      400,
+    )
+  })
+
+  it('404s an unknown conversation rather than inventing one', async () => {
+    const { handle } = await withStore()
+    const response = await handle(post({ feedback: { conversationId: 'nope', messageIndex: 1, value: 'positive' } }))
+    expect(response.status).toBe(404)
+  })
+
+  it('explains itself when no store is configured', async () => {
+    const handle = createChatHandler({ index: await index(), model: mockModel() })
+    const response = await handle(post({ feedback: { conversationId: 'c1', messageIndex: 1, value: 'positive' } }))
+    expect(response.status).toBe(501)
+  })
+})
+
+describe('client action results coming back from the browser', () => {
+  it('feeds what the page returned into the next answer', async () => {
+    const seen: string[] = []
+    const capturing = new MockLanguageModelV4({
+      doStream: async (opts) => {
+        seen.push(JSON.stringify(opts.prompt))
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: 'text-start' as const, id: '0' },
+              { type: 'text-delta' as const, id: '0', delta: 'You have 2 items.' },
+              { type: 'text-end' as const, id: '0' },
+              {
+                type: 'finish' as const,
+                finishReason: { unified: 'stop', raw: 'stop' } as const,
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              },
+            ],
+            chunkDelayInMs: 0,
+          }),
+        }
+      },
+    })
+
+    const handle = createChatHandler({ index: await index(), model: capturing })
+    await (
+      await handle(
+        post({
+          message: 'what is in my cart',
+          actionResults: [{ name: 'read_cart', output: { items: 2 } }],
+        }),
+      )
+    ).text()
+
+    expect(seen[0]).toContain('read_cart')
+    expect(seen[0]).toContain('items')
+  })
+
+  it('ignores a flood of results from a hostile page', async () => {
+    const handle = createChatHandler({ index: await index(), model: mockModel() })
+    const response = await handle(
+      post({
+        message: 'hi',
+        actionResults: Array.from({ length: 50 }, (_, i) => ({ name: `a${i}`, output: 'x' })),
+      }),
+    )
+    expect(response.status).toBe(200)
+  })
+})

@@ -5,6 +5,18 @@ export interface StreamHandlers {
   onDelta?: (text: string) => void
   onDone?: () => void
   onError?: (message: string) => void
+  /** Any frame, for the ones the caller wants to handle itself. */
+  onFrame?: (frame: StreamFrame) => void
+}
+
+export interface StreamRequest {
+  messages: ChatMessage[]
+  conversationId?: string
+  userId?: string
+  userHash?: string
+  contact?: Record<string, string | number | boolean>
+  /** Results of client actions from the previous, paused turn. */
+  actionResults?: Array<{ name: string; input?: unknown; output: unknown }>
 }
 
 /**
@@ -15,7 +27,7 @@ export interface StreamHandlers {
  */
 export async function streamChat(
   endpoint: string,
-  messages: ChatMessage[],
+  request: StreamRequest,
   handlers: StreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -25,7 +37,8 @@ export async function streamChat(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: messages.map((message) => ({ role: message.role, content: message.content })),
+        ...request,
+        messages: request.messages.map((message) => ({ role: message.role, content: message.content })),
       }),
       signal,
     })
@@ -68,6 +81,8 @@ export async function streamChat(
       } catch {
         continue
       }
+
+      handlers.onFrame?.(parsed)
 
       if (parsed.type === 'sources') handlers.onSources?.(parsed.sources)
       else if (parsed.type === 'delta') handlers.onDelta?.(parsed.text)

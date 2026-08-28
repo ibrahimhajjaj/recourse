@@ -239,6 +239,23 @@ export const styles = `
 .typing i:nth-child(3) { animation-delay: 0.3s; }
 @keyframes hd-blink { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
 
+.feedback { display: flex; gap: 2px; margin-top: 2px; }
+.feedback .icon-button { padding: 4px; opacity: 0.55; }
+.feedback .icon-button:hover { opacity: 1; }
+.feedback .icon-button svg { width: 14px; height: 14px; }
+.feedback .icon-button[aria-pressed="true"] { opacity: 1; color: var(--hd-accent); background: none; }
+
+.notice {
+  align-self: center;
+  font-size: 12.5px;
+  color: var(--hd-muted);
+  background: var(--hd-bubble);
+  border-radius: 999px;
+  padding: 5px 12px;
+  max-width: 92%;
+  text-align: center;
+}
+
 .footer {
   padding: 0 16px 10px;
   font-size: 11px;

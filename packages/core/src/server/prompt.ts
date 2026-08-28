@@ -21,10 +21,18 @@ const DEFAULT_FALLBACK =
  * support-bot behaviour is a missing third job: a model with no sanctioned way
  * to say "I don't know" will invent something instead.
  */
+export interface ActionOutcome {
+  name: string
+  input?: unknown
+  output: unknown
+}
+
 export function buildInstructions(
   persona: PersonaOptions,
   matches: Match[],
   actions: Action[] = [],
+  /** Results of actions the browser ran on the agent's behalf. */
+  clientResults: ActionOutcome[] = [],
 ): string {
   const name = persona.name ?? 'the support assistant'
   const business = persona.business ? ` for ${persona.business}` : ''
@@ -65,6 +73,20 @@ export function buildInstructions(
     )
   }
 
+  if (clientResults.length > 0) {
+    // Fed back as plain context rather than reconstructed tool messages: every
+    // model understands this, including small local ones with patchy support
+    // for multi-turn tool protocols.
+    lines.push(
+      '',
+      'You asked the page to run these, and it returned:',
+      ...clientResults.map(
+        (result) => `- ${result.name} -> ${safeJson(result.output)}`,
+      ),
+      'Use these results to answer now. Do not call them again.',
+    )
+  }
+
   if (persona.instructions) lines.push('', persona.instructions)
 
   lines.push(
@@ -95,6 +117,15 @@ export function toSourceRefs(matches: Match[]): SourceRef[] {
       section: deepest && deepest !== match.chunk.title ? deepest : undefined,
     }
   })
+}
+
+/** Bounded, because a browser can return anything and it all costs context. */
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value).slice(0, 2000)
+  } catch {
+    return String(value).slice(0, 2000)
+  }
 }
 
 /** The question on its own, which is what most turns should retrieve on. */
