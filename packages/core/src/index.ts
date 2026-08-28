@@ -113,6 +113,8 @@ export { createApiHandler, type ApiOptions } from './api/index.js'
 export {
   whatsappChannel,
   slackChannel,
+  messengerChannel,
+  instagramChannel,
   twilioChannel,
   emailChannel,
   parseCommonEmail,
@@ -127,6 +129,7 @@ export {
 export type {
   WhatsAppOptions,
   SlackOptions,
+  MetaMessagingOptions,
   TwilioOptions,
   EmailOptions,
   InboundEmail,

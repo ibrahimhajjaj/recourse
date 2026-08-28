@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
-import { emailChannel, parseCommonEmail, slackChannel, stripQuoted, twilioChannel, whatsappChannel } from '../src/channels/index.js'
+import {
+  emailChannel,
+  instagramChannel,
+  messengerChannel,
+  parseCommonEmail,
+  slackChannel,
+  stripQuoted,
+  twilioChannel,
+  whatsappChannel,
+} from '../src/channels/index.js'
 import { signMeta, signSlack, signTwilio } from '../src/channels/verify.js'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
@@ -433,5 +442,72 @@ describe('a channel whose delivery fails', () => {
     await pending.settled()
     expect((errors[0] as Error).message).toBe('smtp is down')
     spy.mockRestore()
+  })
+})
+
+describe('Messenger and Instagram', () => {
+  const appSecret = 'app-secret'
+  const base = { appSecret, verifyToken: 'tok', accessToken: 'page-token' }
+
+  const payload = JSON.stringify({
+    entry: [{ messaging: [{ sender: { id: 'PSID-1' }, message: { mid: 'm1', text: 'do you do refunds?' } }] }],
+  })
+
+  async function post(body: string) {
+    return new Request('https://shop.example/webhooks/messenger', {
+      method: 'POST',
+      headers: { 'x-hub-signature-256': await signMeta(body, appSecret), 'content-type': 'application/json' },
+      body,
+    })
+  }
+
+  it('answers a Messenger message and files it under messenger', async () => {
+    const sent: Array<{ to: string; text: string }> = []
+    const { agent, store } = await agentFor()
+    const pending = collector()
+
+    const handle = messengerChannel({
+      agent,
+      ...base,
+      waitUntil: pending.waitUntil,
+      send: async (to, text) => void sent.push({ to, text }),
+    })
+
+    expect((await handle(await post(payload))).status).toBe(200)
+    await pending.settled()
+
+    expect(sent[0]?.to).toBe('PSID-1')
+    expect((await store.getConversation('messenger:PSID-1'))?.conversation.channel).toBe('messenger')
+  })
+
+  it('files an Instagram message under instagram, from the same payload shape', async () => {
+    const { agent, store } = await agentFor()
+    const pending = collector()
+    const handle = instagramChannel({ agent, ...base, waitUntil: pending.waitUntil, send: async () => {} })
+
+    await handle(await post(payload))
+    await pending.settled()
+
+    expect((await store.getConversation('instagram:PSID-1'))?.conversation.channel).toBe('instagram')
+  })
+
+  it('ignores the page’s own echoed message, which would loop', async () => {
+    const sent: unknown[] = []
+    const { agent } = await agentFor()
+    const pending = collector()
+    const handle = messengerChannel({ agent, ...base, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+
+    const echo = JSON.stringify({
+      entry: [{ messaging: [{ sender: { id: 'PAGE' }, message: { text: 'our reply', is_echo: true } }] }],
+    })
+    await handle(await post(echo))
+    await pending.settled()
+    expect(sent).toEqual([])
+  })
+
+  it('rejects an unsigned webhook', async () => {
+    const { agent } = await agentFor()
+    const handle = messengerChannel({ agent, ...base })
+    expect((await handle(new Request('https://shop.example/m', { method: 'POST', body: payload }))).status).toBe(401)
   })
 })
