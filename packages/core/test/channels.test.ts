@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
 import {
+  discordChannel,
   emailChannel,
   instagramChannel,
   messengerChannel,
   parseCommonEmail,
   slackChannel,
   stripQuoted,
+  telegramChannel,
   twilioChannel,
   whatsappChannel,
 } from '../src/channels/index.js'
@@ -509,5 +511,159 @@ describe('Messenger and Instagram', () => {
     const { agent } = await agentFor()
     const handle = messengerChannel({ agent, ...base })
     expect((await handle(new Request('https://shop.example/m', { method: 'POST', body: payload }))).status).toBe(401)
+  })
+})
+
+describe('Telegram', () => {
+  const secretToken = 'super-secret'
+  const base = { botToken: 'bot123', secretToken }
+
+  function post(body: unknown, secret = secretToken) {
+    return new Request('https://shop.example/webhooks/telegram', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': secret },
+      body: JSON.stringify(body),
+    })
+  }
+
+  const update = {
+    message: {
+      message_id: 7,
+      text: 'do you do refunds?',
+      chat: { id: 4242, type: 'private' },
+      from: { id: 99, first_name: 'Sam', is_bot: false },
+    },
+  }
+
+  it('rejects an update without the secret token, which is the only auth there is', async () => {
+    const { agent } = await agentFor()
+    const handle = telegramChannel({ agent, ...base })
+    expect((await handle(post(update, 'guessed'))).status).toBe(401)
+  })
+
+  it('answers and replies to the original message', async () => {
+    const sent: Array<{ chatId: number | string; text: string; replyTo?: number }> = []
+    const { agent, store } = await agentFor()
+    const pending = collector()
+
+    const handle = telegramChannel({
+      agent,
+      ...base,
+      waitUntil: pending.waitUntil,
+      send: async (chatId, text, replyTo) => void sent.push({ chatId, text, replyTo }),
+    })
+
+    expect((await handle(post(update))).status).toBe(200)
+    await pending.settled()
+
+    expect(sent[0]).toMatchObject({ chatId: '4242', replyTo: 7 })
+    expect((await store.getConversation('telegram:4242'))?.conversation.contact?.name).toBe('Sam')
+  })
+
+  it('ignores another bot, which would otherwise loop forever', async () => {
+    const sent: unknown[] = []
+    const { agent } = await agentFor()
+    const pending = collector()
+    const handle = telegramChannel({ agent, ...base, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+
+    await handle(post({ message: { ...update.message, from: { id: 1, is_bot: true } } }))
+    await pending.settled()
+    expect(sent).toEqual([])
+  })
+})
+
+describe('Discord', () => {
+  /** A real Ed25519 keypair, so the signature path is genuinely exercised. */
+  async function keypair() {
+    const pair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+      'sign',
+      'verify',
+    ])) as CryptoKeyPair
+    const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))
+    const publicKey = [...raw].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    return { pair, publicKey }
+  }
+
+  async function signed(body: unknown, pair: CryptoKeyPair) {
+    const raw = JSON.stringify(body)
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const signature = new Uint8Array(
+      await crypto.subtle.sign('Ed25519', pair.privateKey, new TextEncoder().encode(timestamp + raw)),
+    )
+
+    return new Request('https://shop.example/webhooks/discord', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-signature-ed25519': [...signature].map((b) => b.toString(16).padStart(2, '0')).join(''),
+        'x-signature-timestamp': timestamp,
+      },
+      body: raw,
+    })
+  }
+
+  it('answers a ping with a pong', async () => {
+    const { pair, publicKey } = await keypair()
+    const { agent } = await agentFor()
+    const handle = discordChannel({ agent, publicKey, applicationId: 'app1' })
+
+    const response = await handle(await signed({ type: 1 }, pair))
+    expect(await response.json()).toEqual({ type: 1 })
+  })
+
+  it('rejects an invalid signature, which Discord requires or it disables the endpoint', async () => {
+    const { publicKey } = await keypair()
+    const other = await keypair()
+    const { agent } = await agentFor()
+    const handle = discordChannel({ agent, publicKey, applicationId: 'app1' })
+
+    // Signed with a different key entirely.
+    const response = await handle(await signed({ type: 1 }, other.pair))
+    expect(response.status).toBe(401)
+  })
+
+  it('rejects a request with no signature headers', async () => {
+    const { publicKey } = await keypair()
+    const { agent } = await agentFor()
+    const handle = discordChannel({ agent, publicKey, applicationId: 'app1' })
+
+    const response = await handle(
+      new Request('https://shop.example/d', { method: 'POST', body: '{"type":1}' }),
+    )
+    expect(response.status).toBe(401)
+  })
+
+  it('defers, then edits in the real answer', async () => {
+    const { pair, publicKey } = await keypair()
+    const sent: Array<{ token: string; text: string }> = []
+    const { agent } = await agentFor()
+    const pending = collector()
+
+    const handle = discordChannel({
+      agent,
+      publicKey,
+      applicationId: 'app1',
+      waitUntil: pending.waitUntil,
+      send: async (token, text) => void sent.push({ token, text }),
+    })
+
+    const response = await handle(
+      await signed(
+        {
+          type: 2,
+          token: 'interaction-token',
+          channel_id: 'C1',
+          member: { user: { id: 'U1', username: 'sam' } },
+          data: { name: 'ask', options: [{ name: 'question', value: 'do you do refunds?' }] },
+        },
+        pair,
+      ),
+    )
+
+    // Type 5 is "thinking", which is what keeps Discord's 3 second limit happy.
+    expect(await response.json()).toEqual({ type: 5 })
+
+    await pending.settled()
+    expect(sent[0]?.token).toBe('interaction-token')
   })
 })

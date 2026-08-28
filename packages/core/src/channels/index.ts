@@ -7,6 +7,8 @@ export {
   type MetaMessagingOptions,
 } from './meta.js'
 export { twilioChannel, type TwilioOptions } from './sms.js'
+export { telegramChannel, type TelegramOptions } from './telegram.js'
+export { discordChannel, verifyDiscord, type DiscordOptions } from './discord.js'
 export { emailChannel, parseCommonEmail, stripQuoted, type EmailOptions, type InboundEmail } from './email.js'
 export {
   verifyMeta,
