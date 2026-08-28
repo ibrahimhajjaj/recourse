@@ -108,6 +108,8 @@ export type {
   TicketFilter,
 } from './helpdesk/index.js'
 
+export { createApiHandler, type ApiOptions } from './api/index.js'
+
 export { memoryStore, fileStore, computeStats, paginate } from './store/index.js'
 export type {
   Store,
