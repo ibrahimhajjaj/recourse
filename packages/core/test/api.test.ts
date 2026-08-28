@@ -327,3 +327,77 @@ describe('saved views and drafts over the api', () => {
     expect((await bodyOf(response)).error.code).toBe('drafting_unavailable')
   })
 })
+
+describe('managing sources over the api', () => {
+  async function withKnowledge() {
+    const { createKnowledgeBase } = await import('../src/knowledge/base.js')
+    const store = memoryStore()
+    const knowledge = createKnowledgeBase({ store })
+    const { createApiHandler } = await import('../src/api/index.js')
+    return { knowledge, handle: createApiHandler({ store, knowledge }) }
+  }
+
+  it('adds a source and reports it needs training', async () => {
+    const { handle } = await withKnowledge()
+
+    const created = await handle(
+      send('POST', '/sources', { type: 'text', name: 'Refunds', content: 'We refund within 30 days.' }),
+    )
+    expect(created.status).toBe(201)
+
+    const summary = (await bodyOf(await handle(get('/sources/summary')))).data
+    expect(summary.needsRetrain).toBe(true)
+    expect(summary.total.count).toBe(1)
+  })
+
+  it('rejects a source that could never be retrieved', async () => {
+    const { handle } = await withKnowledge()
+    expect((await handle(send('POST', '/sources', { type: 'text', name: 'Empty' }))).status).toBe(400)
+  })
+
+  it('rejects a link that would read the server’s own disk', async () => {
+    const { handle } = await withKnowledge()
+    const response = await handle(
+      send('POST', '/sources', { type: 'link', name: 'Bad', url: 'file:///etc/passwd' }),
+    )
+    expect(response.status).toBe(400)
+  })
+
+  it('trains and reports what was built', async () => {
+    const { handle } = await withKnowledge()
+    await handle(send('POST', '/sources', { type: 'text', name: 'Refunds', content: 'We refund within 30 days.' }))
+
+    const trained = (await bodyOf(await handle(send('POST', '/train', {})))).data
+    expect(trained.chunks).toBeGreaterThan(0)
+
+    const summary = (await bodyOf(await handle(get('/sources/summary')))).data
+    expect(summary.needsRetrain).toBe(false)
+  })
+
+  it('soft deletes and restores', async () => {
+    const { handle } = await withKnowledge()
+    const created = (await bodyOf(
+      await handle(send('POST', '/sources', { type: 'text', name: 'Old', content: 'Outdated text here.' })),
+    )).data
+
+    const deleted = await handle(
+      new Request(`https://api.example/sources/${created.id}`, { method: 'DELETE' }),
+    )
+    expect((await bodyOf(deleted)).data.status).toBe('pending_deletion')
+
+    const restored = await handle(send('POST', `/sources/${created.id}/restore`, {}))
+    expect((await bodyOf(restored)).data.status).toBe('active')
+  })
+
+  it('404s a source that is not there', async () => {
+    const { handle } = await withKnowledge()
+    expect((await handle(get('/sources/src_text_nope'))).status).toBe(404)
+  })
+
+  it('says so plainly when sources are managed at build time', async () => {
+    const { handle } = setup()
+    const response = await handle(get('/sources'))
+    expect(response.status).toBe(501)
+    expect((await bodyOf(response)).error.code).toBe('knowledge_disabled')
+  })
+})

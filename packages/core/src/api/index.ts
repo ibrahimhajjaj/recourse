@@ -1,5 +1,6 @@
 import type { Store } from '../store/types.js'
 import type { Helpdesk } from '../helpdesk/service.js'
+import type { KnowledgeBase } from '../knowledge/base.js'
 import type { StatusCategory } from '../helpdesk/types.js'
 import { corsHeaders, type CorsOptions } from '../server/cors.js'
 import { createRouter } from './router.js'
@@ -9,6 +10,8 @@ export interface ApiOptions {
   store: Store
   /** Enables the ticket routes. Omit it and they answer 501. */
   helpdesk?: Helpdesk
+  /** Enables the source routes, so content can be managed without a deploy. */
+  knowledge?: KnowledgeBase
   /**
    * Bearer tokens allowed to call this. Omit it and the API is open, which is
    * only ever right behind your own network.
@@ -96,6 +99,86 @@ export function createApiHandler(options: ApiOptions) {
         until: url.searchParams.get('until') ?? undefined,
       }),
     )
+  })
+
+  // ---- knowledge sources ---------------------------------------------------
+
+  const knowledge = () => options.knowledge
+
+  router.get('/sources', async (request) => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+
+    const status = new URL(request.url).searchParams.get('status')
+    const page = await kb.listSources(status === 'pending_deletion' ? 'pending_deletion' : 'active')
+    return ok(page.items, { pagination: { cursor: page.cursor } })
+  })
+
+  router.get('/sources/summary', async () => {
+    const kb = knowledge()
+    return kb ? ok(await kb.summary()) : noKnowledge()
+  })
+
+  router.post('/sources', async (request) => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+
+    const parsed = await readJson<Parameters<KnowledgeBase['addSource']>[0]>(request)
+    if ('error' in parsed) return parsed.error
+
+    try {
+      return json({ data: await kb.addSource(parsed.body) }, 201)
+    } catch (error) {
+      return badRequest(error instanceof Error ? error.message : 'could not add the source')
+    }
+  })
+
+  router.get('/sources/:id', async (_request, params) => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+    const source = await kb.getSource(params.id as string)
+    return source ? ok(source) : notFound('source')
+  })
+
+  router.put('/sources/:id', async (request, params) => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+
+    const parsed = await readJson<Parameters<KnowledgeBase['updateSource']>[1]>(request)
+    if ('error' in parsed) return parsed.error
+
+    try {
+      const source = await kb.updateSource(params.id as string, parsed.body)
+      return source ? ok(source) : notFound('source')
+    } catch (error) {
+      return badRequest(error instanceof Error ? error.message : 'could not update the source')
+    }
+  })
+
+  router.delete('/sources/:id', async (_request, params) => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+    const source = await kb.deleteSource(params.id as string)
+    return source ? ok(source) : notFound('source')
+  })
+
+  router.post('/sources/:id/restore', async (_request, params) => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+    const source = await kb.restoreSource(params.id as string)
+    return source ? ok(source) : notFound('source')
+  })
+
+  router.post('/train', async () => {
+    const kb = knowledge()
+    if (!kb) return noKnowledge()
+
+    try {
+      const index = await kb.train()
+      return ok({ documents: index.stats.documents, chunks: index.stats.chunks, trainedAt: index.createdAt })
+    } catch (error) {
+      return badRequest(error instanceof Error ? error.message : 'training failed')
+    }
   })
 
   // ---- help desk -----------------------------------------------------------
@@ -317,6 +400,10 @@ export function createApiHandler(options: ApiOptions) {
       return withCors(fail('internal_error', 'the request could not be completed', 500), cors)
     }
   }
+}
+
+function noKnowledge(): Response {
+  return fail('knowledge_disabled', 'this deployment manages its sources at build time', 501)
 }
 
 function noHelpdesk(): Response {

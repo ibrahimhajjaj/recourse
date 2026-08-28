@@ -14,6 +14,12 @@ const API = 'https://api.firecrawl.dev/v2'
 export interface FirecrawlOptions {
   apiKey?: string
   signal?: AbortSignal
+  /**
+   * Retries before giving up on one page. A crawl can afford to be patient;
+   * a rebuild touching a hundred links cannot, since every dead one costs the
+   * full backoff before the build moves on.
+   */
+  attempts?: number
 }
 
 export interface ScrapedPage {
@@ -41,7 +47,7 @@ export async function scrape(
       headers: headers(options.apiKey),
       body: JSON.stringify({ url, formats, onlyMainContent: true }),
     },
-    { signal: options.signal },
+    { signal: options.signal, attempts: options.attempts },
   )
 
   if (!response.ok) {

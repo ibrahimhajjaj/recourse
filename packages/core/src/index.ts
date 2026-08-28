@@ -36,6 +36,10 @@ export {
 export { ingest, writeIndex, type IngestOptions } from './ingest.js'
 
 export { buildIndex, type BuildOptions } from './knowledge/build.js'
+export { createKnowledgeBase } from './knowledge/base.js'
+export type { KnowledgeBase, KnowledgeBaseOptions, AddSourceInput } from './knowledge/base.js'
+export { newSourceId, validateSource } from './knowledge/records.js'
+export type { SourceRecord, SourceType, SourceStatus, SourcesSummary } from './knowledge/records.js'
 export { serializeIndex, parseIndex } from './knowledge/serialize.js'
 export { tokenize } from './knowledge/tokenize.js'
 

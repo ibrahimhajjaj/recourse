@@ -8,6 +8,7 @@ import type {
   StoredMessage,
 } from './types.js'
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
+import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
 
 export interface MemoryStoreOptions {
@@ -31,6 +32,7 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
   const leads: Lead[] = []
   const tickets = new Map<number, Ticket>()
   const ticketMessages = new Map<number, TicketMessage[]>()
+  const sources = new Map<string, SourceRecord>()
   let nextTicketNumber = 1
 
   function evictIfNeeded() {
@@ -166,6 +168,60 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
         a.createdAt.localeCompare(b.createdAt),
       )
       return paginate(thread, options, (message) => message.id)
+    },
+
+    async createSource(record) {
+      sources.set(record.id, record)
+      return record
+    },
+
+    async getSource(id) {
+      return sources.get(id) ?? null
+    },
+
+    async listSources(options = {}) {
+      const filtered = [...sources.values()]
+        .filter((source) => !options.status || source.status === options.status)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      return paginate(filtered, options, (source) => source.id)
+    },
+
+    async updateSource(id, patch) {
+      const existing = sources.get(id)
+      if (!existing) return null
+      const updated = { ...existing, ...patch, id, updatedAt: new Date().toISOString() }
+      sources.set(id, updated)
+      return updated
+    },
+
+    async deleteSource(id) {
+      const existing = sources.get(id)
+      if (!existing) return null
+      const updated: SourceRecord = {
+        ...existing,
+        status: 'pending_deletion',
+        updatedAt: new Date().toISOString(),
+      }
+      sources.set(id, updated)
+      return updated
+    },
+
+    async restoreSource(id) {
+      const existing = sources.get(id)
+      if (!existing) return null
+      const updated: SourceRecord = { ...existing, status: 'active', updatedAt: new Date().toISOString() }
+      sources.set(id, updated)
+      return updated
+    },
+
+    async purgeSources() {
+      let removed = 0
+      for (const [id, source] of sources) {
+        if (source.status !== 'pending_deletion') continue
+        sources.delete(id)
+        removed++
+      }
+      return removed
     },
   }
 }

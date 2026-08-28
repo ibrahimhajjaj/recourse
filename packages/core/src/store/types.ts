@@ -1,6 +1,7 @@
 import type { SourceRef } from '../types.js'
 import type { Contact } from '../actions/types.js'
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
+import type { SourceRecord, SourceStatus } from '../knowledge/records.js'
 
 /**
  * Persistence for everything a conversation leaves behind.
@@ -94,6 +95,21 @@ export interface Store {
 
   addTicketMessage(message: Omit<TicketMessage, 'id'>): Promise<TicketMessage>
   listTicketMessages(ticketNumber: number, options?: ListOptions): Promise<Page<TicketMessage>>
+
+  /**
+   * Knowledge sources managed at runtime, so content can be added without a
+   * deploy. Deletion is soft, because deleting the wrong source and having to
+   * re-crawl a site is a bad afternoon.
+   */
+  createSource(record: SourceRecord): Promise<SourceRecord>
+  getSource(id: string): Promise<SourceRecord | null>
+  listSources(options?: ListOptions & { status?: SourceStatus }): Promise<Page<SourceRecord>>
+  updateSource(id: string, patch: Partial<SourceRecord>): Promise<SourceRecord | null>
+  /** Marks it for deletion. The content stays until it is purged. */
+  deleteSource(id: string): Promise<SourceRecord | null>
+  restoreSource(id: string): Promise<SourceRecord | null>
+  /** Permanently removes everything marked for deletion. */
+  purgeSources(): Promise<number>
 }
 
 export interface Stats {

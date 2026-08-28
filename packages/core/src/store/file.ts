@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Conversation, Lead, Store, StoredMessage } from './types.js'
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
+import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
 import { computeStats, paginate } from './memory.js'
 
@@ -50,6 +51,18 @@ interface TicketMessageRecord {
 
 type TicketRecord_ = TicketRecord | TicketPatchRecord | TicketMessageRecord
 
+interface SourceWrite {
+  kind: 'source'
+  source: SourceRecord
+}
+
+interface SourcePurge {
+  kind: 'source-purge'
+  ids: string[]
+}
+
+type SourceRecord_ = SourceWrite | SourcePurge
+
 /**
  * Append-only logs on disk, folded into memory on first read.
  *
@@ -63,12 +76,14 @@ export function fileStore(options: FileStoreOptions): Store {
   const conversationsLog = join(options.dir, 'conversations.jsonl')
   const leadsLog = join(options.dir, 'leads.jsonl')
   const ticketsLog = join(options.dir, 'tickets.jsonl')
+  const sourcesLog = join(options.dir, 'sources.jsonl')
 
   const conversations = new Map<string, Conversation>()
   const messages = new Map<string, StoredMessage[]>()
   const leads: Lead[] = []
   const tickets = new Map<number, Ticket>()
   const ticketMessages = new Map<number, TicketMessage[]>()
+  const sources = new Map<string, SourceRecord>()
   let nextTicketNumber = 1
   let loaded = false
 
@@ -129,6 +144,19 @@ export function fileStore(options: FileStoreOptions): Store {
         thread.push(record.message)
         ticketMessages.set(record.message.ticketNumber, thread)
       }
+    }
+
+    for (const line of await lines(sourcesLog)) {
+      let record: SourceRecord_
+      try {
+        record = JSON.parse(line) as SourceRecord_
+      } catch {
+        continue
+      }
+
+      // Last write wins, which is what an append-only log of whole records means.
+      if (record.kind === 'source') sources.set(record.source.id, record.source)
+      else if (record.kind === 'source-purge') for (const id of record.ids) sources.delete(id)
     }
   }
 
@@ -298,6 +326,71 @@ export function fileStore(options: FileStoreOptions): Store {
         a.createdAt.localeCompare(b.createdAt),
       )
       return paginate(thread, listOptions, (message) => message.id)
+    },
+
+    async createSource(record) {
+      await load()
+      sources.set(record.id, record)
+      await append(sourcesLog, { kind: 'source', source: record } satisfies SourceWrite)
+      return record
+    },
+
+    async getSource(id) {
+      await load()
+      return sources.get(id) ?? null
+    },
+
+    async listSources(listOptions = {}) {
+      await load()
+      const filtered = [...sources.values()]
+        .filter((source) => !listOptions.status || source.status === listOptions.status)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      return paginate(filtered, listOptions, (source) => source.id)
+    },
+
+    async updateSource(id, patch) {
+      await load()
+      const existing = sources.get(id)
+      if (!existing) return null
+      const updated = { ...existing, ...patch, id, updatedAt: new Date().toISOString() }
+      sources.set(id, updated)
+      await append(sourcesLog, { kind: 'source', source: updated } satisfies SourceWrite)
+      return updated
+    },
+
+    async deleteSource(id) {
+      await load()
+      const existing = sources.get(id)
+      if (!existing) return null
+      const updated: SourceRecord = {
+        ...existing,
+        status: 'pending_deletion',
+        updatedAt: new Date().toISOString(),
+      }
+      sources.set(id, updated)
+      await append(sourcesLog, { kind: 'source', source: updated } satisfies SourceWrite)
+      return updated
+    },
+
+    async restoreSource(id) {
+      await load()
+      const existing = sources.get(id)
+      if (!existing) return null
+      const updated: SourceRecord = { ...existing, status: 'active', updatedAt: new Date().toISOString() }
+      sources.set(id, updated)
+      await append(sourcesLog, { kind: 'source', source: updated } satisfies SourceWrite)
+      return updated
+    },
+
+    async purgeSources() {
+      await load()
+      const ids = [...sources.values()]
+        .filter((source) => source.status === 'pending_deletion')
+        .map((source) => source.id)
+
+      for (const id of ids) sources.delete(id)
+      if (ids.length > 0) await append(sourcesLog, { kind: 'source-purge', ids } satisfies SourcePurge)
+      return ids.length
     },
   }
 }
