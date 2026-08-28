@@ -5,9 +5,9 @@ import {
   defineProcedure,
   escalate,
   httpAction,
-  memoryStore,
   suggestedMessages,
 } from 'helpdeck'
+import { helpdesk, store } from '../../../lib/helpdesk'
 import type { KnowledgeIndex } from 'helpdeck'
 import knowledge from '../../../lib/knowledge.json'
 import { resolveEmbedder, resolveModel } from '../../../lib/model'
@@ -17,10 +17,6 @@ import { resolveEmbedder, resolveModel } from '../../../lib/model'
  * with the function and there is no database to connect to and nothing to warm
  * up: a cold start is a JSON parse.
  */
-
-// In a real shop this would be Postgres or a hosted store. In memory is enough
-// to show the transcript, the answer gaps and the leads working end to end.
-const store = memoryStore()
 
 const handler = createChatHandler({
   index: knowledge as unknown as KnowledgeIndex,
@@ -42,12 +38,8 @@ const handler = createChatHandler({
     // Captured straight into the store, so nothing is lost if the CRM is down.
     collectLeads({}),
 
-    escalate({
-      createTicket(ticket) {
-        console.log('[helpdeck] ticket:', ticket.subject, `(${ticket.priority})`)
-        return { id: `LUM-${Math.floor(Math.random() * 9000 + 1000)}` }
-      },
-    }),
+    // Opens a real ticket on the help desk, routed and assigned.
+    escalate({ helpdesk }),
 
     suggestedMessages({ max: 3 }),
 
