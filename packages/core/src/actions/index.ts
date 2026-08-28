@@ -26,3 +26,11 @@ export {
   type StripeOptions,
   type ShopifyOptions,
 } from './builtin/commerce.js'
+export {
+  liveChat,
+  transferToPhone,
+  salesforceCases,
+  type LiveChatOptions,
+  type TransferToPhoneOptions,
+  type SalesforceCaseOptions,
+} from './builtin/handoff.js'

@@ -49,6 +49,7 @@ export {
   filesSource,
   textSource,
   qnaSource,
+  notionSource,
   scrape,
   parsePdf,
   parseDocx,
@@ -58,6 +59,7 @@ export type {
   FilesSourceOptions,
   QnaPair,
   QnaSourceOptions,
+  NotionSourceOptions,
   DocumentParser,
   ParserRegistry,
 } from './sources/index.js'
@@ -119,6 +121,14 @@ export type {
 } from './helpdesk/index.js'
 
 export { createApiHandler, type ApiOptions } from './api/index.js'
+
+export { runCampaign, renderTemplate, validateRecipients } from './outbound/index.js'
+export type {
+  CampaignOptions,
+  CampaignRecipient,
+  CampaignResult,
+  CampaignProgress,
+} from './outbound/index.js'
 
 export { createWebhooks, signWebhook, verifyWebhook } from './webhooks/index.js'
 export type { Webhooks, WebhookOptions, WebhookEndpoint, WebhookEvent, WebhookDelivery } from './webhooks/index.js'
@@ -186,6 +196,9 @@ export {
   scheduleMeeting,
   stripeBilling,
   shopifyOrders,
+  liveChat,
+  transferToPhone,
+  salesforceCases,
 } from './actions/index.js'
 export type {
   Action,
@@ -209,6 +222,9 @@ export type {
   BookingOptions,
   StripeOptions,
   ShopifyOptions,
+  LiveChatOptions,
+  TransferToPhoneOptions,
+  SalesforceCaseOptions,
 } from './actions/index.js'
 
 export {

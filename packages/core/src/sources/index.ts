@@ -2,6 +2,7 @@ export { websiteSource, type WebsiteSourceOptions } from './website.js'
 export { filesSource, type FilesSourceOptions } from './files.js'
 export { textSource } from './text.js'
 export { qnaSource, type QnaPair, type QnaSourceOptions } from './qna.js'
+export { notionSource, toMarkdown as notionToMarkdown, type NotionSourceOptions } from './notion.js'
 export {
   parsePdf,
   parseDocx,
