@@ -91,7 +91,7 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
     [
       `Indexed ${index.stats.documents} documents into ${index.stats.chunks} chunks in ${seconds}s`,
       `Retrieval: ${index.vectors ? 'hybrid (keyword + vectors)' : 'keyword only'}`,
-      `Written to ${relative(process.cwd(), out)} (${(size / 1024).toFixed(0)} KB)`,
+      `Written to ${displayPath(out)} (${(size / 1024).toFixed(0)} KB)`,
       '',
       'Next:',
       `helpdeck ask "how do I get a refund?" --retrieve-only${flagSuffix(flags)}`,
@@ -188,10 +188,19 @@ async function loadIndex(flags: Record<string, string | boolean>) {
     return parseIndex(await readFile(path, 'utf8'))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error(`no index at ${relative(process.cwd(), path)}. Run \`helpdeck ingest --url <site>\` first.`)
+      throw new Error(`no index at ${displayPath(path)}. Run \`helpdeck ingest --url <site>\` first.`)
     }
     throw error
   }
+}
+
+/**
+ * A path inside the project reads better relative; one outside it turns into a
+ * ladder of `../..` that is harder to read than the absolute path.
+ */
+function displayPath(path: string): string {
+  const relative_ = relative(process.cwd(), path)
+  return relative_.startsWith('..') ? path : relative_
 }
 
 /** Repeats a non-default --index so the printed next step actually runs. */
