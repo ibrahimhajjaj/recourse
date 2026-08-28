@@ -401,3 +401,34 @@ describe('managing sources over the api', () => {
     expect((await bodyOf(response)).error.code).toBe('knowledge_disabled')
   })
 })
+
+describe('the admin page', () => {
+  it('is off unless asked for, because it shows every transcript', async () => {
+    const { handle } = setup()
+    expect((await handle(get('/admin'))).status).toBe(404)
+  })
+
+  it('serves a self-contained page when enabled', async () => {
+    const store = memoryStore()
+    const { createApiHandler } = await import('../src/api/index.js')
+    const handle = createApiHandler({ store, admin: true })
+
+    const response = await handle(get('/admin'))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/html')
+
+    const html = await response.text()
+    // No build step and nothing fetched from a CDN: one file, on your origin.
+    expect(html).not.toMatch(/<script[^>]+src=/)
+    expect(html).toContain('Answer gaps')
+  })
+
+  it('sits behind the same token as everything else', async () => {
+    const store = memoryStore()
+    const { createApiHandler } = await import('../src/api/index.js')
+    const handle = createApiHandler({ store, admin: true, tokens: ['secret'] })
+
+    expect((await handle(get('/admin'))).status).toBe(401)
+    expect((await handle(get('/admin', 'secret'))).status).toBe(200)
+  })
+})

@@ -5,6 +5,7 @@ import type { StatusCategory } from '../helpdesk/types.js'
 import { corsHeaders, type CorsOptions } from '../server/cors.js'
 import { createRouter } from './router.js'
 import { badRequest, fail, json, notFound, ok, pageParams, readJson } from './http.js'
+import { ADMIN_PAGE } from './admin.js'
 
 export interface ApiOptions {
   store: Store
@@ -20,6 +21,11 @@ export interface ApiOptions {
   cors?: CorsOptions
   /** Strips a mount prefix, so the API can live under /api/v1 or anywhere. */
   basePath?: string
+  /**
+   * Serves a small read-only admin page at `/admin`. Off by default: it shows
+   * every transcript, so it belongs behind the same auth as the rest of this.
+   */
+  admin?: boolean
 }
 
 /**
@@ -40,6 +46,19 @@ export function createApiHandler(options: ApiOptions) {
   const base = (options.basePath ?? '').replace(/\/+$/, '')
 
   router.get('/health', async () => ok({ status: 'ok', store: store.name }))
+
+  if (options.admin) {
+    router.get('/admin', async () =>
+      new Response(ADMIN_PAGE, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          // The page is inline script only, so nothing else needs loading.
+          'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",
+        },
+      }),
+    )
+  }
 
   // ---- conversations -------------------------------------------------------
 
