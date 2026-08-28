@@ -1,32 +1,31 @@
 # helpdeck
 
-A customer support agent that learns your own website and answers from it, with
-citations. Install it, point it at your site, put one script tag on the page.
+A customer support agent that learns your own content, answers with citations,
+and does the things a support agent has to do: capture a lead, look up an order,
+open a ticket, hand over to a person.
 
-It is the self-hosted shape of what Chatbase sells, with two differences: you
-own the code, and there is nothing to sign up for to get it working.
+It is the self-hosted shape of what Chatbase sells, with two differences: you own
+the code, and there is nothing to sign up for to get it working.
 
 ```bash
 npx helpdeck ingest --url https://your-site.com
 ```
 
-That command needs no account and no API key. It reads your site through
-Firecrawl's keyless tier, which gives every caller 1,000 pages a month, and
-writes a single `knowledge.json` you commit alongside your code.
+That command needs no account and no API key.
 
 ## Why there are no keys to create
 
 Two things landed in 2026 that removed the usual signup wall:
 
-- **Firecrawl went keyless** in June 2026. `/scrape` and `/search` answer with
-  no `Authorization` header at all. Ingest costs you nothing.
-- **Vercel's AI Gateway authenticates deployments over OIDC.** A Vercel
-  deployment gets a token injected automatically, so the answering side needs no
-  key either.
+- **Firecrawl went keyless** in June 2026. `/scrape` and `/search` answer with no
+  `Authorization` header at all, and every caller gets 1,000 pages a month.
+- **Vercel's AI Gateway authenticates deployments over OIDC**, so a deployment
+  gets a token injected with no key to create.
 
-You still need a Vercel account for the second one, and you can replace it with
-any OpenAI-compatible endpoint, including Ollama on your own machine. What you
-do not need is a stack of provider signups before you see it work.
+You can replace the second with any OpenAI-compatible endpoint, including Ollama
+on your own machine. This repository was built and tested against a local
+`qwen3:4b` with `nomic-embed-text` embeddings, on a laptop, with no cloud
+account involved at any point.
 
 ## 60 seconds
 
@@ -35,20 +34,15 @@ npm install helpdeck
 npx helpdeck ingest --url https://your-site.com
 ```
 
-One route, in a Next.js app:
-
 ```ts
 // app/api/chat/route.ts
 import { createChatHandler } from 'helpdeck/server'
 import knowledge from '../../../helpdeck/knowledge.json'
 
 const handler = createChatHandler({ index: knowledge })
-
 export const POST = handler
 export const OPTIONS = handler
 ```
-
-One tag, on any page:
 
 ```html
 <script
@@ -58,204 +52,219 @@ One tag, on any page:
 ></script>
 ```
 
-That is the whole integration. There is no database to provision, no vector
-store to configure, and no background job to keep the index warm.
+No database to provision, no vector store to configure, no background job.
 
-## How it works
+## What it does
 
-Three pieces, and you can replace any of them without touching the other two.
+**Answers from your content.** Crawl a site, read a folder, write question and
+answer pairs, import Notion, upload a PDF. Retrieval is BM25 and vector search
+fused, and it degrades to keyword-only when you have no embedding credential.
 
-**Ingest** reads a site or a folder, splits it on heading boundaries, and builds
-a keyword index plus optional embeddings. It runs once, at build time, and its
-output is a JSON file.
+**Acts, rather than only replying.** Capture a lead, collect custom fields, call
+your API, search the web, look up a Stripe subscription or a Shopify order, show
+a button or a form, run something in the visitor's own browser, escalate to a
+person.
 
-**Retrieve** runs BM25 and, when the index has vectors, cosine search, then
-fuses the two rankings. It works on a plain in-memory array because a few
-thousand chunks scan in under a millisecond, so a cold start is a JSON parse
-rather than a database connection.
+**Follows procedures on the flows that matter.** A refund or a cancellation gets
+an ordered set of steps with branches, and the sensitive actions inside it are
+unreachable anywhere else.
 
-**Answer** hands the retrieved passages to a model with instructions that fence
-it to those passages and give it an explicit way to say it does not know. The
-response streams back as server-sent events, and the sources go out before the
-first token so the widget can show citations while the answer is still arriving.
+**Runs a help desk.** Tickets with statuses, teams, routing rules, assignment,
+threads, triggers, saved views, and AI-drafted replies a person approves before
+they send.
+
+**Reaches customers where they are.** Web widget, WhatsApp, Messenger,
+Instagram, Slack, Telegram, Discord, Microsoft Teams, SMS and email, all with
+real webhook signature verification.
+
+**Tells you what it could not answer.** Every unanswered question is recorded and
+ranked, which is the list of content worth writing next.
 
 ## Retrieval, and what it costs you to skip embeddings
 
 An index built with no credentials is keyword-only. That is genuinely good at
-the things support questions are mostly made of: product names, error codes,
-SKUs, plan names, the exact words on your pricing page.
+what support questions are mostly made of: product names, error codes, plan
+names, the exact words on your pricing page.
 
 It has one real blind spot. A customer who writes "can I get my money back"
 shares no word with a page that says "refund", so keyword search cannot connect
-them. There is a test in this repo that asserts exactly that, because it is a
-limit worth being honest about rather than papering over.
+them. There is a test in this repository asserting exactly that, because it is a
+limit worth being honest about.
 
-Adding embeddings fixes it:
+Adding embeddings fixes it, and they can be local:
 
 ```bash
-AI_GATEWAY_API_KEY=... npx helpdeck ingest --url https://your-site.com --embed
+# Anything OpenAI-compatible, including Ollama on your own machine.
+npx helpdeck ingest --url https://your-site.com \
+  --embed-url http://localhost:11434/v1 --embed-model nomic-embed-text
 ```
 
-Vectors are stored as int8 rather than float32. A 512-dimension vector is 12KB
-of JSON as floats and about 700 bytes quantised, which is the difference between
-an index you commit to git and one that needs a database.
+Vectors are stored as int8 rather than float32. A 512-dimension vector is 12KB of
+JSON as floats and about 700 bytes quantised, which is the difference between an
+index you commit to git and one that needs a database.
 
-## Integrating it
+## Actions
 
-### Any JavaScript server
-
-`createChatHandler` returns a `(Request) => Promise<Response>` function, which
-is the one interface every modern runtime agrees on.
+An action is a name, a description of when to use it, and the fields it needs.
 
 ```ts
 import { createChatHandler } from 'helpdeck/server'
+import { collectLeads, escalate, httpAction, webSearch } from 'helpdeck'
 
-const handler = createChatHandler({ index: knowledge })
+createChatHandler({
+  index: knowledge,
+  actions: [
+    collectLeads({}),
+    escalate({ helpdesk }),
+    webSearch(),
 
-// Hono
-app.post('/api/chat', (c) => handler(c.req.raw))
-
-// Cloudflare Workers, Bun, Deno
-export default { fetch: handler }
+    httpAction({
+      name: 'order_status',
+      whenToUse: 'Use when the customer asks where their order is.',
+      collect: [{ name: 'orderNumber', type: 'string', description: 'Their order number.' }],
+      url: 'https://api.your-shop.com/orders/{{orderNumber}}',
+      // The agent repeats what it is given, so it only gets what it needs.
+      allowFields: ['status', 'placedAt', 'trackingUrl'],
+    }),
+  ],
+})
 ```
 
-### Anywhere a message arrives
+Built in: `collectLeads`, `collectData`, `escalate`, `suggestedMessages`,
+`webSearch`, `httpAction`, `clientAction`, `customButton`, `customForm`,
+`slackNotify`, `scheduleMeeting`, `stripeBilling`, `shopifyOrders`, `liveChat`,
+`transferToPhone`.
 
-The widget and the HTTP handler are conveniences. The agent underneath has no
-transport at all, so it drops into whatever already receives your customers'
-messages:
+The commerce actions are read-only on purpose. An agent that can cancel a
+subscription will eventually cancel the wrong one, and the customer will not find
+out until the coffee stops arriving.
+
+## Procedures
+
+Where improvising is expensive, give the agent the steps.
 
 ```ts
-import { createAgent } from 'helpdeck/agent'
-import knowledge from './helpdeck/knowledge.json'
+defineProcedure({
+  name: 'Return or refund request',
+  trigger: 'The customer wants to return an order or get a refund',
+  steps: [
+    'Ask for the order number if you do not already have it.',
+    'Call @lookup_order with that order number.',
+    {
+      branches: [
+        { if: 'the order is wholesale or over 5kg', then: 'Explain it is final sale.' },
+        { if: 'it was delivered within 30 days', then: 'Confirm the refund and the timing.' },
+      ],
+      otherwise: 'Explain the window has passed, then call @escalate_to_human.',
+    },
+  ],
+})
+```
 
-const agent = createAgent({ index: knowledge, persona: { business: 'Acme' } })
+An action marked `procedureOnly` is never offered to the agent's own judgment.
+It becomes callable only for the procedures that name it, so a refund tool
+cannot fire because a conversation drifted somewhere suggestive.
 
+A procedure that references an action this deployment does not have is dropped
+entirely, with a warning. Half a procedure is worse than none: the agent follows
+four steps, reaches a tool that is not there, and improvises the ending the
+procedure existed to prevent.
+
+## Channels
+
+Every adapter verifies its webhooks, acknowledges before answering, and refuses
+to reply to itself.
+
+```ts
+import { whatsappChannel, slackChannel, emailChannel } from 'helpdeck/channels'
+
+export const POST = whatsappChannel({
+  agent,
+  appSecret: process.env.META_APP_SECRET!,
+  verifyToken: process.env.META_VERIFY_TOKEN!,
+  phoneNumberId: process.env.WHATSAPP_PHONE_ID!,
+  accessToken: process.env.WHATSAPP_TOKEN!,
+})
+```
+
+Or skip the adapters. The agent underneath has no transport at all:
+
+```ts
 const { text, sources, unanswered } = await agent.answer('where is my order?')
 ```
 
-That is the whole integration for a channel. A WhatsApp webhook replies with
-`text`. An email worker puts `text` in the body and `sources` in the footer.
-A Slack bot posts it to the thread. A Zendesk or Intercom automation drafts it
-for an agent to approve.
+That is the whole integration for any channel. Zendesk, Intercom, a queue
+worker, a CLI, anything that receives a message.
+
+## Help desk
 
 ```ts
-// WhatsApp, or any inbound webhook
-app.post('/webhook', async (req) => {
-  const { text } = await agent.answer(req.body.message, historyFor(req.body.from))
-  await whatsapp.send(req.body.from, text)
-})
-
-// Inbound email
-export async function onEmail(mail) {
-  const { text, sources, unanswered } = await agent.answer(mail.subject + '\n' + mail.body)
-  // Hand anything it could not answer to a person instead of guessing.
-  if (unanswered) return escalate(mail)
-  await reply(mail, text, sources)
-}
-```
-
-`answer()` waits for the whole reply, which is what a queue or a webhook wants.
-`stream()` yields the same content as frames, for anywhere a person is watching
-the reply appear. `search()` gives you the passages and no model call at all.
-
-### Inside an agent you already have
-
-If you have an agent with its own loop, it does not want an endpoint, it wants
-somewhere to look things up. `knowledgeTool` returns an AI SDK tool:
-
-```ts
-import { knowledgeTool } from 'helpdeck/tool'
-import { streamText } from 'ai'
-
-const result = streamText({
-  model: 'openai/gpt-4o-mini',
-  instructions: 'Answer only from the help documentation.',
-  messages,
-  tools: { searchHelp: knowledgeTool({ index: knowledge }) },
+const helpdesk = createHelpdesk({
+  store,
+  agent,
+  teams: [
+    { id: 'support', name: 'Support', isDefault: true, members: ['ana@shop.com'] },
+    { id: 'billing', name: 'Billing', isDefault: false, members: ['cat@shop.com'] },
+  ],
+  routing: [
+    { name: 'Billing disputes', teamId: 'billing', when: { contains: ['refund', 'charged'] } },
+  ],
 })
 ```
 
-The same shape works as a tool file in [eve](https://github.com/vercel/eve),
-whose tools take the same `description` / `inputSchema` / `execute` contract.
-Drop it in `agent/tools/search_help.ts` and an eve agent gains this retrieval
-alongside its Slack, Discord, Teams, Telegram and Twilio channels.
+Tickets are numbered, routed, assigned by least-busy, and threaded with events
+recording why each decision was made. `helpdesk.draftReply(n)` writes a reply
+from the same documentation the widget uses and never sends it, because the value
+is a person reading it first.
 
-helpdeck is deliberately not built on eve. eve is a durable agent runtime: it
-needs Node 24, a Workflow world backing run state on persistent storage, and a
-sandbox backend. Answering a support question is one retrieval and one
-completion with no state to keep, so paying for that machinery would cost the
-Cloudflare Workers, Deno, Bun and Node 20 hosts helpdeck runs on today. Being a
-tool eve can call gets the benefit without the coupling.
-
-For an agent that is not built on the AI SDK, `createKnowledgeSearch` is the
-same lookup as a plain async function returning numbered passages.
-
-### Bring your own model
-
-`model` takes a Gateway model id or any provider instance:
+## Management API and admin page
 
 ```ts
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createApiHandler } from 'helpdeck/api'
 
-createChatHandler({
-  index: knowledge,
-  // Ollama on your own hardware, or OpenRouter, Groq, Together, anything.
-  model: createOpenAICompatible({
-    name: 'ollama',
-    baseURL: 'http://localhost:11434/v1',
-    apiKey: 'ollama',
-  })('llama3.2'),
+export const GET = createApiHandler({
+  store,
+  helpdesk,
+  knowledge,
+  tokens: [process.env.HELPDECK_API_TOKEN!],
+  admin: true,
 })
 ```
 
-## Configuration
+Conversations, transcripts, message feedback, leads, analytics, the whole ticket
+queue, and knowledge sources you can add and retrain without a deploy. `admin:
+true` also serves a single self-contained page for reading yesterday's
+conversations and the ranked list of questions nobody could answer.
 
-```ts
-createChatHandler({
-  index: knowledge,
-  model: 'openai/gpt-4o-mini',
+## Security
 
-  persona: {
-    name: 'Nadia',
-    business: 'Lumen Coffee Roasters',
-    instructions: 'Ask for an order number rather than guessing.',
-    fallback: "I can't find that. Email hello@example.com and a human will reply.",
-  },
+Worth knowing what is already handled:
 
-  topK: 6,
-  cors: { allowedOrigins: ['https://your-site.com'] },
-  rateLimit: { limit: 20, windowMs: 60_000 },
+- Model output is rendered by building DOM nodes, never by assigning
+  `innerHTML`. Script tags, `onerror` attributes and `javascript:` links in model
+  output render as inert text.
+- Webhooks are verified: HMAC for Meta and Slack and Twilio, Ed25519 for
+  Discord, and a JWT checked against Microsoft's published keys for Teams. The
+  Slack check enforces its replay window; `alg: none` and HMAC key confusion are
+  rejected for Teams.
+- Visitors can be cryptographically identified with HMAC, byte-compatible with
+  what comparable products use, so actions can refuse to expose personal data to
+  an unverified session.
+- Outbound webhooks are signed over `timestamp.body`, so a captured delivery
+  cannot be replayed with a fresh timestamp.
+- Outbound campaigns refuse to contact anyone without explicit consent, drop
+  duplicates, and stop early when too much is failing.
 
-  // Every unanswered question is a gap in your documentation.
-  onConversation({ question, answer, unanswered }) {
-    if (unanswered) analytics.track('support_gap', { question })
-  },
-})
-```
+## What this is not
 
-Widget options are data attributes on the script tag: `data-title`,
-`data-subtitle`, `data-greeting`, `data-accent`, `data-position`, `data-theme`,
-`data-suggestions` (pipe separated), `data-target` (a selector, to render inline
-rather than floating). `window.helpdeck` exposes `open`, `close`, `ask`, `clear`
-and `destroy`.
+It does not host anything for you, and it has no dashboard beyond that one read
+only page. Multi-agent management has no equivalent: in a hosted product an
+account holds many agents, so they need an API to create them, while here the
+deployment is the agent and its configuration is code in your repository.
 
-## The widget
-
-15KB minified, no dependencies, rendered into a closed-off shadow root so the
-host page's CSS cannot reach it and its own styles cannot leak out. It follows
-the visitor's light or dark preference, restores the conversation for the tab's
-lifetime, and ships the ARIA roles a screen reader needs.
-
-Model output is rendered by building DOM nodes, never by assigning `innerHTML`.
-That is a security boundary rather than a style preference: the text being
-rendered came from a model that read the visitor's own message, so any HTML path
-would be a cross-site scripting hole on every site that embeds the widget. The
-test suite fires script tags, `onerror` attributes, iframes and `javascript:`
-links at it.
-
-Citations shown under an answer are the ones the model actually cited, parsed
-from its `[1]` markers, not everything retrieval happened to return.
+It also does not scale indefinitely on a JSON file. Past roughly 20,000 chunks
+you want a real vector store, and the `Store` boundary in the types is where that
+goes.
 
 ## Running the example
 
@@ -265,19 +274,10 @@ pnpm --filter helpdeck-example-nextjs ingest
 pnpm example
 ```
 
-A fictional coffee shop whose help pages are real markdown, with the agent
-wired up the way you would wire your own. Ask it about delivery, refunds or
-grind size, then ask it something it cannot know and watch it decline.
-
-## What this is not
-
-It does not do ticketing, inbox routing, human takeover, or outbound campaigns.
-It answers questions from your content and tells you when it cannot. If you need
-a help desk, this is the retrieval and answering half of one.
-
-It also does not scale indefinitely on a JSON file. Past roughly 20,000 chunks
-you want a real vector store, and the `Store` boundary in the types is where
-that goes.
+A fictional coffee shop whose help pages are real markdown, with a refund
+procedure, a procedure-only order lookup, a client action reading the basket out
+of the page, lead capture, escalation into the help desk, and the admin page at
+`/api/admin/admin`.
 
 ## Licence
 

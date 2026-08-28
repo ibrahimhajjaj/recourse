@@ -20,9 +20,18 @@ Full documentation: https://github.com/ibrahimhajjaj/helpdeck
 
 | Entry | What it gives you |
 | --- | --- |
-| `helpdeck` | Types, `ingest`, index building, retrieval, chunkers, sources |
+| `helpdeck` | Everything below, re-exported |
 | `helpdeck/server` | `createChatHandler`, a `Request` to `Response` function |
-| `helpdeck/tool` | `knowledgeTool` for AI SDK and eve agents, `createKnowledgeSearch` |
+| `helpdeck/agent` | `createAgent`, the agent with no transport attached |
+| `helpdeck/actions` | Lead capture, escalation, HTTP actions, commerce, handoff |
+| `helpdeck/procedures` | Multi-step flows with branches and variables |
+| `helpdeck/channels` | WhatsApp, Slack, Teams, Telegram, Discord, SMS, email |
+| `helpdeck/helpdesk` | Tickets, routing, assignment, triggers, saved views |
+| `helpdeck/api` | Management API, admin page, public help page |
+| `helpdeck/store` | Conversation, lead, ticket and source persistence |
+| `helpdeck/webhooks` | Signed outbound events |
+| `helpdeck/outbound` | Campaigns, with consent enforced |
+| `helpdeck/tool` | `knowledgeTool` for AI SDK and eve agents |
 | `helpdeck/ingest` | `ingest` and `writeIndex`, for build scripts |
 
 ## CLI
