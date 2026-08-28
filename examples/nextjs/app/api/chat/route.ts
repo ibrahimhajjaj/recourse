@@ -2,6 +2,7 @@ import { createChatHandler } from 'helpdeck/server'
 import {
   clientAction,
   collectLeads,
+  customButton,
   defineProcedure,
   escalate,
   httpAction,
@@ -42,6 +43,17 @@ const handler = createChatHandler({
     escalate({ helpdesk }),
 
     suggestedMessages({ max: 3 }),
+
+    customButton({
+      whenToUse:
+        'Use when the customer wants to do something on the site: track an order, start a return, ' +
+        'or manage their subscription. Show the matching button instead of describing where to click.',
+      buttons: [
+        { label: 'Track my order', url: 'https://lumen.example/track' },
+        { label: 'Start a return', url: 'https://lumen.example/returns' },
+        { label: 'Manage subscription', url: 'https://lumen.example/account/subscriptions' },
+      ],
+    }),
 
     // Runs in the visitor's browser, because only the page knows what is in
     // the basket. The server never sees the cart, it just gets the answer.

@@ -26,6 +26,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           data-greeting="Hi, I'm Nadia. Ask me anything about orders, subscriptions or the coffee itself."
           data-accent="#a4551f"
           data-suggestions="How long does delivery take?|Can I get a refund?|How do I pause my subscription?|What's in my basket?"
+          data-invite="Question about an order? Ask me."
+          data-invite-delay="2000"
         />
 
         {/*
