@@ -263,3 +263,65 @@ describe('the agent recording to a store', () => {
     expect(page.items[0]?.id).toMatch(/^c_/)
   })
 })
+
+describe('a turn the browser interrupted', () => {
+  function model(text: string) {
+    return new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: 'text-start' as const, id: '0' },
+            { type: 'text-delta' as const, id: '0', delta: text },
+            { type: 'text-end' as const, id: '0' },
+            {
+              type: 'finish' as const,
+              finishReason: { unified: 'stop', raw: 'stop' } as const,
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            },
+          ],
+          chunkDelayInMs: 0,
+        }),
+      }),
+    })
+  }
+
+  it('records the exchange once, not once per pass', async () => {
+    const store = memoryStore()
+    const agent = createAgent({ index: await index(), model: model('Your basket has 2 items.'), store })
+
+    await agent.answer('what is in my basket', [], { conversationId: 'c1' })
+    await agent.answer('what is in my basket', [], {
+      conversationId: 'c1',
+      clientResults: [{ name: 'read_basket', output: { items: 2 } }],
+    })
+
+    const found = await store.getConversation('c1')
+    expect(found?.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'assistant'])
+    // The customer asked once, so their question appears once.
+    expect(found?.messages.filter((m) => m.role === 'user')).toHaveLength(1)
+  })
+
+  it('keeps no blank reply from the paused half of the turn', async () => {
+    const store = memoryStore()
+    const silent = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            {
+              type: 'finish' as const,
+              finishReason: { unified: 'stop', raw: 'stop' } as const,
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            },
+          ],
+          chunkDelayInMs: 0,
+        }),
+      }),
+    })
+
+    const agent = createAgent({ index: await index(), model: silent, store })
+    await agent.answer('what is in my basket', [], { conversationId: 'c2' })
+
+    const found = await store.getConversation('c2')
+    expect(found?.messages.map((m) => m.role)).toEqual(['user'])
+  })
+})

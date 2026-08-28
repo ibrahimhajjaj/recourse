@@ -146,7 +146,11 @@ export function createAgent(options: AgentOptions) {
     const question = messages[messages.length - 1]?.content ?? ''
     const store = options.store
 
-    if (store) {
+    // A continuation is the second half of a turn the browser interrupted, not
+    // a new question, so the customer's message is already in the transcript.
+    const isContinuation = (call.clientResults?.length ?? 0) > 0
+
+    if (store && !isContinuation) {
       await store.appendMessage(
         conversationId,
         { id: newId('m'), role: 'user', content: question, createdAt: new Date().toISOString() },
@@ -218,7 +222,11 @@ export function createAgent(options: AgentOptions) {
 
     while (pending.length > 0) yield pending.shift() as StreamFrame
 
-    if (store) {
+    // The paused half of a client-action turn says nothing; recording it would
+    // put a blank reply in the transcript above the real one.
+    const saidNothing = answered.trim().length === 0 && ran.length === 0
+
+    if (store && !saidNothing) {
       const record: StoredMessage = {
         id: newId('m'),
         role: 'assistant',
