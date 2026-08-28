@@ -79,6 +79,35 @@ export {
 } from './procedures/index.js'
 export type { Procedure, Step, Decision, Branch, VariableScope } from './procedures/index.js'
 
+export {
+  createHelpdesk,
+  DEFAULT_STATUSES,
+  defaultStatusFor,
+  validateStatuses,
+  routeTicket,
+  assignTicket,
+  loadOf,
+  STATUS_CATEGORIES,
+  RESOLVED_CATEGORIES,
+} from './helpdesk/index.js'
+export type {
+  Helpdesk,
+  HelpdeskOptions,
+  OpenTicketInput,
+  RoutingRule,
+  RoutingCondition,
+  AssignmentAlgorithm,
+  Availability,
+  StatusCategory,
+  TicketStatus,
+  Team,
+  Ticket as HelpdeskTicket,
+  TicketCustomer,
+  TicketMessage,
+  TicketMessageSender,
+  TicketFilter,
+} from './helpdesk/index.js'
+
 export { memoryStore, fileStore, computeStats, paginate } from './store/index.js'
 export type {
   Store,

@@ -1,6 +1,8 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Conversation, Lead, Store, StoredMessage } from './types.js'
+import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
+import { newMessageId, pageTickets, searchIn } from './tickets.js'
 import { computeStats, paginate } from './memory.js'
 
 export interface FileStoreOptions {
@@ -30,6 +32,24 @@ interface ConversationRecord {
 
 type Record_ = MessageRecord | FeedbackRecord | ConversationRecord
 
+interface TicketRecord {
+  kind: 'ticket'
+  ticket: Ticket
+}
+
+interface TicketPatchRecord {
+  kind: 'ticket-patch'
+  ticketNumber: number
+  patch: Partial<Ticket>
+}
+
+interface TicketMessageRecord {
+  kind: 'ticket-message'
+  message: TicketMessage
+}
+
+type TicketRecord_ = TicketRecord | TicketPatchRecord | TicketMessageRecord
+
 /**
  * Append-only logs on disk, folded into memory on first read.
  *
@@ -42,10 +62,14 @@ type Record_ = MessageRecord | FeedbackRecord | ConversationRecord
 export function fileStore(options: FileStoreOptions): Store {
   const conversationsLog = join(options.dir, 'conversations.jsonl')
   const leadsLog = join(options.dir, 'leads.jsonl')
+  const ticketsLog = join(options.dir, 'tickets.jsonl')
 
   const conversations = new Map<string, Conversation>()
   const messages = new Map<string, StoredMessage[]>()
   const leads: Lead[] = []
+  const tickets = new Map<number, Ticket>()
+  const ticketMessages = new Map<number, TicketMessage[]>()
+  let nextTicketNumber = 1
   let loaded = false
 
   async function append(path: string, record: unknown) {
@@ -82,6 +106,28 @@ export function fileStore(options: FileStoreOptions): Store {
         leads.push(JSON.parse(line) as Lead)
       } catch {
         continue
+      }
+    }
+
+    for (const line of await lines(ticketsLog)) {
+      let record: TicketRecord_
+      try {
+        record = JSON.parse(line) as TicketRecord_
+      } catch {
+        continue
+      }
+
+      if (record.kind === 'ticket') {
+        tickets.set(record.ticket.ticketNumber, record.ticket)
+        // The counter is derived, so it survives a restart without its own row.
+        nextTicketNumber = Math.max(nextTicketNumber, record.ticket.ticketNumber + 1)
+      } else if (record.kind === 'ticket-patch') {
+        const existing = tickets.get(record.ticketNumber)
+        if (existing) tickets.set(record.ticketNumber, { ...existing, ...record.patch })
+      } else if (record.kind === 'ticket-message') {
+        const thread = ticketMessages.get(record.message.ticketNumber) ?? []
+        thread.push(record.message)
+        ticketMessages.set(record.message.ticketNumber, thread)
       }
     }
   }
@@ -184,6 +230,74 @@ export function fileStore(options: FileStoreOptions): Store {
         return true
       })
       return computeStats(inRange, messages, leads)
+    },
+
+    async createTicket(draft) {
+      await load()
+      const ticket: Ticket = { ...draft, ticketNumber: nextTicketNumber++ }
+      tickets.set(ticket.ticketNumber, ticket)
+      await append(ticketsLog, { kind: 'ticket', ticket } satisfies TicketRecord)
+      return ticket
+    },
+
+    async getTicket(ticketNumber) {
+      await load()
+      return tickets.get(ticketNumber) ?? null
+    },
+
+    async listTickets(filter: TicketFilter = {}) {
+      await load()
+      return pageTickets([...tickets.values()], filter)
+    },
+
+    async updateTicket(ticketNumber, patch) {
+      await load()
+      const existing = tickets.get(ticketNumber)
+      if (!existing) return null
+
+      const updated: Ticket = { ...existing, ...patch, ticketNumber, updatedAt: new Date().toISOString() }
+      tickets.set(ticketNumber, updated)
+      await append(ticketsLog, {
+        kind: 'ticket-patch',
+        ticketNumber,
+        patch: { ...patch, updatedAt: updated.updatedAt },
+      } satisfies TicketPatchRecord)
+      return updated
+    },
+
+    async searchTickets(query, limit) {
+      await load()
+      return searchIn([...tickets.values()], ticketMessages, query, limit)
+    },
+
+    async addTicketMessage(draft) {
+      await load()
+      const message: TicketMessage = { ...draft, id: newMessageId() }
+      const thread = ticketMessages.get(draft.ticketNumber) ?? []
+      thread.push(message)
+      ticketMessages.set(draft.ticketNumber, thread)
+      await append(ticketsLog, { kind: 'ticket-message', message } satisfies TicketMessageRecord)
+
+      const ticket = tickets.get(draft.ticketNumber)
+      if (ticket) {
+        const patch = { lastMessageAt: message.createdAt, updatedAt: message.createdAt }
+        tickets.set(draft.ticketNumber, { ...ticket, ...patch })
+        await append(ticketsLog, {
+          kind: 'ticket-patch',
+          ticketNumber: draft.ticketNumber,
+          patch,
+        } satisfies TicketPatchRecord)
+      }
+
+      return message
+    },
+
+    async listTicketMessages(ticketNumber, listOptions = {}) {
+      await load()
+      const thread = [...(ticketMessages.get(ticketNumber) ?? [])].sort((a, b) =>
+        a.createdAt.localeCompare(b.createdAt),
+      )
+      return paginate(thread, listOptions, (message) => message.id)
     },
   }
 }

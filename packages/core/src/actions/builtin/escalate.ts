@@ -17,11 +17,25 @@ export interface EscalateOptions {
   /** Extra fields to gather before opening the ticket. */
   fields?: ActionField[]
   /**
+   * Opens the ticket on the built-in help desk. Supply this instead of
+   * `createTicket` when you want routing, assignment and a thread rather than
+   * just a webhook into somebody else's system.
+   */
+  helpdesk?: {
+    openTicket(input: {
+      subject: string
+      description: string
+      customer: { name?: string; email?: string }
+      conversationId?: string
+      metadata?: Record<string, unknown>
+    }): Promise<{ ticketNumber: number }>
+  }
+  /**
    * Where the ticket goes. Return an id or reference the customer can quote.
    * Any help desk works: Zendesk, Freshdesk, Intercom, Linear, a database, an
    * email to your support alias.
    */
-  createTicket(ticket: Ticket, ctx: ActionContext): Promise<{ id?: string } | void> | { id?: string } | void
+  createTicket?(ticket: Ticket, ctx: ActionContext): Promise<{ id?: string } | void> | { id?: string } | void
   /** Said to the customer once the ticket exists. */
   confirmation?: string
   /** Keeps it off the agent's own initiative; only a procedure can call it. */
@@ -72,23 +86,40 @@ export function escalate(options: EscalateOptions): Action {
     async execute(input: ActionInput, ctx) {
       const priority = String(input.priority ?? 'normal')
 
-      const result = await options.createTicket(
-        {
-          subject: String(input.subject ?? 'Support request'),
-          body: String(input.body ?? ''),
-          priority: (['low', 'normal', 'high', 'urgent'] as const).includes(
-            priority as 'low' | 'normal' | 'high' | 'urgent',
-          )
-            ? (priority as 'low' | 'normal' | 'high' | 'urgent')
-            : 'normal',
-          email: input.email ? String(input.email) : ctx.contact?.email,
-          name: input.name ? String(input.name) : ctx.contact?.name,
-          conversationId: ctx.conversationId,
-        },
-        ctx,
-      )
+      const ticket: Ticket = {
+        subject: String(input.subject ?? 'Support request'),
+        body: String(input.body ?? ''),
+        priority: (['low', 'normal', 'high', 'urgent'] as const).includes(
+          priority as 'low' | 'normal' | 'high' | 'urgent',
+        )
+          ? (priority as 'low' | 'normal' | 'high' | 'urgent')
+          : 'normal',
+        email: input.email ? String(input.email) : ctx.contact?.email,
+        name: input.name ? String(input.name) : ctx.contact?.name,
+        conversationId: ctx.conversationId,
+      }
 
-      const id = result && typeof result === 'object' ? result.id : undefined
+      let id: string | undefined
+
+      if (options.helpdesk) {
+        const opened = await options.helpdesk.openTicket({
+          subject: ticket.subject,
+          description: ticket.body,
+          customer: { name: ticket.name, email: ticket.email },
+          conversationId: ticket.conversationId,
+          metadata: { priority: ticket.priority },
+        })
+        id = String(opened.ticketNumber)
+      }
+
+      if (options.createTicket) {
+        const result = await options.createTicket(ticket, ctx)
+        if (result && typeof result === 'object' && result.id) id = result.id
+      }
+
+      if (!options.helpdesk && !options.createTicket) {
+        throw new Error('escalate needs either a helpdesk or a createTicket handler')
+      }
       const message =
         options.confirmation ??
         (id

@@ -7,6 +7,8 @@ import type {
   Store,
   StoredMessage,
 } from './types.js'
+import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
+import { newMessageId, pageTickets, searchIn } from './tickets.js'
 
 export interface MemoryStoreOptions {
   /** Conversations kept before the oldest are dropped. */
@@ -27,6 +29,9 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
   const conversations = new Map<string, Conversation>()
   const messages = new Map<string, StoredMessage[]>()
   const leads: Lead[] = []
+  const tickets = new Map<number, Ticket>()
+  const ticketMessages = new Map<number, TicketMessage[]>()
+  let nextTicketNumber = 1
 
   function evictIfNeeded() {
     while (conversations.size > maxConversations) {
@@ -104,6 +109,63 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
         messages,
         leads.filter((lead) => withinRange(lead.createdAt, options)),
       )
+    },
+
+    async createTicket(draft) {
+      const ticket: Ticket = { ...draft, ticketNumber: nextTicketNumber++ }
+      tickets.set(ticket.ticketNumber, ticket)
+      return ticket
+    },
+
+    async getTicket(ticketNumber) {
+      return tickets.get(ticketNumber) ?? null
+    },
+
+    async listTickets(filter: TicketFilter = {}) {
+      return pageTickets([...tickets.values()], filter)
+    },
+
+    async updateTicket(ticketNumber, patch) {
+      const existing = tickets.get(ticketNumber)
+      if (!existing) return null
+      const updated: Ticket = {
+        ...existing,
+        ...patch,
+        ticketNumber,
+        updatedAt: new Date().toISOString(),
+      }
+      tickets.set(ticketNumber, updated)
+      return updated
+    },
+
+    async searchTickets(query, limit) {
+      return searchIn([...tickets.values()], ticketMessages, query, limit)
+    },
+
+    async addTicketMessage(draft) {
+      const message: TicketMessage = { ...draft, id: newMessageId() }
+      const thread = ticketMessages.get(draft.ticketNumber) ?? []
+      thread.push(message)
+      ticketMessages.set(draft.ticketNumber, thread)
+
+      // A reply is the freshest activity on the ticket, and queues sort by it.
+      const ticket = tickets.get(draft.ticketNumber)
+      if (ticket) {
+        tickets.set(draft.ticketNumber, {
+          ...ticket,
+          lastMessageAt: message.createdAt,
+          updatedAt: message.createdAt,
+        })
+      }
+
+      return message
+    },
+
+    async listTicketMessages(ticketNumber, options = {}) {
+      const thread = [...(ticketMessages.get(ticketNumber) ?? [])].sort((a, b) =>
+        a.createdAt.localeCompare(b.createdAt),
+      )
+      return paginate(thread, options, (message) => message.id)
     },
   }
 }

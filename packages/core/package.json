@@ -69,6 +69,10 @@
     "./procedures": {
       "types": "./dist/procedures/index.d.ts",
       "import": "./dist/procedures/index.js"
+    },
+    "./helpdesk": {
+      "types": "./dist/helpdesk/index.d.ts",
+      "import": "./dist/helpdesk/index.js"
     }
   },
   "scripts": {

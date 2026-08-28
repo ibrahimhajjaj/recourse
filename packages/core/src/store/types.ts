@@ -1,5 +1,6 @@
 import type { SourceRef } from '../types.js'
 import type { Contact } from '../actions/types.js'
+import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 
 /**
  * Persistence for everything a conversation leaves behind.
@@ -78,6 +79,21 @@ export interface Store {
 
   /** Aggregates for the analytics view. */
   stats(options?: ListOptions): Promise<Stats>
+
+  /**
+   * Tickets. Kept on the same store as conversations so there is one thing to
+   * configure and one thing to swap, and so a ticket can point back at the
+   * conversation that produced it without a join across two systems.
+   */
+  createTicket(ticket: Omit<Ticket, 'ticketNumber'>): Promise<Ticket>
+  getTicket(ticketNumber: number): Promise<Ticket | null>
+  listTickets(filter?: TicketFilter): Promise<Page<Ticket>>
+  updateTicket(ticketNumber: number, patch: Partial<Ticket>): Promise<Ticket | null>
+  /** Free-text search across a ticket's subject, description and messages. */
+  searchTickets(query: string, limit?: number): Promise<Ticket[]>
+
+  addTicketMessage(message: Omit<TicketMessage, 'id'>): Promise<TicketMessage>
+  listTicketMessages(ticketNumber: number, options?: ListOptions): Promise<Page<TicketMessage>>
 }
 
 export interface Stats {
