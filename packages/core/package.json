@@ -65,6 +65,10 @@
     "./store": {
       "types": "./dist/store/index.d.ts",
       "import": "./dist/store/index.js"
+    },
+    "./procedures": {
+      "types": "./dist/procedures/index.d.ts",
+      "import": "./dist/procedures/index.js"
     }
   },
   "scripts": {

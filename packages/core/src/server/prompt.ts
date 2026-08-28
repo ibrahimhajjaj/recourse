@@ -27,13 +27,31 @@ export interface ActionOutcome {
   output: unknown
 }
 
-export function buildInstructions(
-  persona: PersonaOptions,
-  matches: Match[],
-  actions: Action[] = [],
+export interface InstructionOptions {
+  persona?: PersonaOptions
+  matches: Match[]
+  /** Actions the agent may call on its own initiative. */
+  actions?: Action[]
+  /** Rendered procedure text, already resolved. Empty when there are none. */
+  procedures?: string
   /** Results of actions the browser ran on the agent's behalf. */
-  clientResults: ActionOutcome[] = [],
-): string {
+  clientResults?: ActionOutcome[]
+}
+
+/**
+ * Builds the system prompt.
+ *
+ * Grouped into named sections because the ordering matters more than the
+ * wording: rules first, then what the agent can do, then the procedures that
+ * override its judgment, then the evidence. A model reading this top to bottom
+ * meets its constraints before it meets its options.
+ */
+export function buildInstructions(options: InstructionOptions): string {
+  const persona = options.persona ?? {}
+  const matches = options.matches
+  const actions = options.actions ?? []
+  const clientResults = options.clientResults ?? []
+
   const name = persona.name ?? 'the support assistant'
   const business = persona.business ? ` for ${persona.business}` : ''
   const fallback = persona.fallback ?? DEFAULT_FALLBACK
@@ -57,19 +75,30 @@ export function buildInstructions(
     '- Reply in the language the customer wrote in.',
   ]
 
-  if (actions.length > 0) {
+  // Procedure-only actions are described inside their procedure, not here, so
+  // the agent has no standing invitation to reach for them.
+  const openActions = actions.filter((action) => !action.procedureOnly)
+
+  if (openActions.length > 0) {
     lines.push(
       '',
       'Using your actions:',
-      // Models narrate tool use by default, which reads like a machine talking
-      // to itself rather than a support agent helping someone.
       '- Do not announce that you are about to use one, and do not mention their names. Use it, then reply as if you simply knew.',
       '- Ask the customer for anything an action needs that you do not have. Never guess an email address, an order number or an amount.',
       '- One action at a time. Read what it returns before deciding on the next.',
       '- If an action fails, say plainly what did not work and offer the next best step. Do not retry it more than once.',
       '',
       'Your actions:',
-      ...actions.map((action) => `- ${action.name}: ${action.whenToUse}`),
+      ...openActions.map((action) => `- ${action.name}: ${action.whenToUse}`),
+    )
+  }
+
+  if (options.procedures) {
+    lines.push(
+      '',
+      options.procedures,
+      '',
+      'A procedure overrides your own judgment about what to do next. Where one applies, follow it.',
     )
   }
 
@@ -80,9 +109,7 @@ export function buildInstructions(
     lines.push(
       '',
       'You asked the page to run these, and it returned:',
-      ...clientResults.map(
-        (result) => `- ${result.name} -> ${safeJson(result.output)}`,
-      ),
+      ...clientResults.map((result) => `- ${result.name} -> ${safeJson(result.output)}`),
       'Use these results to answer now. Do not call them again.',
     )
   }
@@ -95,6 +122,15 @@ export function buildInstructions(
   )
 
   return lines.join('\n')
+}
+
+/** Bounded, because a browser can return anything and it all costs context. */
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value).slice(0, 2000)
+  } catch {
+    return String(value).slice(0, 2000)
+  }
 }
 
 /**
@@ -117,15 +153,6 @@ export function toSourceRefs(matches: Match[]): SourceRef[] {
       section: deepest && deepest !== match.chunk.title ? deepest : undefined,
     }
   })
-}
-
-/** Bounded, because a browser can return anything and it all costs context. */
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value).slice(0, 2000)
-  } catch {
-    return String(value).slice(0, 2000)
-  }
 }
 
 /** The question on its own, which is what most turns should retrieve on. */

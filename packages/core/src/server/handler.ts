@@ -2,6 +2,7 @@ import type { LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, StreamFrame } from '../types.js'
 import type { Store } from '../store/types.js'
 import type { Action } from '../actions/types.js'
+import type { Procedure } from '../procedures/types.js'
 import { createAgent } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
@@ -47,6 +48,8 @@ export interface ChatHandlerOptions {
   actions?: Action[]
   /** Model round trips allowed per question. Each action call costs one. */
   maxSteps?: number
+  /** Standard operating procedures the agent follows on matching conversations. */
+  procedures?: Procedure[]
 }
 
 export interface ConversationEvent {
@@ -83,6 +86,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     store: options.store,
     actions: options.actions,
     maxSteps: options.maxSteps,
+    procedures: options.procedures,
   })
 
   return async function handle(request: Request): Promise<Response> {

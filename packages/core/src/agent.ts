@@ -3,6 +3,8 @@ import type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame }
 import { actionsToTools } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
 import type { Channel, Store, StoredMessage } from './store/types.js'
+import { renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
+import type { Procedure } from './procedures/types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
@@ -45,6 +47,12 @@ export interface AgentOptions {
   store?: Store
   /** Where this conversation is happening. Used for per-channel analytics. */
   channel?: Channel
+  /**
+   * Standard operating procedures the agent follows when their trigger matches.
+   * Procedures referencing an action this agent does not have are dropped, so
+   * the agent never gets halfway through one and improvises the rest.
+   */
+  procedures?: Procedure[]
 }
 
 export interface StreamOptions {
@@ -106,6 +114,15 @@ export function createAgent(options: AgentOptions) {
   const retriever = createRetriever({ index, embedder, topK: options.topK })
   const actions = options.actions ?? []
   const maxSteps = options.maxSteps ?? 6
+
+  // Resolved once at construction: which procedures this agent can actually
+  // run, and which procedure-only actions they unlock.
+  const { usable: procedures, dropped } = usableProcedures(options.procedures ?? [], actions)
+  const unlocked = unlockedBy(procedures)
+
+  for (const { name, missing } of dropped) {
+    console.warn(`[helpdeck] procedure "${name}" disabled: no action named ${missing.join(', ')}`)
+  }
 
   /**
    * The question on its own first. Only a question that finds nothing gets the
@@ -182,10 +199,16 @@ export function createAgent(options: AgentOptions) {
 
     const result = streamText({
       model,
-      instructions: buildInstructions(options.persona ?? {}, matches, actions, call.clientResults ?? []),
+      instructions: buildInstructions({
+        persona: options.persona,
+        matches,
+        actions,
+        procedures: renderProcedures(procedures, { contact }),
+        clientResults: call.clientResults,
+      }),
       messages: messages.map((message) => ({ role: message.role, content: message.content })),
       abortSignal: signal,
-      tools: actionsToTools(actions, { context }),
+      tools: actionsToTools(actions, { context, unlocked }),
       // Without this the turn ends the moment a tool is called, and the
       // customer gets an action but no answer explaining what happened.
       stopWhen: stepCountIs(maxSteps),

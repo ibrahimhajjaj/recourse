@@ -70,7 +70,7 @@ function post(body: unknown, headers: Record<string, string> = {}): Request {
 
 describe('prompt', () => {
   it('gives the model an explicit way to say it does not know', async () => {
-    const instructions = buildInstructions({ fallback: 'I cannot help with that.' }, [])
+    const instructions = buildInstructions({ persona: { fallback: 'I cannot help with that.' }, matches: [] })
     expect(instructions).toContain('I cannot help with that.')
     expect(instructions).toContain('nothing in the documentation matched')
   })
@@ -78,7 +78,7 @@ describe('prompt', () => {
   it('numbers the sources so citations line up', async () => {
     const retriever = createRetriever({ index: await index() })
     const matches = await retriever.retrieve('refund')
-    const instructions = buildInstructions({ business: 'Acme' }, matches)
+    const instructions = buildInstructions({ persona: { business: 'Acme' }, matches })
     expect(instructions).toContain('for Acme')
     expect(instructions).toContain('[1]')
   })

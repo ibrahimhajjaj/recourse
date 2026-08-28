@@ -147,7 +147,7 @@ async function runAsk(question: string, flags: Record<string, string | boolean>)
 
   const result = streamText({
     model: typeof flags.model === 'string' ? flags.model : 'openai/gpt-4o-mini',
-    instructions: buildInstructions({}, matches),
+    instructions: buildInstructions({ matches }),
     messages: [{ role: 'user', content: question }],
   })
 

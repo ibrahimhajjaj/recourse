@@ -69,6 +69,16 @@ export {
   type IdentityClaim,
 } from './identity.js'
 
+export {
+  defineProcedure,
+  renderProcedures,
+  resolveVariables,
+  referencedActions,
+  usableProcedures,
+  unlockedBy,
+} from './procedures/index.js'
+export type { Procedure, Step, Decision, Branch, VariableScope } from './procedures/index.js'
+
 export { memoryStore, fileStore, computeStats, paginate } from './store/index.js'
 export type {
   Store,
