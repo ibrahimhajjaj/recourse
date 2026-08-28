@@ -1,6 +1,7 @@
 import type { LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, StreamFrame } from '../types.js'
 import type { Store } from '../store/types.js'
+import type { Action } from '../actions/types.js'
 import { createAgent } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
@@ -39,6 +40,13 @@ export interface ChatHandlerOptions {
   identity?: IdentityOptions
   /** Records transcripts, leads and answer gaps. */
   store?: Store
+  /**
+   * What the agent can do besides answer. Without these it is a search box
+   * that talks.
+   */
+  actions?: Action[]
+  /** Model round trips allowed per question. Each action call costs one. */
+  maxSteps?: number
 }
 
 export interface ConversationEvent {
@@ -73,6 +81,8 @@ export function createChatHandler(options: ChatHandlerOptions) {
     topK: options.topK,
     embedder: options.embedder,
     store: options.store,
+    actions: options.actions,
+    maxSteps: options.maxSteps,
   })
 
   return async function handle(request: Request): Promise<Response> {

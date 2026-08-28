@@ -40,8 +40,23 @@ export { serializeIndex, parseIndex } from './knowledge/serialize.js'
 export { tokenize } from './knowledge/tokenize.js'
 
 export { markdownChunker, type MarkdownChunkerOptions } from './chunk/index.js'
-export { websiteSource, filesSource, textSource, scrape } from './sources/index.js'
-export type { WebsiteSourceOptions, FilesSourceOptions } from './sources/index.js'
+export {
+  websiteSource,
+  filesSource,
+  textSource,
+  qnaSource,
+  scrape,
+  parsePdf,
+  parseDocx,
+} from './sources/index.js'
+export type {
+  WebsiteSourceOptions,
+  FilesSourceOptions,
+  QnaPair,
+  QnaSourceOptions,
+  DocumentParser,
+  ParserRegistry,
+} from './sources/index.js'
 
 export { createRetriever, fuse, type RetrieverOptions } from './retrieve/index.js'
 export { createEmbedder, canReachGateway, type EmbedderOptions } from './embed.js'

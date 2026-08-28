@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
 import type { Document, Source } from '../types.js'
+import { DEFAULT_PARSERS, type ParserRegistry } from './documents.js'
 
 export interface FilesSourceOptions {
   /** Directory to walk, or a single file. */
@@ -9,9 +10,17 @@ export interface FilesSourceOptions {
   extensions?: string[]
   /** Directory names skipped anywhere in the tree. */
   ignore?: string[]
+  /**
+   * Readers for binary formats, by extension. PDF and DOCX are handled out of
+   * the box once their optional parser packages are installed.
+   */
+  parsers?: ParserRegistry
+  /** Files larger than this are skipped. 20MB by default. */
+  maxBytes?: number
 }
 
-const DEFAULT_EXTENSIONS = ['.md', '.mdx', '.txt', '.markdown']
+const DEFAULT_EXTENSIONS = ['.md', '.mdx', '.txt', '.markdown', '.pdf', '.docx']
+const DEFAULT_MAX_BYTES = 20 * 1024 * 1024
 const DEFAULT_IGNORE = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage']
 
 /**
@@ -21,6 +30,8 @@ const DEFAULT_IGNORE = ['node_modules', '.git', 'dist', 'build', '.next', 'cover
 export function filesSource(options: FilesSourceOptions): Source {
   const extensions = new Set(options.extensions ?? DEFAULT_EXTENSIONS)
   const ignore = new Set(options.ignore ?? DEFAULT_IGNORE)
+  const parsers = { ...DEFAULT_PARSERS, ...options.parsers }
+  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES
 
   return {
     name: 'files',
@@ -33,10 +44,32 @@ export function filesSource(options: FilesSourceOptions): Source {
       report({ phase: 'fetch', message: `reading ${wanted.length} files`, done: 0, total: wanted.length })
 
       const documents: Document[] = []
+
       for (const file of wanted) {
-        const text = await readFile(file, 'utf8')
-        if (text.trim().length < 40) continue
         const id = relative(root, file) || file
+        const info = await stat(file)
+
+        if (info.size > maxBytes) {
+          report({ phase: 'fetch', message: `skipped ${id}, larger than ${maxBytes} bytes` })
+          continue
+        }
+
+        const extension = extname(file).toLowerCase()
+        const parser = parsers[extension]
+
+        let text: string
+        try {
+          text = parser ? await parser(new Uint8Array(await readFile(file))) : await readFile(file, 'utf8')
+        } catch (error) {
+          // One unreadable file should not abandon the whole ingest.
+          report({
+            phase: 'fetch',
+            message: `skipped ${id}: ${error instanceof Error ? error.message : String(error)}`,
+          })
+          continue
+        }
+
+        if (text.trim().length < 40) continue
         documents.push({ id, title: titleOf(text, id), text })
         report({ phase: 'fetch', message: id, done: documents.length, total: wanted.length })
       }
