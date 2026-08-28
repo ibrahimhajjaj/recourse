@@ -22,6 +22,8 @@ export interface HttpActionOptions {
   allowFields?: string[]
   /** Caps what comes back, because every byte lands in the context window. */
   maxBytes?: number
+  /** Keeps it off the agent's own initiative; only a procedure can call it. */
+  procedureOnly?: boolean
 }
 
 const DEFAULT_MAX_BYTES = 20_000
@@ -41,6 +43,7 @@ export function httpAction(options: HttpActionOptions): Action {
     name: options.name,
     whenToUse: options.whenToUse,
     collect: options.collect,
+    procedureOnly: options.procedureOnly,
 
     async execute(input: ActionInput, ctx) {
       const url = interpolate(options.url, input, true)

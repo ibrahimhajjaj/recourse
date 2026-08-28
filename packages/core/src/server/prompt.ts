@@ -84,6 +84,9 @@ export function buildInstructions(options: InstructionOptions): string {
       '',
       'Using your actions:',
       '- Do not announce that you are about to use one, and do not mention their names. Use it, then reply as if you simply knew.',
+      // Small models in particular will write the call out as text when they
+      // cannot manage the real thing, and the customer sees the machinery.
+      '- Never write an action name, its arguments, or a line like "action_name: ..." into your reply. Either call the action properly or leave it out.',
       '- Ask the customer for anything an action needs that you do not have. Never guess an email address, an order number or an amount.',
       '- One action at a time. Read what it returns before deciding on the next.',
       '- If an action fails, say plainly what did not work and offer the next best step. Do not retry it more than once.',

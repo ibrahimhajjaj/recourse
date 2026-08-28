@@ -5,6 +5,8 @@ export interface ClientActionOptions {
   name: string
   whenToUse: string
   collect?: ActionField[]
+  /** Keeps it off the agent's own initiative; only a procedure can call it. */
+  procedureOnly?: boolean
 }
 
 /**
@@ -20,6 +22,7 @@ export function clientAction(options: ClientActionOptions): Action {
     name: options.name,
     whenToUse: options.whenToUse,
     collect: options.collect,
+    procedureOnly: options.procedureOnly,
     runs: 'client',
   })
 }

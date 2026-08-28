@@ -65,6 +65,8 @@ export interface CollectDataOptions {
   onData?(values: Record<string, unknown>, ctx: ActionContext): Promise<void> | void
   /** Told to the agent to say once the data is in. */
   confirmation?: string
+  /** Keeps it off the agent's own initiative; only a procedure can call it. */
+  procedureOnly?: boolean
 }
 
 /** The general form of lead capture: any set of fields, gathered in chat. */
@@ -73,6 +75,7 @@ export function collectData(options: CollectDataOptions): Action {
     name: options.name,
     whenToUse: options.whenToUse,
     collect: options.fields,
+    procedureOnly: options.procedureOnly,
     async execute(input: ActionInput, ctx) {
       const values = clean(input)
       await options.onData?.(values, ctx)

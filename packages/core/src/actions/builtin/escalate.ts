@@ -24,6 +24,8 @@ export interface EscalateOptions {
   createTicket(ticket: Ticket, ctx: ActionContext): Promise<{ id?: string } | void> | { id?: string } | void
   /** Said to the customer once the ticket exists. */
   confirmation?: string
+  /** Keeps it off the agent's own initiative; only a procedure can call it. */
+  procedureOnly?: boolean
 }
 
 const BASE_FIELDS: ActionField[] = [
@@ -65,6 +67,7 @@ export function escalate(options: EscalateOptions): Action {
         'dispute, account or security issue, or asks something the documentation does not answer. ' +
         'Prefer escalating over guessing. Gather the subject and details first, then call this once.',
     collect: [...BASE_FIELDS, ...(options.fields ?? [])],
+    procedureOnly: options.procedureOnly,
 
     async execute(input: ActionInput, ctx) {
       const priority = String(input.priority ?? 'normal')

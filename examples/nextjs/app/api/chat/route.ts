@@ -1,5 +1,13 @@
 import { createChatHandler } from 'helpdeck/server'
-import { clientAction, collectLeads, escalate, memoryStore, suggestedMessages } from 'helpdeck'
+import {
+  clientAction,
+  collectLeads,
+  defineProcedure,
+  escalate,
+  httpAction,
+  memoryStore,
+  suggestedMessages,
+} from 'helpdeck'
 import type { KnowledgeIndex } from 'helpdeck'
 import knowledge from '../../../lib/knowledge.json'
 import { resolveEmbedder, resolveModel } from '../../../lib/model'
@@ -45,10 +53,46 @@ const handler = createChatHandler({
 
     // Runs in the visitor's browser, because only the page knows what is in
     // the basket. The server never sees the cart, it just gets the answer.
+    // Procedure-only: the agent is never told this exists, so it cannot decide
+    // on its own to look up somebody's order.
+    httpAction({
+      name: 'lookup_order',
+      whenToUse: 'Look up an order by its number.',
+      procedureOnly: true,
+      collect: [{ name: 'orderNumber', type: 'string', description: 'The order number, like LUM-1234.' }],
+      url: 'http://localhost:3000/api/orders/{{orderNumber}}',
+      allowFields: ['orderNumber', 'placedAt', 'weightKg', 'status', 'wholesale'],
+    }),
+
     clientAction({
       name: 'read_basket',
       whenToUse:
         "Use when the customer asks what is in their basket, what they are about to buy, or what their order total is.",
+    }),
+  ],
+
+  procedures: [
+    defineProcedure({
+      name: 'Return or refund request',
+      trigger: 'The customer wants to return an order, get a refund, or send something back',
+      steps: [
+        'Ask for the order number if you do not already have it, and nothing else yet.',
+        'Call @lookup_order with that order number.',
+        {
+          branches: [
+            {
+              if: 'the order is wholesale or over 5kg',
+              then: 'Explain it is roasted to order and final sale, and offer a replacement if it arrived damaged.',
+            },
+            {
+              if: 'the order was delivered within the last 30 days',
+              then: 'Confirm it qualifies and tell them the refund lands in three to five working days.',
+            },
+          ],
+          otherwise: 'Explain the 30 day window has passed, then call @escalate_to_human so a person can decide.',
+        },
+        'Summarise what happens next in one sentence.',
+      ],
     }),
   ],
 
