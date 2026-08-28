@@ -4,6 +4,7 @@ import { actionsToTools } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
 import type { Channel, Store, StoredMessage } from './store/types.js'
 import { renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
+import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
@@ -53,6 +54,8 @@ export interface AgentOptions {
    * the agent never gets halfway through one and improvises the rest.
    */
   procedures?: Procedure[]
+  /** Notifies other systems as things happen. */
+  webhooks?: Webhooks
 }
 
 export interface StreamOptions {
@@ -190,6 +193,7 @@ export function createAgent(options: AgentOptions) {
       contact,
       signal,
       store: options.store,
+      webhooks: options.webhooks,
       emit: (frame) => pending.push(frame),
     }
 
@@ -265,6 +269,16 @@ export function createAgent(options: AgentOptions) {
       }
       if (ran.length > 0) record.actions = ran
       await store.appendMessage(conversationId, record, { channel, contact })
+    }
+
+    if (!saidNothing) {
+      options.webhooks?.emit(matches.length === 0 ? 'conversation.unanswered' : 'conversation.answered', {
+        conversationId,
+        channel,
+        question,
+        answer: answered,
+        sources: toSourceRefs(matches),
+      })
     }
 
     if (failure) yield { type: 'error', message: failure }

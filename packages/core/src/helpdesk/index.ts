@@ -1,6 +1,15 @@
 export { createHelpdesk, type Helpdesk, type HelpdeskOptions, type OpenTicketInput } from './service.js'
 export { DEFAULT_STATUSES, defaultStatusFor, validateStatuses } from './statuses.js'
 export { routeTicket, type RoutingRule, type RoutingCondition, type RoutingResult } from './routing.js'
+export {
+  evaluateTriggers,
+  defaultViews,
+  type Trigger,
+  type TriggerCondition,
+  type TriggerAction,
+  type FiredTrigger,
+  type SavedView,
+} from './triggers.js'
 export { assignTicket, loadOf, type AssignmentAlgorithm, type Availability, type AssignOptions } from './assignment.js'
 export {
   STATUS_CATEGORIES,

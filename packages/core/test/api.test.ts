@@ -297,3 +297,33 @@ describe('error handling', () => {
     expect(JSON.stringify(body)).not.toContain('srv/db.js')
   })
 })
+
+describe('saved views and drafts over the api', () => {
+  it('lists the saved views', async () => {
+    const { handle } = setup()
+    const data = (await bodyOf(await handle(get('/helpdesk/views')))).data
+    expect(data.map((view: any) => view.id)).toContain('unassigned')
+  })
+
+  it('runs a view as a queue', async () => {
+    const { handle, helpdesk } = setup()
+    await helpdesk!.openTicket({ subject: 'a', description: 'b', customer: {}, teamId: 'nobody' })
+
+    const data = (await bodyOf(await handle(get('/helpdesk/views/unassigned')))).data
+    expect(data).toHaveLength(1)
+  })
+
+  it('404s a view that does not exist', async () => {
+    const { handle } = setup()
+    expect((await handle(get('/helpdesk/views/invented'))).status).toBe(404)
+  })
+
+  it('explains that drafting needs an agent, rather than failing opaquely', async () => {
+    const { handle, helpdesk } = setup()
+    await helpdesk!.openTicket({ subject: 'a', description: 'b', customer: {} })
+
+    const response = await handle(send('POST', '/helpdesk/tickets/1/draft', {}))
+    expect(response.status).toBe(501)
+    expect((await bodyOf(response)).error.code).toBe('drafting_unavailable')
+  })
+})

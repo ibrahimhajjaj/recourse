@@ -85,6 +85,8 @@ export {
   defaultStatusFor,
   validateStatuses,
   routeTicket,
+  evaluateTriggers,
+  defaultViews,
   assignTicket,
   loadOf,
   STATUS_CATEGORIES,
@@ -96,6 +98,10 @@ export type {
   OpenTicketInput,
   RoutingRule,
   RoutingCondition,
+  Trigger,
+  TriggerCondition,
+  TriggerAction,
+  SavedView,
   AssignmentAlgorithm,
   Availability,
   StatusCategory,
@@ -109,6 +115,9 @@ export type {
 } from './helpdesk/index.js'
 
 export { createApiHandler, type ApiOptions } from './api/index.js'
+
+export { createWebhooks, signWebhook, verifyWebhook } from './webhooks/index.js'
+export type { Webhooks, WebhookOptions, WebhookEndpoint, WebhookEvent, WebhookDelivery } from './webhooks/index.js'
 
 export {
   whatsappChannel,

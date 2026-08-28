@@ -51,6 +51,7 @@ export function collectLeads(options: CollectLeadsOptions): Action {
       })
 
       await options.onLead?.(values, ctx)
+      ctx.webhooks?.emit('lead.captured', { conversationId: ctx.conversationId, values })
       ctx.emit({ type: 'captured', kind: 'lead', name: 'lead', values })
       return { saved: true, message: 'Lead recorded. Thank the customer and say someone will follow up.' }
     },

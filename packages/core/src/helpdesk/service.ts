@@ -1,4 +1,7 @@
 import type { Store } from '../store/types.js'
+import type { Webhooks } from '../webhooks/index.js'
+import type { Agent } from '../agent.js'
+import { defaultViews, evaluateTriggers, type SavedView, type Trigger } from './triggers.js'
 import type { Channel } from '../store/types.js'
 import { assignTicket, loadOf, type AssignmentAlgorithm } from './assignment.js'
 import { routeTicket, type RoutingRule } from './routing.js'
@@ -26,6 +29,17 @@ export interface HelpdeskOptions {
   onTicketOpened?: (ticket: Ticket) => void | Promise<void>
   /** Fires whenever a ticket changes, with the fields that changed. */
   onTicketUpdated?: (ticket: Ticket, patch: Partial<Ticket>) => void | Promise<void>
+  /** Announces ticket events to other systems. */
+  webhooks?: Webhooks
+  /** Housekeeping rules that run when a ticket is created or changed. */
+  triggers?: Trigger[]
+  /** Named filters an agent can switch between. Defaults to three common ones. */
+  views?: SavedView[]
+  /**
+   * Lets an agent draft a reply for a human to review. The same agent that
+   * answers the widget, so a drafted reply cites the same documentation.
+   */
+  agent?: Agent
 }
 
 export interface OpenTicketInput {
@@ -58,6 +72,52 @@ export function createHelpdesk(options: HelpdeskOptions) {
 
   /** Round robin needs to remember where it stopped. */
   let lastAssignedId: string | undefined
+
+  const triggers = options.triggers ?? []
+  const views = options.views ?? defaultViews()
+
+  /**
+   * Applies whatever the rules decided.
+   *
+   * Runs after the ticket exists rather than on the draft, because a rule can
+   * reasonably depend on the number, the assignee, or the routing decision.
+   */
+  async function runTriggers(ticket: Ticket, event: 'created' | 'updated'): Promise<Ticket> {
+    const fired = evaluateTriggers(ticket, triggers, event)
+    if (fired.length === 0) return ticket
+
+    let current = ticket
+
+    for (const { name, action } of fired) {
+      const patch: Partial<Ticket> = {}
+
+      if (action.setStatusCategory) {
+        const status = defaultStatusFor(action.setStatusCategory, statuses)
+        if (status) {
+          patch.statusId = status.id
+          patch.statusCategory = status.category
+        }
+      }
+      if (action.setTeamId !== undefined) patch.teamId = action.setTeamId
+      if (action.setAssigneeId !== undefined) patch.assigneeId = action.setAssigneeId ?? undefined
+      if (action.setMetadata) patch.metadata = { ...current.metadata, ...action.setMetadata }
+
+      if (Object.keys(patch).length > 0) {
+        current = (await store.updateTicket(current.ticketNumber, patch)) ?? current
+      }
+
+      await store.addTicketMessage({
+        ticketNumber: current.ticketNumber,
+        type: 'event',
+        sender: { type: 'system' },
+        content: action.addNote ?? `Trigger "${name}" ran.`,
+        createdAt: new Date().toISOString(),
+        metadata: { event: 'trigger', trigger: name },
+      })
+    }
+
+    return current
+  }
 
   async function openTicket(input: OpenTicketInput): Promise<Ticket> {
     const now = new Date().toISOString()
@@ -113,8 +173,11 @@ export function createHelpdesk(options: HelpdeskOptions) {
       metadata: { event: 'opened', rule: routed.rule, teamId: ticket.teamId, assigneeId: ticket.assigneeId },
     })
 
-    await options.onTicketOpened?.(ticket)
-    return ticket
+    const afterTriggers = await runTriggers(ticket, 'created')
+
+    options.webhooks?.emit('ticket.opened', { ticket: afterTriggers })
+    await options.onTicketOpened?.(afterTriggers)
+    return afterTriggers
   }
 
   async function update(
@@ -155,6 +218,7 @@ export function createHelpdesk(options: HelpdeskOptions) {
       })
     }
 
+    options.webhooks?.emit('ticket.updated', { ticket: updated, changed: resolved })
     await options.onTicketUpdated?.(updated, resolved)
     return updated
   }
@@ -205,6 +269,54 @@ export function createHelpdesk(options: HelpdeskOptions) {
 
     statuses: () => statuses,
     teams: () => teams,
+    views: () => views,
+
+    /**
+     * Runs a saved view, so an agent's queue is one call rather than a filter.
+     *
+     * Async even for the "no such view" case: a function that returns a promise
+     * on success and throws synchronously on failure forces every caller to
+     * write both a try/catch and a .catch().
+     */
+    async runView(id: string) {
+      const view = views.find((candidate) => candidate.id === id)
+      if (!view) throw new Error(`no saved view called "${id}"`)
+      return store.listTickets(view.filter)
+    },
+
+    /**
+     * Drafts a reply for a human to send.
+     *
+     * Deliberately never sends it. A drafted reply is a suggestion made from
+     * the same documentation the widget uses, and the value is that a person
+     * reads it before a customer does.
+     */
+    async draftReply(ticketNumber: number): Promise<{ text: string; unanswered: boolean } | null> {
+      if (!options.agent) throw new Error('drafting needs an agent; pass one to createHelpdesk')
+
+      const ticket = await store.getTicket(ticketNumber)
+      if (!ticket) return null
+
+      const thread = await store.listTicketMessages(ticketNumber)
+      const conversation = thread.items
+        .filter((message) => message.type !== 'event')
+        .map((message) => `${message.sender.type === 'customer' ? 'Customer' : 'Agent'}: ${message.content}`)
+        .join('\n')
+
+      const question = [`Subject: ${ticket.subject}`, ticket.description, conversation]
+        .filter(Boolean)
+        .join('\n\n')
+
+      const { text, unanswered } = await options.agent.answer(question, [], {
+        // Not the ticket's own conversation: a draft is not a turn the
+        // customer had, and recording it would corrupt the transcript.
+        conversationId: `draft:${ticketNumber}`,
+        contact: { name: ticket.customer.name, email: ticket.customer.email },
+        channel: 'api',
+      })
+
+      return { text, unanswered }
+    },
   }
 }
 

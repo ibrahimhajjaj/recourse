@@ -118,6 +118,43 @@ export function createApiHandler(options: ApiOptions) {
     return helpdesk ? ok(helpdesk.statuses()) : noHelpdesk()
   })
 
+  router.get('/helpdesk/views', async () => {
+    const helpdesk = desk()
+    return helpdesk ? ok(helpdesk.views()) : noHelpdesk()
+  })
+
+  router.get('/helpdesk/views/:id', async (_request, params) => {
+    const helpdesk = desk()
+    if (!helpdesk) return noHelpdesk()
+
+    try {
+      const page = await helpdesk.runView(params.id as string)
+      return ok(page.items, { pagination: { cursor: page.cursor } })
+    } catch {
+      return notFound('view')
+    }
+  })
+
+  router.post('/helpdesk/tickets/:number/draft', async (_request, params) => {
+    const helpdesk = desk()
+    if (!helpdesk) return noHelpdesk()
+
+    const number = Number.parseInt(params.number as string, 10)
+    if (!Number.isFinite(number)) return badRequest('ticket number must be a number')
+
+    try {
+      const draft = await helpdesk.draftReply(number)
+      // A draft is never sent, so this is a read even though it is a POST.
+      return draft ? ok(draft) : notFound('ticket')
+    } catch (error) {
+      return fail(
+        'drafting_unavailable',
+        error instanceof Error ? error.message : 'could not draft a reply',
+        501,
+      )
+    }
+  })
+
   router.get('/helpdesk/tickets', async (request) => {
     const helpdesk = desk()
     if (!helpdesk) return noHelpdesk()

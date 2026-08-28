@@ -314,3 +314,154 @@ describe('the escalate action opening a real ticket', () => {
     )
   })
 })
+
+describe('triggers', () => {
+  const triggers = [
+    {
+      name: 'Flag wholesale',
+      on: ['created' as const],
+      when: { emailDomain: ['cafe.example'] },
+      then: { setMetadata: { wholesale: true }, addNote: 'Trade customer, check pricing tier.' },
+    },
+    {
+      name: 'Park delivery strikes',
+      on: ['created' as const],
+      when: { contains: ['strike'] },
+      then: { setStatusCategory: 'on_hold' as const },
+    },
+  ]
+
+  it('tags a ticket and leaves a note explaining why', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS, triggers })
+    const ticket = await desk.openTicket({
+      subject: 'Trade pricing',
+      description: 'x',
+      customer: { email: 'buyer@cafe.example' },
+    })
+
+    expect(ticket.metadata.wholesale).toBe(true)
+    const thread = await desk.listMessages(ticket.ticketNumber)
+    expect(thread.items.some((m) => m.content.includes('Trade customer'))).toBe(true)
+  })
+
+  it('moves a ticket to a different status', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS, triggers })
+    const ticket = await desk.openTicket({
+      subject: 'Where is my order',
+      description: 'I heard there is a courier strike',
+      customer: {},
+    })
+    expect(ticket.statusCategory).toBe('on_hold')
+  })
+
+  it('runs every matching rule, not just the first', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS, triggers })
+    const ticket = await desk.openTicket({
+      subject: 'Trade order delayed by the strike',
+      description: 'x',
+      customer: { email: 'buyer@cafe.example' },
+    })
+    expect(ticket.metadata.wholesale).toBe(true)
+    expect(ticket.statusCategory).toBe('on_hold')
+  })
+
+  it('leaves a ticket alone when nothing matches', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS, triggers })
+    const ticket = await desk.openTicket({ subject: 'Grind advice', description: 'x', customer: {} })
+    expect(ticket.statusCategory).toBe('new')
+    expect(ticket.metadata).toEqual({})
+  })
+})
+
+describe('saved views', () => {
+  it('ships the queues every team builds anyway', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS })
+    expect(desk.views().map((view) => view.id)).toEqual(['unassigned', 'on-us', 'on-hold'])
+  })
+
+  it('runs a view as a queue', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS })
+    await desk.openTicket({ subject: 'a', description: 'b', customer: {}, teamId: 'wholesale' })
+    await desk.openTicket({ subject: 'c', description: 'd', customer: {} })
+
+    const unassigned = await desk.runView('unassigned')
+    expect(unassigned.items.every((ticket) => !ticket.assigneeId)).toBe(true)
+    expect(unassigned.items).toHaveLength(1)
+  })
+
+  it('refuses a view that does not exist', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS })
+    await expect(desk.runView('invented')).rejects.toThrow(/no saved view/)
+  })
+})
+
+describe('AI draft replies', () => {
+  it('drafts from the ticket thread without sending anything', async () => {
+    const { MockLanguageModelV4 } = await import('ai/test')
+    const { simulateReadableStream } = await import('ai')
+    const { createAgent } = await import('../src/agent.js')
+    const { buildIndex } = await import('../src/knowledge/build.js')
+    const { textSource } = await import('../src/sources/text.js')
+
+    const index = await buildIndex({
+      sources: [
+        textSource([
+          { id: 'refunds', title: 'Refunds', text: '# Refunds\n\nWe refund any order within 30 days.' },
+        ]),
+      ],
+    })
+
+    const agent = createAgent({
+      index,
+      model: new MockLanguageModelV4({
+        doStream: async () => ({
+          stream: simulateReadableStream({
+            chunks: [
+              { type: 'text-start' as const, id: '0' },
+              { type: 'text-delta' as const, id: '0', delta: 'You are inside the 30 day window [1].' },
+              { type: 'text-end' as const, id: '0' },
+              {
+                type: 'finish' as const,
+                finishReason: { unified: 'stop', raw: 'stop' } as const,
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              },
+            ],
+            chunkDelayInMs: 0,
+          }),
+        }),
+      }),
+    })
+
+    const store = memoryStore()
+    const desk = createHelpdesk({ store, teams: TEAMS, agent })
+    const ticket = await desk.openTicket({
+      subject: 'Can I get a refund',
+      description: 'I ordered two weeks ago and it is not for me.',
+      customer: { email: 'sam@example.com' },
+    })
+
+    const draft = await desk.draftReply(ticket.ticketNumber)
+    expect(draft?.text).toContain('30 day window')
+
+    // Nothing was sent: the thread still has only the opening event.
+    const thread = await desk.listMessages(ticket.ticketNumber)
+    expect(thread.items.every((message) => message.type === 'event')).toBe(true)
+    expect((await desk.getTicket(ticket.ticketNumber))?.statusCategory).toBe('new')
+  })
+
+  it('refuses to draft without an agent, rather than returning nothing', async () => {
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS })
+    await expect(desk.draftReply(1)).rejects.toThrow(/needs an agent/)
+  })
+
+  it('returns null for a ticket that is not there', async () => {
+    const { createAgent } = await import('../src/agent.js')
+    const { buildIndex } = await import('../src/knowledge/build.js')
+    const { textSource } = await import('../src/sources/text.js')
+    const index = await buildIndex({
+      sources: [textSource([{ id: 'a', title: 'A', text: '# A\n\nSome content here for the index.' }])],
+    })
+    const desk = createHelpdesk({ store: memoryStore(), teams: TEAMS, agent: createAgent({ index }) })
+    expect(await desk.draftReply(999)).toBeNull()
+  })
+})
