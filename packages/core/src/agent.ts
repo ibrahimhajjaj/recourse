@@ -2,9 +2,10 @@ import { stepCountIs, streamText, type LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame } from './types.js'
 import { actionsToTools } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
+import type { Channel, Store, StoredMessage } from './store/types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
-import { gatewayEmbedder } from './embed.js'
+import { createEmbedder } from './embed.js'
 import { buildInstructions, contextualQuery, retrievalQuery, toSourceRefs, type PersonaOptions } from './server/prompt.js'
 
 export interface AgentOptions {
@@ -30,10 +31,21 @@ export interface AgentOptions {
   /** Who the agent is talking to, when the host knows. */
   contact?: Contact
   conversationId?: string
+  /**
+   * Records transcripts, feedback and leads. Answering works without one; the
+   * activity log, the analytics and the help desk do not.
+   */
+  store?: Store
+  /** Where this conversation is happening. Used for per-channel analytics. */
+  channel?: Channel
 }
 
 export interface StreamOptions {
   signal?: AbortSignal
+  /** Groups turns into one thread. Generated when absent. */
+  conversationId?: string
+  contact?: Contact
+  channel?: Channel
   /**
    * Receives what retrieval found, before generation starts. The frames
    * deliberately carry only display-safe citations, so this is how a caller
@@ -77,7 +89,7 @@ export function createAgent(options: AgentOptions) {
   const embedder =
     options.embedder === false || !index.vectors
       ? undefined
-      : (options.embedder ?? gatewayEmbedder({ model: index.vectors.model.replace(/^gateway:/, '') }))
+      : (options.embedder ?? createEmbedder({ model: index.vectors.model.replace(/^(gateway|endpoint|provider):/, '') }))
 
   const retriever = createRetriever({ index, embedder, topK: options.topK })
   const actions = options.actions ?? []
@@ -108,11 +120,27 @@ export function createAgent(options: AgentOptions) {
    */
   async function* run(
     messages: Message[],
-    signal: AbortSignal | undefined,
+    call: StreamOptions,
     onMatches: (matches: Match[]) => void,
   ): AsyncGenerator<StreamFrame> {
+    const signal = call.signal
+    const conversationId = call.conversationId ?? options.conversationId ?? newId('c')
+    const contact = call.contact ?? options.contact
+    const channel = call.channel ?? options.channel ?? 'web'
+
     const matches = await search(messages, signal)
     onMatches(matches)
+
+    const question = messages[messages.length - 1]?.content ?? ''
+    const store = options.store
+
+    if (store) {
+      await store.appendMessage(
+        conversationId,
+        { id: newId('m'), role: 'user', content: question, createdAt: new Date().toISOString() },
+        { channel, contact },
+      )
+    }
 
     // Sources first, so a UI can render citations while text is still arriving.
     yield { type: 'sources', sources: toSourceRefs(matches) }
@@ -121,10 +149,14 @@ export function createAgent(options: AgentOptions) {
     // client while they do. They cannot yield from here, so they push frames
     // into this queue and the loop below drains it between model chunks.
     const pending: StreamFrame[] = []
+    /** Kept so the transcript records what the agent actually did, not just said. */
+    const ran: Array<{ name: string; input: unknown; output: unknown }> = []
+
     const context: ActionContext = {
-      conversationId: options.conversationId,
-      contact: options.contact,
+      conversationId,
+      contact,
       signal,
+      store: options.store,
       emit: (frame) => pending.push(frame),
     }
 
@@ -148,8 +180,15 @@ export function createAgent(options: AgentOptions) {
 
     const clientActions = new Set(actions.filter((action) => action.runs === 'client').map((a) => a.name))
 
+    let answered = ''
+
     for await (const part of result.fullStream) {
-      if (part.type === 'text-delta') yield { type: 'delta', text: part.text }
+      if (part.type === 'text-delta') {
+        answered += part.text
+        yield { type: 'delta', text: part.text }
+      } else if (part.type === 'tool-result') {
+        ran.push({ name: part.toolName, input: part.input, output: part.output })
+      }
       else if (part.type === 'error') {
         failure = part.error instanceof Error ? part.error.message : String(part.error)
       } else if (part.type === 'tool-call' && clientActions.has(part.toolName)) {
@@ -167,6 +206,20 @@ export function createAgent(options: AgentOptions) {
 
     while (pending.length > 0) yield pending.shift() as StreamFrame
 
+    if (store) {
+      const record: StoredMessage = {
+        id: newId('m'),
+        role: 'assistant',
+        content: answered,
+        createdAt: new Date().toISOString(),
+        sources: toSourceRefs(matches),
+        // A turn that retrieved nothing and called nothing is a content gap.
+        unanswered: matches.length === 0 && ran.length === 0,
+      }
+      if (ran.length > 0) record.actions = ran
+      await store.appendMessage(conversationId, record, { channel, contact })
+    }
+
     if (failure) yield { type: 'error', message: failure }
     else yield { type: 'done' }
   }
@@ -175,9 +228,9 @@ export function createAgent(options: AgentOptions) {
   function stream(
     question: string | Message[],
     history: Message[] = [],
-    options: StreamOptions = {},
+    call: StreamOptions = {},
   ): AsyncGenerator<StreamFrame> {
-    return run(toMessages(question, history), options.signal, options.onMatches ?? (() => {}))
+    return run(toMessages(question, history), call, call.onMatches ?? (() => {}))
   }
 
   /**
@@ -187,14 +240,14 @@ export function createAgent(options: AgentOptions) {
   async function answer(
     question: string | Message[],
     history: Message[] = [],
-    signal?: AbortSignal,
+    call: StreamOptions = {},
   ): Promise<Answer> {
     let text = ''
     let error: string | undefined
     let sources: SourceRef[] = []
     let matches: Match[] = []
 
-    for await (const frame of run(toMessages(question, history), signal, (found) => {
+    for await (const frame of run(toMessages(question, history), call, (found) => {
       matches = found
     })) {
       if (frame.type === 'delta') text += frame.text
@@ -235,4 +288,9 @@ export function citedOnly(sources: SourceRef[], text: string): SourceRef[] {
 
   const cited = sources.filter((_, position) => used.has(position))
   return cited.length > 0 ? cited : sources
+}
+
+/** Short, sortable, collision-resistant enough for a conversation id. */
+function newId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
 }

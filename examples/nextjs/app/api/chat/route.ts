@@ -1,7 +1,7 @@
 import { createChatHandler } from 'helpdeck/server'
 import type { KnowledgeIndex } from 'helpdeck'
 import knowledge from '../../../lib/knowledge.json'
-import { resolveModel } from '../../../lib/model'
+import { resolveEmbedder, resolveModel } from '../../../lib/model'
 
 /**
  * The entire server side of the agent. The index is imported, so it is bundled
@@ -11,6 +11,7 @@ import { resolveModel } from '../../../lib/model'
 const handler = createChatHandler({
   index: knowledge as unknown as KnowledgeIndex,
   model: resolveModel(),
+  embedder: resolveEmbedder(),
 
   persona: {
     name: 'Nadia',

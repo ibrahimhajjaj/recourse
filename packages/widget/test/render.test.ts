@@ -105,3 +105,51 @@ describe('markdown the model actually produces', () => {
     expect(render('').children).toHaveLength(0)
   })
 })
+
+// The citation filter lives in widget.ts behind a closure, so its rule is
+// restated here as the contract the server and client both depend on.
+describe('citation numbering contract', () => {
+  function citedOnly(refs: Array<{ title: string; url?: string; section?: string }>, answer: string) {
+    const used = new Set<number>()
+    for (const match of answer.matchAll(/\[(\d{1,2})\]/g)) {
+      used.add(Number.parseInt(match[1] as string, 10) - 1)
+    }
+    const cited = used.size > 0 ? refs.filter((_, position) => used.has(position)) : refs
+    const seen = new Set<string>()
+    return cited.filter((ref) => {
+      const key = `${ref.url ?? ''}|${ref.title}|${ref.section ?? ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
+  const refs = [
+    { title: 'Shipping', section: 'Cost', url: '/s' },
+    { title: 'Coffee', section: 'Storage', url: '/c' },
+    { title: 'Returns', section: 'Window', url: '/r' },
+    { title: 'Shipping', section: 'Times', url: '/s2' },
+  ]
+
+  it('resolves a high citation number that a deduplicating server would have lost', () => {
+    // This is the real bug: the model cited [4] and only two refs existed.
+    const shown = citedOnly(refs, 'Costs £12 [1] and takes 4 to 7 days [4].')
+    expect(shown.map((r) => r.section)).toEqual(['Cost', 'Times'])
+  })
+
+  it('collapses two citations of the same page into one pill', () => {
+    const same = [
+      { title: 'Shipping', section: 'Cost', url: '/s' },
+      { title: 'Shipping', section: 'Cost', url: '/s' },
+    ]
+    expect(citedOnly(same, 'see [1] and [2]')).toHaveLength(1)
+  })
+
+  it('falls back to every source when the model cited none', () => {
+    expect(citedOnly(refs, 'no citations here')).toHaveLength(4)
+  })
+
+  it('ignores a citation number past the end of the list', () => {
+    expect(citedOnly(refs, 'see [99]')).toEqual([])
+  })
+})

@@ -5,8 +5,12 @@ export interface CollectLeadsOptions {
   /** Defaults to name, email and a message. */
   fields?: ActionField[]
   whenToUse?: string
-  /** Where the lead goes: a CRM, a database, an email. */
-  onLead(values: Record<string, unknown>, ctx: ActionContext): Promise<void> | void
+  /**
+   * Where the lead goes on top of the store: a CRM, an email, a webhook.
+   * Optional, because a lead the agent captured but nobody saved is worse than
+   * no lead at all, so it is written to the agent's store either way.
+   */
+  onLead?(values: Record<string, unknown>, ctx: ActionContext): Promise<void> | void
 }
 
 const DEFAULT_LEAD_FIELDS: ActionField[] = [
@@ -38,7 +42,15 @@ export function collectLeads(options: CollectLeadsOptions): Action {
     collect: options.fields ?? DEFAULT_LEAD_FIELDS,
     async execute(input: ActionInput, ctx) {
       const values = clean(input)
-      await options.onLead(values, ctx)
+
+      await ctx.store?.saveLead({
+        id: `l_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+        conversationId: ctx.conversationId,
+        createdAt: new Date().toISOString(),
+        values,
+      })
+
+      await options.onLead?.(values, ctx)
       ctx.emit({ type: 'captured', kind: 'lead', name: 'lead', values })
       return { saved: true, message: 'Lead recorded. Thank the customer and say someone will follow up.' }
     },
@@ -50,7 +62,7 @@ export interface CollectDataOptions {
   name: string
   whenToUse: string
   fields: ActionField[]
-  onData(values: Record<string, unknown>, ctx: ActionContext): Promise<void> | void
+  onData?(values: Record<string, unknown>, ctx: ActionContext): Promise<void> | void
   /** Told to the agent to say once the data is in. */
   confirmation?: string
 }
@@ -63,7 +75,7 @@ export function collectData(options: CollectDataOptions): Action {
     collect: options.fields,
     async execute(input: ActionInput, ctx) {
       const values = clean(input)
-      await options.onData(values, ctx)
+      await options.onData?.(values, ctx)
       ctx.emit({ type: 'captured', kind: 'data', name: options.name, values })
       return { saved: true, message: options.confirmation ?? 'Details recorded. Confirm briefly.' }
     },

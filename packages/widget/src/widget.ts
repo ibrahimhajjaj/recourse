@@ -135,12 +135,13 @@ export function createWidget(options: WidgetOptions) {
   }
 
   /**
-   * Keeps only the sources the answer actually cited as [n].
+   * Keeps only the sources the answer actually cited as [n], then collapses
+   * repeats of the same page.
    *
-   * The retriever deliberately hands the model more context than it needs, so
-   * listing all of it under the reply would show the visitor pages the answer
-   * never came from. Citing the retrieval set rather than the answer is how a
-   * support bot ends up looking like it made something up.
+   * Order matters here. The server numbers one entry per retrieved passage so
+   * the model's [n] lines up with the array index; deduplicating before the
+   * filter would shift every number and credit the wrong page. Deduplicate
+   * after, purely so the reader does not see the same page listed twice.
    */
   function citedOnly(refs: SourceRef[], answer: string): SourceRef[] {
     const used = new Set<number>()
@@ -148,9 +149,19 @@ export function createWidget(options: WidgetOptions) {
       used.add(Number.parseInt(match[1] as string, 10) - 1)
     }
 
-    const cited = refs.filter((_, position) => used.has(position))
     // A model that cited nothing is not evidence that nothing was used.
-    return cited.length > 0 ? cited : refs
+    const cited = used.size > 0 ? refs.filter((_, position) => used.has(position)) : refs
+
+    const seen = new Set<string>()
+    const unique: SourceRef[] = []
+    for (const ref of cited) {
+      const key = `${ref.url ?? ''}|${ref.title}|${ref.section ?? ''}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      unique.push(ref)
+    }
+
+    return unique
   }
 
   function paintSources(container: HTMLElement, refs: SourceRef[]) {

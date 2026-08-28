@@ -76,31 +76,25 @@ export function buildInstructions(
 }
 
 /**
- * The citation list the widget renders under an answer.
+ * The citation list, numbered exactly as the prompt numbers its sources.
  *
- * The prompt gets the whole heading trail because the model needs the context,
- * but a reader does not: the trail starts at the page's own H1, so showing it
- * next to the title renders as "Shipping and delivery - Shipping and delivery >
- * Shipping cost". Only the deepest heading is new information.
+ * These two numberings have to be the same list. An earlier version deduplicated
+ * by page here while the prompt numbered every chunk, so a model that cited [4]
+ * pointed at an entry the client did not have, and the citation silently
+ * vanished. One chunk, one number, same order, both sides.
+ *
+ * Display-level deduplication belongs in the client, after it knows which
+ * numbers the answer actually used.
  */
 export function toSourceRefs(matches: Match[]): SourceRef[] {
-  const seen = new Set<string>()
-  const refs: SourceRef[] = []
-
-  for (const match of matches) {
-    const key = match.chunk.url ?? match.chunk.docId
-    if (seen.has(key)) continue
-    seen.add(key)
-
+  return matches.map((match) => {
     const deepest = match.chunk.section?.split('>').pop()?.trim()
-    refs.push({
+    return {
       title: match.chunk.title,
       url: match.chunk.url,
       section: deepest && deepest !== match.chunk.title ? deepest : undefined,
-    })
-  }
-
-  return refs
+    }
+  })
 }
 
 /** The question on its own, which is what most turns should retrieve on. */

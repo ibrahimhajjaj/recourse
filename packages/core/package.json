@@ -61,6 +61,10 @@
     "./actions": {
       "types": "./dist/actions/index.d.ts",
       "import": "./dist/actions/index.js"
+    },
+    "./store": {
+      "types": "./dist/store/index.d.ts",
+      "import": "./dist/store/index.js"
     }
   },
   "scripts": {
@@ -75,6 +79,7 @@
     "ai": "^7.0.0"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.40",
     "ai": "^7.0.84"
   },
   "devDependencies": {

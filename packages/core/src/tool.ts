@@ -2,7 +2,7 @@ import { jsonSchema, tool, type Tool } from 'ai'
 import type { Embedder, KnowledgeIndex, Match } from './types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
-import { gatewayEmbedder } from './embed.js'
+import { createEmbedder } from './embed.js'
 
 export interface KnowledgeToolOptions {
   index: KnowledgeIndex | string
@@ -45,7 +45,7 @@ export function knowledgeTool(
   const embedder =
     options.embedder === false || !index.vectors
       ? undefined
-      : (options.embedder ?? gatewayEmbedder({ model: index.vectors.model.replace(/^gateway:/, '') }))
+      : (options.embedder ?? createEmbedder({ model: index.vectors.model.replace(/^(gateway|endpoint|provider):/, '') }))
 
   const retriever = createRetriever({ index, embedder, topK: options.topK })
 
@@ -81,7 +81,7 @@ export function createKnowledgeSearch(options: KnowledgeToolOptions) {
   const embedder =
     options.embedder === false || !index.vectors
       ? undefined
-      : (options.embedder ?? gatewayEmbedder({ model: index.vectors.model.replace(/^gateway:/, '') }))
+      : (options.embedder ?? createEmbedder({ model: index.vectors.model.replace(/^(gateway|endpoint|provider):/, '') }))
   const retriever = createRetriever({ index, embedder, topK: options.topK })
 
   return async function search(question: string): Promise<KnowledgePassage[]> {

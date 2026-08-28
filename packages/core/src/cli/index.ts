@@ -5,7 +5,7 @@ import { streamText } from 'ai'
 import { ingest, writeIndex } from '../ingest.js'
 import { parseIndex } from '../knowledge/serialize.js'
 import { createRetriever } from '../retrieve/retriever.js'
-import { canReachGateway, gatewayEmbedder } from '../embed.js'
+import { canReachGateway, createEmbedder } from '../embed.js'
 import { buildInstructions } from '../server/prompt.js'
 import type { ProgressEvent } from '../types.js'
 import { list, num, parseArgs } from './args.js'
@@ -26,8 +26,11 @@ Options
   --max-pages <n>   Cap on pages fetched              (default 50)
   --include <a,b>   Only paths containing these
   --exclude <a,b>   Skip paths containing these
-  --embed           Force embeddings on, fail without a Gateway key
+  --embed           Force embeddings on, fail without a credential
   --no-embed        Keyword-only index, no credentials needed at all
+  --embed-url <u>   Any OpenAI-compatible embeddings endpoint, such as a local
+                    Ollama on http://localhost:11434/v1
+  --embed-model <m> Embedding model on that endpoint  (default nomic-embed-text)
   --retrieve-only   For ask: show the matched passages, do not call a model
   --model <id>      Chat model through the Vercel AI Gateway
   --top-k <n>       Passages retrieved per question    (default 6)
@@ -78,6 +81,9 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
     include: list(flags.include),
     exclude: list(flags.exclude),
     embed: typeof flags.embed === 'boolean' ? flags.embed : undefined,
+    embedBaseURL: typeof flags['embed-url'] === 'string' ? flags['embed-url'] : undefined,
+    embedModel: typeof flags['embed-model'] === 'string' ? flags['embed-model'] : undefined,
+    embedApiKey: typeof flags['embed-key'] === 'string' ? flags['embed-key'] : undefined,
     onProgress: progress(),
   })
 
@@ -115,9 +121,7 @@ async function runAsk(question: string, flags: Record<string, string | boolean>)
   }
 
   const index = await loadIndex(flags)
-  const embedder = index.vectors
-    ? gatewayEmbedder({ model: index.vectors.model.replace(/^gateway:/, '') })
-    : undefined
+  const embedder = index.vectors ? embedderFor(index.vectors.model, flags) : undefined
   const retriever = createRetriever({ index, embedder, topK: num(flags['top-k'], 6) })
   const matches = await retriever.retrieve(question)
 
@@ -131,7 +135,7 @@ async function runAsk(question: string, flags: Record<string, string | boolean>)
       process.stdout.write('No AI_GATEWAY_API_KEY set, showing retrieved passages instead of an answer.\n\n')
     }
     for (const [position, match] of matches.entries()) {
-      const heading = [match.chunk.title, match.chunk.section].filter(Boolean).join(' > ')
+      const heading = headingOf(match.chunk.title, match.chunk.section)
       process.stdout.write(
         `[${position + 1}] ${heading}  (${match.from.join('+')}, ${match.score.toFixed(4)})\n` +
           `${match.chunk.text.slice(0, 300).replace(/\s+/g, ' ')}...\n` +
@@ -174,6 +178,32 @@ async function runStats(flags: Record<string, string | boolean>): Promise<number
   )
 
   return 0
+}
+
+/**
+ * The heading trail already starts at the page's own H1, which is usually the
+ * title too, so joining them blindly prints it twice.
+ */
+function headingOf(title: string, section?: string): string {
+  if (!section) return title
+  if (section === title) return title
+  if (section.startsWith(`${title} > `)) return section
+  return `${title} > ${section}`
+}
+
+/**
+ * Rebuilds the embedder the index was written with. A query vector has to come
+ * from the same model as the stored ones or the distances are meaningless, so
+ * the model name travels inside the index rather than being guessed here.
+ */
+function embedderFor(storedModel: string, flags: Record<string, string | boolean>) {
+  const model = storedModel.replace(/^(gateway|endpoint|provider):/, '')
+  const baseURL = typeof flags['embed-url'] === 'string' ? flags['embed-url'] : undefined
+  return createEmbedder({
+    model,
+    baseURL,
+    apiKey: typeof flags['embed-key'] === 'string' ? flags['embed-key'] : undefined,
+  })
 }
 
 /** One flag for the index path, so ingest and ask can never disagree on it. */

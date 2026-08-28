@@ -5,7 +5,7 @@ import { buildIndex } from './knowledge/build.js'
 import { serializeIndex } from './knowledge/serialize.js'
 import { websiteSource } from './sources/website.js'
 import { filesSource } from './sources/files.js'
-import { canReachGateway, gatewayEmbedder } from './embed.js'
+import { canReachGateway, createEmbedder } from './embed.js'
 
 export interface IngestOptions {
   /** Shorthand for a single website source. */
@@ -21,6 +21,10 @@ export interface IngestOptions {
    */
   embed?: boolean
   embedder?: Embedder
+  /** Embeddings through any OpenAI-compatible endpoint, such as a local Ollama. */
+  embedBaseURL?: string
+  embedModel?: string
+  embedApiKey?: string
   maxPages?: number
   include?: string[]
   exclude?: string[]
@@ -42,8 +46,8 @@ export async function ingest(options: IngestOptions): Promise<KnowledgeIndex> {
     throw new Error('nothing to ingest: pass a url, a path, or your own sources')
   }
 
-  const wantsEmbeddings = options.embed ?? canReachGateway()
-  if (options.embed === true && !options.embedder && !canReachGateway()) {
+  const wantsEmbeddings = options.embed ?? Boolean(options.embedBaseURL) ?? canReachGateway()
+  if (options.embed === true && !options.embedder && !options.embedBaseURL && !canReachGateway()) {
     throw new Error(
       'embeddings were requested but no Gateway credential was found. Set AI_GATEWAY_API_KEY, or drop --embed to build a keyword-only index.',
     )
@@ -52,7 +56,14 @@ export async function ingest(options: IngestOptions): Promise<KnowledgeIndex> {
   return buildIndex({
     sources,
     chunker: options.chunker,
-    embedder: wantsEmbeddings ? (options.embedder ?? gatewayEmbedder()) : undefined,
+    embedder: wantsEmbeddings
+      ? (options.embedder ??
+        createEmbedder({
+          baseURL: options.embedBaseURL,
+          model: options.embedModel,
+          apiKey: options.embedApiKey,
+        }))
+      : undefined,
     onProgress: options.onProgress,
     signal: options.signal,
   })

@@ -44,7 +44,21 @@ export { websiteSource, filesSource, textSource, scrape } from './sources/index.
 export type { WebsiteSourceOptions, FilesSourceOptions } from './sources/index.js'
 
 export { createRetriever, fuse, type RetrieverOptions } from './retrieve/index.js'
-export { gatewayEmbedder, canReachGateway, type GatewayEmbedderOptions } from './embed.js'
+export { createEmbedder, canReachGateway, type EmbedderOptions } from './embed.js'
+
+export { memoryStore, fileStore, computeStats, paginate } from './store/index.js'
+export type {
+  Store,
+  Conversation,
+  StoredMessage,
+  Lead,
+  ListOptions,
+  Page,
+  Stats,
+  Channel,
+  MemoryStoreOptions,
+  FileStoreOptions,
+} from './store/index.js'
 
 export {
   defineAction,

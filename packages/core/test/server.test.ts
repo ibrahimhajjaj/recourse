@@ -83,13 +83,15 @@ describe('prompt', () => {
     expect(instructions).toContain('[1]')
   })
 
-  it('deduplicates citations that came from the same page', () => {
+  it('emits one citation per source, numbered exactly as the prompt numbers them', () => {
     const chunk = { id: 'a', docId: 'refunds', title: 'Refunds', text: 'x', url: 'https://shop.example/refunds' }
     const matches: Match[] = [
       { chunk, score: 1, from: ['keyword'] },
       { chunk: { ...chunk, id: 'b' }, score: 0.5, from: ['keyword'] },
     ]
-    expect(toSourceRefs(matches)).toHaveLength(1)
+    // Two chunks means [1] and [2] in the prompt, so two refs here or a model
+    // citing [2] would point at nothing.
+    expect(toSourceRefs(matches)).toHaveLength(2)
   })
 
   it('retrieves on the latest question by itself', () => {

@@ -1,0 +1,185 @@
+import type {
+  Conversation,
+  Lead,
+  ListOptions,
+  Page,
+  Stats,
+  Store,
+  StoredMessage,
+} from './types.js'
+
+export interface MemoryStoreOptions {
+  /** Conversations kept before the oldest are dropped. */
+  maxConversations?: number
+}
+
+/**
+ * Keeps everything in process memory.
+ *
+ * Right for a single instance, for local development, and for tests. Wrong for
+ * anything serverless, where each instance has its own copy and none of them
+ * survive a deploy. It exists so the analytics and help desk features work the
+ * moment you turn them on, and so swapping in a real database later is a
+ * one-line change rather than a rewrite.
+ */
+export function memoryStore(options: MemoryStoreOptions = {}): Store {
+  const maxConversations = options.maxConversations ?? 5_000
+  const conversations = new Map<string, Conversation>()
+  const messages = new Map<string, StoredMessage[]>()
+  const leads: Lead[] = []
+
+  function evictIfNeeded() {
+    while (conversations.size > maxConversations) {
+      // Map preserves insertion order, so the first key is the oldest.
+      const oldest = conversations.keys().next().value
+      if (oldest === undefined) break
+      conversations.delete(oldest)
+      messages.delete(oldest)
+    }
+  }
+
+  return {
+    name: 'memory',
+
+    async appendMessage(conversationId, message, patch) {
+      const existing = conversations.get(conversationId)
+
+      conversations.set(conversationId, {
+        id: conversationId,
+        channel: patch?.channel ?? existing?.channel ?? 'web',
+        // The message's own timestamp, not the wall clock, so importing a
+        // backlog keeps its real ordering instead of collapsing to now.
+        createdAt: existing?.createdAt ?? message.createdAt,
+        updatedAt: message.createdAt,
+        contact: patch?.contact ?? existing?.contact,
+        ticketId: patch?.ticketId ?? existing?.ticketId,
+        meta: { ...existing?.meta, ...patch?.meta },
+      })
+
+      const thread = messages.get(conversationId) ?? []
+      thread.push(message)
+      messages.set(conversationId, thread)
+      evictIfNeeded()
+    },
+
+    async getConversation(id) {
+      const conversation = conversations.get(id)
+      if (!conversation) return null
+      return { conversation, messages: messages.get(id) ?? [] }
+    },
+
+    async listConversations(options = {}) {
+      const filtered = [...conversations.values()]
+        .filter((conversation) => matches(conversation, options, messages.get(conversation.id) ?? []))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      return paginate(filtered, options, (conversation) => conversation.id)
+    },
+
+    async updateConversation(id, patch) {
+      const existing = conversations.get(id)
+      if (!existing) return
+      conversations.set(id, { ...existing, ...patch, id, updatedAt: new Date().toISOString() })
+    },
+
+    async setFeedback(conversationId, messageId, feedback) {
+      const thread = messages.get(conversationId)
+      const message = thread?.find((entry) => entry.id === messageId)
+      if (message) message.feedback = feedback
+    },
+
+    async saveLead(lead) {
+      leads.push(lead)
+    },
+
+    async listLeads(options = {}) {
+      const filtered = leads
+        .filter((lead) => withinRange(lead.createdAt, options))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      return paginate(filtered, options, (lead) => lead.id)
+    },
+
+    async stats(options = {}) {
+      return computeStats(
+        [...conversations.values()].filter((conversation) => withinRange(conversation.updatedAt, options)),
+        messages,
+        leads.filter((lead) => withinRange(lead.createdAt, options)),
+      )
+    },
+  }
+}
+
+function withinRange(timestamp: string, options: ListOptions): boolean {
+  if (options.since && timestamp < options.since) return false
+  if (options.until && timestamp > options.until) return false
+  return true
+}
+
+function matches(conversation: Conversation, options: ListOptions, thread: StoredMessage[]): boolean {
+  if (!withinRange(conversation.updatedAt, options)) return false
+  if (options.channel && conversation.channel !== options.channel) return false
+  if (options.unansweredOnly && !thread.some((message) => message.unanswered)) return false
+  return true
+}
+
+/**
+ * Cursor pagination over an already-sorted list. The cursor is the last id
+ * seen, so a page stays stable when new rows arrive at the front, which offset
+ * pagination cannot promise.
+ */
+export function paginate<T>(items: T[], options: ListOptions, idOf: (item: T) => string): Page<T> {
+  const limit = Math.min(options.limit ?? 50, 200)
+  const start = options.cursor ? items.findIndex((item) => idOf(item) === options.cursor) + 1 : 0
+  const slice = items.slice(start, start + limit)
+  const last = slice[slice.length - 1]
+  return {
+    items: slice,
+    cursor: start + slice.length < items.length && last ? idOf(last) : undefined,
+  }
+}
+
+/** Shared by every store implementation, so the numbers mean the same thing. */
+export function computeStats(
+  conversations: Conversation[],
+  messages: Map<string, StoredMessage[]>,
+  leads: Lead[],
+): Stats {
+  const stats: Stats = {
+    conversations: conversations.length,
+    messages: 0,
+    unanswered: 0,
+    leads: leads.length,
+    thumbsUp: 0,
+    thumbsDown: 0,
+    byChannel: {},
+    topGaps: [],
+  }
+
+  const gaps = new Map<string, number>()
+
+  for (const conversation of conversations) {
+    stats.byChannel[conversation.channel] = (stats.byChannel[conversation.channel] ?? 0) + 1
+    const thread = messages.get(conversation.id) ?? []
+    stats.messages += thread.length
+
+    for (const [position, message] of thread.entries()) {
+      if (message.feedback === 'positive') stats.thumbsUp++
+      if (message.feedback === 'negative') stats.thumbsDown++
+      if (!message.unanswered) continue
+
+      stats.unanswered++
+      // The question is the user turn that produced the unanswered reply.
+      const question = thread[position - 1]?.role === 'user' ? thread[position - 1]?.content : message.content
+      if (question) {
+        const key = question.trim().toLowerCase().slice(0, 120)
+        gaps.set(key, (gaps.get(key) ?? 0) + 1)
+      }
+    }
+  }
+
+  stats.topGaps = [...gaps.entries()]
+    .map(([question, count]) => ({ question, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20)
+
+  return stats
+}

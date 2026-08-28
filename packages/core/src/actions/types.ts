@@ -1,4 +1,5 @@
 import type { StreamFrame } from '../types.js'
+import type { Store } from '../store/types.js'
 
 /**
  * One piece of information an action needs before it can run. These become the
@@ -35,6 +36,8 @@ export interface ActionContext {
   conversationId?: string
   contact?: Contact
   signal?: AbortSignal
+  /** Present when the agent was given one. Actions persist through it. */
+  store?: Store
   /** Pushes a frame to the client while the action is still running. */
   emit(frame: StreamFrame): void
 }
