@@ -1,4 +1,5 @@
 import { renderMarkdown } from './render.js'
+import { renderForm, renderUi, type UiContext } from './ui.js'
 import { streamChat } from './stream.js'
 import { styles } from './styles.js'
 import type {
@@ -17,6 +18,10 @@ import type {
  */
 function storageKey(endpoint: string): string {
   return `helpdeck:transcript:${endpoint}`
+}
+
+function inviteKey(endpoint: string): string {
+  return `helpdeck:invite:${endpoint}`
 }
 
 const ICONS = {
@@ -65,6 +70,7 @@ export function createWidget(options: WidgetOptions) {
 
   /** Handlers the agent can ask the page to run, by action name. */
   const handlers: Record<string, ClientActionHandler> = { ...options.actions }
+  const invites: ReturnType<typeof setTimeout>[] = []
   const listeners = new Map<EventName, Set<(payload: never) => void>>()
 
   function emit<K extends EventName>(name: K, payload: WidgetEvents[K]) {
@@ -151,6 +157,8 @@ export function createWidget(options: WidgetOptions) {
 
   function setOpen(open: boolean) {
     emit(open ? 'open' : 'close', {})
+    // Opening the panel answers the invitation, so it never needs asking again.
+    if (open) root.querySelector('.invite')?.remove()
     panel.dataset.open = String(open)
     launcher.setAttribute('aria-expanded', String(open))
     launcher.setAttribute('aria-label', open ? 'Close the support chat' : 'Open the support chat')
@@ -343,7 +351,12 @@ export function createWidget(options: WidgetOptions) {
 
     const answer: ChatMessage = { role: 'assistant', content: '' }
     let sources: SourceRef[] = []
-    const requested: Array<{ id: string; name: string; input: Record<string, unknown> }> = []
+    const requested: Array<{
+      id: string
+      name: string
+      input: Record<string, unknown>
+      payload?: Record<string, unknown>
+    }> = []
 
     await streamChat(
       options.endpoint,
@@ -381,6 +394,22 @@ export function createWidget(options: WidgetOptions) {
     // let the next pass render the real answer in its place.
     if (requested.length > 0 && !actionResults) {
       wrapper.remove()
+
+      // A form is answered by the visitor, not by a handler, so the turn stops
+      // here and resumes when they submit it.
+      const form = requested.find((request) => request.payload?.form)
+      if (form) {
+        awaitingForm = { name: form.name, input: form.input }
+        const node = renderForm(form.payload?.form as Record<string, unknown>, uiContext)
+        const holder = document.createElement('div')
+        holder.className = 'msg'
+        holder.dataset.role = 'assistant'
+        holder.appendChild(node)
+        log.appendChild(holder)
+        scrollToEnd()
+        return
+      }
+
       const results = await runClientActions(requested)
       await runTurn(results)
       return
@@ -403,10 +432,15 @@ export function createWidget(options: WidgetOptions) {
 
   function handleFrame(
     frame: StreamFrame,
-    requested: Array<{ id: string; name: string; input: Record<string, unknown> }>,
+    requested: Array<{
+      id: string
+      name: string
+      input: Record<string, unknown>
+      payload?: Record<string, unknown>
+    }>,
   ) {
     if (frame.type === 'client-action') {
-      requested.push({ id: frame.id, name: frame.name, input: frame.input })
+      requested.push({ id: frame.id, name: frame.name, input: frame.input, payload: frame.payload })
     } else if (frame.type === 'suggestions') {
       state.suggestions = frame.items
     } else if (frame.type === 'action') {
@@ -416,7 +450,42 @@ export function createWidget(options: WidgetOptions) {
     } else if (frame.type === 'handoff') {
       emit('handoff', { ticketId: frame.ticketId, message: frame.message })
       paintNotice(frame.message)
+    } else if (frame.type === 'ui') {
+      const node = renderUi({ kind: frame.kind, id: frame.id, data: frame.data }, uiContext)
+      if (node) {
+        const wrapper = document.createElement('div')
+        wrapper.className = 'msg'
+        wrapper.dataset.role = 'assistant'
+        wrapper.appendChild(node)
+        log.appendChild(wrapper)
+        scrollToEnd()
+      }
     }
+  }
+
+  /** What an inline component can do: type for the visitor, or answer a form. */
+  const uiContext: UiContext = {
+    submit: (value) => void ask(value),
+    respond: (values) => void continueWithResult(values),
+  }
+
+  /** Pending client actions that a form will answer once it is filled in. */
+  let awaitingForm: { name: string; input: Record<string, unknown> } | null = null
+
+  async function continueWithResult(values: Record<string, unknown>) {
+    const pending = awaitingForm
+    awaitingForm = null
+    if (!pending || state.busy) return
+
+    state.busy = true
+    send.disabled = true
+    state.controller = new AbortController()
+
+    await runTurn([{ name: pending.name, input: pending.input, output: values }])
+
+    state.busy = false
+    send.disabled = false
+    state.controller = null
   }
 
   async function runClientActions(
@@ -450,6 +519,72 @@ export function createWidget(options: WidgetOptions) {
     notice.textContent = message
     log.appendChild(notice)
     scrollToEnd()
+  }
+
+  /**
+   * The nudge above the launcher.
+   *
+   * Shown once per tab and never again after it is dismissed or the panel is
+   * opened: an invitation that keeps reappearing is an annoyance, and the
+   * visitor has already told you the answer by closing it.
+   */
+  function showInvite() {
+    if (inline || !options.invite) return
+    if (panel.dataset.open === 'true') return
+
+    try {
+      if (sessionStorage.getItem(inviteKey(options.endpoint))) return
+    } catch {
+      // Blocked storage just means it may show again next tab.
+    }
+
+    const bubble = document.createElement('div')
+    bubble.className = `invite ${side}`
+    bubble.setAttribute('role', 'button')
+    bubble.tabIndex = 0
+    bubble.appendChild(document.createTextNode(options.invite))
+
+    const dismiss = document.createElement('button')
+    dismiss.type = 'button'
+    dismiss.className = 'invite-dismiss'
+    dismiss.setAttribute('aria-label', 'Dismiss')
+    dismiss.appendChild(icon(ICONS.close, false))
+
+    const close = () => {
+      bubble.remove()
+      try {
+        sessionStorage.setItem(inviteKey(options.endpoint), '1')
+      } catch {
+        /* ignore */
+      }
+    }
+
+    dismiss.addEventListener('click', (event) => {
+      event.stopPropagation()
+      close()
+    })
+
+    const open = () => {
+      close()
+      setOpen(true)
+    }
+    bubble.addEventListener('click', open)
+    bubble.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        open()
+      }
+    })
+
+    bubble.appendChild(dismiss)
+    root.appendChild(bubble)
+  }
+
+  if (options.invite && !inline) {
+    const delay = options.inviteDelay ?? 4000
+    const timer = setTimeout(showInvite, delay)
+    // Cleared on destroy so a removed widget cannot pop a bubble onto the page.
+    invites.push(timer)
   }
 
   launcher.addEventListener('click', () => setOpen(panel.dataset.open !== 'true'))
@@ -508,6 +643,7 @@ export function createWidget(options: WidgetOptions) {
     },
     destroy() {
       state.controller?.abort()
+      for (const timer of invites) clearTimeout(timer)
       host.remove()
     },
     element: host,

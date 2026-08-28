@@ -33,6 +33,13 @@ export interface WidgetOptions {
   contact?: Record<string, string | number | boolean>
   /** Show thumbs up and down under each answer. */
   feedback?: boolean
+  /**
+   * A bubble above the launcher, shown once before anyone opens the panel.
+   * The most effective single thing for getting a visitor to ask at all.
+   */
+  invite?: string
+  /** Milliseconds before the invite appears. Immediately is ignored as noise. */
+  inviteDelay?: number
 }
 
 export type ClientActionHandler = (input: Record<string, unknown>) => unknown | Promise<unknown>
@@ -69,7 +76,13 @@ export type StreamFrame =
   | { type: 'done'; finishReason?: string }
   | { type: 'error'; message: string }
   | { type: 'action'; name: string; status: 'running' | 'done' | 'failed'; summary?: string }
-  | { type: 'client-action'; id: string; name: string; input: Record<string, unknown> }
+  | {
+      type: 'client-action'
+      id: string
+      name: string
+      input: Record<string, unknown>
+      payload?: Record<string, unknown>
+    }
   | { type: 'ui'; kind: string; id: string; data: Record<string, unknown> }
   | { type: 'suggestions'; items: string[] }
   | { type: 'captured'; kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }

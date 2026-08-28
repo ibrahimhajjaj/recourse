@@ -256,6 +256,124 @@ export const styles = `
   text-align: center;
 }
 
+/* Inline components the agent can put in the conversation. */
+.ui-card {
+  border: 1px solid var(--hd-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--hd-panel);
+  max-width: 92%;
+}
+.ui-card-image { display: block; width: 100%; height: auto; max-height: 160px; object-fit: cover; }
+.ui-card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.ui-card h3 { margin: 0; font-size: 14.5px; font-weight: 620; }
+.ui-muted { color: var(--hd-muted); font-size: 13px; margin: 0; }
+
+.ui-fields { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 4px 0 0; font-size: 13px; }
+.ui-fields dt { color: var(--hd-muted); }
+.ui-fields dd { margin: 0; overflow-wrap: anywhere; }
+
+.ui-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ui-button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  border: 1px solid var(--hd-line);
+  border-radius: 9px;
+  padding: 7px 13px;
+  background: var(--hd-panel);
+  color: var(--hd-ink);
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-block;
+}
+.ui-button:hover { border-color: var(--hd-accent); color: var(--hd-accent); }
+.ui-button:focus-visible { outline: 2px solid var(--hd-accent); outline-offset: 1px; }
+
+.ui-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--hd-line); border-radius: 10px; }
+.ui-table { border-collapse: collapse; font-size: 13px; width: 100%; }
+.ui-table th, .ui-table td { text-align: left; padding: 7px 10px; white-space: nowrap; }
+.ui-table th { color: var(--hd-muted); font-weight: 560; border-bottom: 1px solid var(--hd-line); }
+.ui-table tbody tr + tr td { border-top: 1px solid var(--hd-line); }
+
+.ui-list { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
+.ui-list-item {
+  font: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--hd-line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: var(--hd-panel);
+  color: var(--hd-ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ui-list-item:hover { border-color: var(--hd-accent); }
+.ui-list-title { font-size: 13.5px; font-weight: 560; }
+
+.ui-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--hd-line);
+  border-radius: 12px;
+  padding: 14px;
+  max-width: 92%;
+  background: var(--hd-panel);
+}
+.ui-form h3 { margin: 0; font-size: 14.5px; font-weight: 620; }
+.ui-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--hd-muted); }
+.ui-field input[type="text"],
+.ui-field input[type="number"],
+.ui-field select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--hd-ink);
+  background: var(--hd-bg);
+  border: 1px solid var(--hd-line);
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+.ui-field input:focus, .ui-field select:focus { outline: 2px solid var(--hd-accent); outline-offset: -1px; }
+.ui-field input[type="checkbox"] { width: 16px; height: 16px; }
+
+/* The nudge above the launcher, before anyone has opened the panel. */
+.invite {
+  position: fixed;
+  bottom: 88px;
+  max-width: min(280px, calc(100vw - 40px));
+  background: var(--hd-panel);
+  color: var(--hd-ink);
+  border: 1px solid var(--hd-line);
+  border-radius: 14px;
+  box-shadow: var(--hd-shadow);
+  padding: 12px 34px 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  cursor: pointer;
+  z-index: 2147482999;
+  animation: hd-rise 0.28s ease both;
+}
+.invite-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--hd-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 0;
+}
+.invite-dismiss:hover { background: var(--hd-bubble); color: var(--hd-ink); }
+.invite-dismiss svg { width: 13px; height: 13px; }
+
+@keyframes hd-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 .footer {
   padding: 0 16px 10px;
   font-size: 11px;
@@ -276,6 +394,6 @@ export const styles = `
 :host([data-theme="dark"]) .error { color: #fca5a5; background: #2a1214; border-color: #7f1d1d; }
 
 @media (prefers-reduced-motion: reduce) {
-  .panel, .launcher, .typing i { transition: none; animation: none; }
+  .panel, .launcher, .typing i, .invite { transition: none; animation: none; }
 }
 `

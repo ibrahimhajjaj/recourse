@@ -30,6 +30,8 @@ function readConfig(): WidgetOptions | null {
     userId: data.userId,
     userHash: data.userHash,
     feedback: data.feedback !== 'false',
+    invite: data.invite,
+    inviteDelay: data.inviteDelay ? Number(data.inviteDelay) : undefined,
     title: data.title,
     subtitle: data.subtitle,
     greeting: data.greeting,
