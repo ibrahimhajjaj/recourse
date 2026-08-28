@@ -1,0 +1,85 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
+import type { Chunker, Embedder, KnowledgeIndex, ProgressEvent, Source } from './types.js'
+import { buildIndex } from './knowledge/build.js'
+import { serializeIndex } from './knowledge/serialize.js'
+import { websiteSource } from './sources/website.js'
+import { filesSource } from './sources/files.js'
+import { canReachGateway, gatewayEmbedder } from './embed.js'
+
+export interface IngestOptions {
+  /** Shorthand for a single website source. */
+  url?: string
+  /** Shorthand for a single local directory source. */
+  path?: string
+  /** Full control. Overrides the shorthands when given. */
+  sources?: Source[]
+  chunker?: Chunker
+  /**
+   * `true` embeds and fails if it cannot, `false` never embeds, and the default
+   * embeds when a Gateway credential is present and quietly skips when not.
+   */
+  embed?: boolean
+  embedder?: Embedder
+  maxPages?: number
+  include?: string[]
+  exclude?: string[]
+  apiKey?: string
+  onProgress?: (event: ProgressEvent) => void
+  signal?: AbortSignal
+}
+
+/**
+ * Build a knowledge index from a site, a folder, or anything you hand it.
+ *
+ * The default embedding behaviour is the important part: embeddings improve
+ * answers but are not required, so a missing credential downgrades to keyword
+ * search instead of failing the build. Ingest works with nothing configured.
+ */
+export async function ingest(options: IngestOptions): Promise<KnowledgeIndex> {
+  const sources = options.sources ?? defaultSources(options)
+  if (sources.length === 0) {
+    throw new Error('nothing to ingest: pass a url, a path, or your own sources')
+  }
+
+  const wantsEmbeddings = options.embed ?? canReachGateway()
+  if (options.embed === true && !options.embedder && !canReachGateway()) {
+    throw new Error(
+      'embeddings were requested but no Gateway credential was found. Set AI_GATEWAY_API_KEY, or drop --embed to build a keyword-only index.',
+    )
+  }
+
+  return buildIndex({
+    sources,
+    chunker: options.chunker,
+    embedder: wantsEmbeddings ? (options.embedder ?? gatewayEmbedder()) : undefined,
+    onProgress: options.onProgress,
+    signal: options.signal,
+  })
+}
+
+/** Writes the index where the app can import it, creating the folder if needed. */
+export async function writeIndex(path: string, index: KnowledgeIndex): Promise<void> {
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, serializeIndex(index), 'utf8')
+}
+
+function defaultSources(options: IngestOptions): Source[] {
+  const sources: Source[] = []
+
+  if (options.url) {
+    sources.push(
+      websiteSource({
+        url: options.url,
+        maxPages: options.maxPages,
+        include: options.include,
+        exclude: options.exclude,
+        apiKey: options.apiKey ?? process.env.FIRECRAWL_API_KEY,
+      }),
+    )
+  }
+
+  if (options.path) sources.push(filesSource({ path: options.path }))
+
+  return sources
+}
