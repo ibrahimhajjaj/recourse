@@ -1,0 +1,81 @@
+{
+  "name": "helpdeck",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A support agent trained on your own site. No API keys, no database, no vendor.",
+  "license": "MIT",
+  "author": "Ibrahim Hajjaj",
+  "homepage": "https://github.com/ibrahimhajjaj/helpdeck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ibrahimhajjaj/helpdeck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ibrahimhajjaj/helpdeck/issues"
+  },
+  "keywords": [
+    "chatbot",
+    "rag",
+    "support",
+    "ai-agent",
+    "chatbase",
+    "customer-support",
+    "widget",
+    "vercel",
+    "firecrawl",
+    "bm25"
+  ],
+  "bin": {
+    "helpdeck": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js"
+    },
+    "./ingest": {
+      "types": "./dist/ingest.d.ts",
+      "import": "./dist/ingest.js"
+    },
+    "./package.json": "./package.json",
+    "./tool": {
+      "types": "./dist/tool.d.ts",
+      "import": "./dist/tool.js"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "import": "./dist/agent.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"import('node:fs').then(f=>f.chmodSync('dist/cli/index.js',0o755))\"",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "peerDependencies": {
+    "ai": "^7.0.0"
+  },
+  "dependencies": {
+    "ai": "^7.0.84"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
