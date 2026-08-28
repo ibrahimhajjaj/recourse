@@ -46,6 +46,14 @@ export type { WebsiteSourceOptions, FilesSourceOptions } from './sources/index.j
 export { createRetriever, fuse, type RetrieverOptions } from './retrieve/index.js'
 export { createEmbedder, canReachGateway, type EmbedderOptions } from './embed.js'
 
+export {
+  signIdentity,
+  verifyIdentity,
+  resolveIdentity,
+  type IdentityOptions,
+  type IdentityClaim,
+} from './identity.js'
+
 export { memoryStore, fileStore, computeStats, paginate } from './store/index.js'
 export type {
   Store,

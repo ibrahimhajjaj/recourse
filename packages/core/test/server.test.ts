@@ -455,3 +455,39 @@ describe('the agent with no transport attached', () => {
     expect(matches[0]?.chunk.docId).toBe('refunds')
   })
 })
+
+describe('identity on the chat endpoint', () => {
+  const SECRET = 'server-side-secret'
+
+  it('rejects an unverified visitor when verification is required', async () => {
+    const handle = createChatHandler({
+      index: await index(),
+      model: mockModel(),
+      identity: { secret: SECRET, required: true },
+    })
+    const response = await handle(post({ message: 'hi', userId: 'u1', userHash: 'x'.repeat(64) }))
+    expect(response.status).toBe(401)
+  })
+
+  it('lets a correctly signed visitor through', async () => {
+    const { signIdentity } = await import('../src/identity.js')
+    const handle = createChatHandler({
+      index: await index(),
+      model: mockModel(),
+      identity: { secret: SECRET, required: true },
+    })
+    const response = await handle(
+      post({ message: 'refund?', userId: 'u1', userHash: await signIdentity('u1', SECRET) }),
+    )
+    expect(response.status).toBe(200)
+  })
+
+  it('serves anonymous visitors when verification is not required', async () => {
+    const handle = createChatHandler({
+      index: await index(),
+      model: mockModel(),
+      identity: { secret: SECRET },
+    })
+    expect((await handle(post({ message: 'refund?' }))).status).toBe(200)
+  })
+})

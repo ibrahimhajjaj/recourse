@@ -1,9 +1,11 @@
 import type { LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, StreamFrame } from '../types.js'
+import type { Store } from '../store/types.js'
 import { createAgent } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
 import { callerKey, createRateLimiter, type RateLimitOptions } from './ratelimit.js'
+import { resolveIdentity, type IdentityClaim, type IdentityOptions } from '../identity.js'
 
 export interface ChatHandlerOptions {
   /** The index from `helpdeck ingest`. Pass the imported JSON or its text. */
@@ -29,6 +31,14 @@ export interface ChatHandlerOptions {
   maxHistory?: number
   /** Fires after each answer. Wire analytics, transcripts or lead capture here. */
   onConversation?: (event: ConversationEvent) => void | Promise<void>
+  /**
+   * Verifies who the visitor is, so actions can safely touch their data.
+   * Without it every visitor is anonymous, which is fine for a public FAQ and
+   * not fine for anything that looks up an order.
+   */
+  identity?: IdentityOptions
+  /** Records transcripts, leads and answer gaps. */
+  store?: Store
 }
 
 export interface ConversationEvent {
@@ -62,6 +72,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     persona: options.persona,
     topK: options.topK,
     embedder: options.embedder,
+    store: options.store,
   })
 
   return async function handle(request: Request): Promise<Response> {
@@ -77,11 +88,23 @@ export function createChatHandler(options: ChatHandlerOptions) {
       return json({ error: 'too many requests' }, 429, { ...cors, 'Retry-After': String(gate.retryAfter) })
     }
 
+    let body: unknown
     let messages: Message[]
     try {
-      messages = parseMessages(await request.json(), maxMessageLength)
+      body = await request.json()
+      messages = parseMessages(body, maxMessageLength)
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'bad request' }, 400, cors)
+    }
+
+    const claim = body as { userId?: string; userHash?: string; contact?: IdentityClaim['contact']; conversationId?: string }
+    const identity = await resolveIdentity(
+      { userId: claim?.userId, userHash: claim?.userHash, contact: claim?.contact },
+      options.identity,
+    )
+
+    if (identity.rejected) {
+      return json({ error: 'identity could not be verified' }, 401, cors)
     }
 
     const recent = messages.slice(-maxHistory)
@@ -99,6 +122,8 @@ export function createChatHandler(options: ChatHandlerOptions) {
         try {
           const streamed = agent.stream(recent, [], {
             signal: request.signal,
+            contact: identity.contact,
+            conversationId: typeof claim?.conversationId === 'string' ? claim.conversationId : undefined,
             // Captured from the single retrieval the agent already ran, rather
             // than retrieving a second time just to log what was used.
             onMatches: (found) => {
