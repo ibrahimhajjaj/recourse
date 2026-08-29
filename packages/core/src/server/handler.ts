@@ -4,6 +4,7 @@ import type { Store } from '../store/types.js'
 import type { Action } from '../actions/types.js'
 import type { Procedure } from '../procedures/types.js'
 import { validateAttachments, type AttachmentPolicy } from '../attachments.js'
+import type { PrepareOptions } from '../attachments-prepare.js'
 import { createAgent } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
@@ -58,7 +59,7 @@ export interface ChatHandlerOptions {
    * The limits here are the real ones. The widget applies the same caps so a
    * customer is told early, but a request can be made by anything.
    */
-  attachments?: AttachmentPolicy | false
+  attachments?: (AttachmentPolicy & PrepareOptions) | false
 }
 
 export interface ConversationEvent {
@@ -96,6 +97,9 @@ export function createChatHandler(options: ChatHandlerOptions) {
     actions: options.actions,
     maxSteps: options.maxSteps,
     procedures: options.procedures,
+    // The same option carries both halves: what is accepted, and how it is
+    // read. Splitting them across two settings only invites them to disagree.
+    ...(options.attachments ? { attachments: options.attachments } : {}),
   })
 
   return async function handle(request: Request): Promise<Response> {
