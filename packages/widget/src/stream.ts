@@ -1,5 +1,18 @@
 import type { ChatMessage, OutgoingAttachment, StreamFrame } from './types.js'
 
+/** What the transport says when it cannot reach or read the endpoint. */
+export interface TransportStrings {
+  offline: string
+  rateLimited: string
+  unavailable: string
+}
+
+const DEFAULT_TRANSPORT_STRINGS: TransportStrings = {
+  offline: 'Could not reach the assistant. Check your connection.',
+  rateLimited: 'Too many messages just now. Give it a moment.',
+  unavailable: 'The assistant is unavailable ({status}).',
+}
+
 export interface StreamHandlers {
   onSources?: (sources: NonNullable<ChatMessage['sources']>) => void
   onDelta?: (text: string) => void
@@ -32,6 +45,7 @@ export async function streamChat(
   request: StreamRequest,
   handlers: StreamHandlers,
   signal?: AbortSignal,
+  strings: TransportStrings = DEFAULT_TRANSPORT_STRINGS,
 ): Promise<void> {
   let response: Response
   try {
@@ -48,15 +62,15 @@ export async function streamChat(
       signal,
     })
   } catch {
-    handlers.onError?.('Could not reach the assistant. Check your connection.')
+    handlers.onError?.(strings.offline)
     return
   }
 
   if (!response.ok || !response.body) {
     handlers.onError?.(
       response.status === 429
-        ? 'Too many messages just now. Give it a moment.'
-        : `The assistant is unavailable (${response.status}).`,
+        ? strings.rateLimited
+        : strings.unavailable.replace('{status}', String(response.status)),
     )
     return
   }

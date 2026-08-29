@@ -1,3 +1,5 @@
+import type { WidgetStrings } from './strings.js'
+
 export interface WidgetOptions {
   /** The helpdeck chat endpoint. Required. */
   endpoint: string
@@ -33,6 +35,20 @@ export interface WidgetOptions {
   contact?: Record<string, string | number | boolean>
   /** Show thumbs up and down under each answer. */
   feedback?: boolean
+  /**
+   * Every visible word, so the widget can speak the customer's language
+   * without a fork. Partial: anything left out keeps its English default.
+   */
+  strings?: Partial<WidgetStrings>
+  /** A copy control under each answer. Off unless the browser has a clipboard. */
+  copy?: boolean
+  /**
+   * A control that forgets the conversation, locally and on the server.
+   *
+   * Best-effort privacy rather than a compliance feature: it deletes the one
+   * conversation this tab minted, which is all it can prove ownership of.
+   */
+  allowDelete?: boolean
   /**
    * A bubble above the launcher, shown once before anyone opens the panel.
    * The most effective single thing for getting a visitor to ask at all.

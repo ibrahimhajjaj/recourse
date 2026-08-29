@@ -31,7 +31,12 @@ interface ConversationRecord {
   patch: Partial<Conversation>
 }
 
-type Record_ = MessageRecord | FeedbackRecord | ConversationRecord
+interface ConversationDelete {
+  kind: 'conversation-delete'
+  id: string
+}
+
+type Record_ = MessageRecord | FeedbackRecord | ConversationRecord | ConversationDelete
 
 interface TicketRecord {
   kind: 'ticket'
@@ -113,6 +118,14 @@ export function fileStore(options: FileStoreOptions): Store {
       } else if (record.kind === 'conversation') {
         const existing = conversations.get(record.id)
         if (existing) conversations.set(record.id, { ...existing, ...record.patch, id: record.id })
+      } else if (record.kind === 'conversation-delete') {
+        // Replayed in order, so a deletion undoes every message written before
+        // it and leaves anything written after alone. The words survive in the
+        // log file until it is compacted, which is the honest limit of a
+        // delete on an append-only store and is why the widget calls this
+        // best-effort.
+        conversations.delete(record.id)
+        messages.delete(record.id)
       }
     }
 
@@ -380,6 +393,21 @@ export function fileStore(options: FileStoreOptions): Store {
       sources.set(id, updated)
       await append(sourcesLog, { kind: 'source', source: updated } satisfies SourceWrite)
       return updated
+    },
+
+    async deleteConversation(conversationId: string) {
+      await load()
+      const existed = conversations.has(conversationId)
+
+      conversations.delete(conversationId)
+      messages.delete(conversationId)
+
+      for (let index = leads.length - 1; index >= 0; index--) {
+        if (leads[index]?.conversationId === conversationId) leads.splice(index, 1)
+      }
+
+      await append(conversationsLog, { kind: 'conversation-delete', id: conversationId } satisfies ConversationDelete)
+      return existed
     },
 
     async purgeSources() {

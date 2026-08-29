@@ -174,6 +174,22 @@ export function createChatHandler(options: ChatHandlerOptions) {
       return recordFeedback(feedback, options.store, cors)
     }
 
+    // A visitor asking to be forgotten. Deliberately on the same endpoint, so
+    // the widget needs no second URL and no second CORS entry.
+    const forget = (body as { deleteConversation?: unknown }).deleteConversation
+
+    if (typeof forget === 'string' && forget) {
+      // Best-effort privacy rather than a compliance mechanism, and the
+      // difference is worth being clear about: anyone who knows a conversation
+      // id can delete it. Ids are minted in the browser and unguessable, so in
+      // practice that is the person whose conversation it is, and the worst a
+      // guess achieves is deleting a transcript the business kept. Refusing
+      // outright would mean a visitor cannot delete their own words at all,
+      // which is a worse answer.
+      const deleted = options.store ? await options.store.deleteConversation(forget) : false
+      return json({ deleted }, 200, cors)
+    }
+
     // Files ride on the request body and apply to the message just sent. Every
     // limit is re-checked here; the widget's copy of them is a courtesy.
     const attachmentPolicy = options.attachments

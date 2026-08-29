@@ -23,6 +23,50 @@ export function message(over: Partial<StoredMessage> = {}): StoredMessage {
 
 export function storeBehaviour(name: string, make: () => Promise<Store> | Store): void {
   describe(`${name} store`, () => {
+    it('forgets a conversation when asked, and says whether there was one', async () => {
+      const store = await make()
+      await store.appendMessage('c1', message({ content: 'my email is a@example.com' }), { channel: 'web' })
+      await store.appendMessage('c2', message({ content: 'a different visitor' }), { channel: 'web' })
+
+      expect(await store.deleteConversation('c1')).toBe(true)
+      expect(await store.getConversation('c1')).toBeNull()
+
+      // Only the one asked for.
+      expect(await store.getConversation('c2')).not.toBeNull()
+    })
+
+    it('says false for a conversation that was never there', async () => {
+      expect(await (await make()).deleteConversation('never-existed')).toBe(false)
+    })
+
+    it('leaves no trace of a deleted conversation in a listing', async () => {
+      const store = await make()
+      await store.appendMessage('c1', message(), { channel: 'web' })
+      await store.deleteConversation('c1')
+
+      const listed = await store.listConversations()
+      expect(listed.items.some((conversation) => conversation.id === 'c1')).toBe(false)
+    })
+
+    it('takes a lead captured in that conversation with it', async () => {
+      const store = await make()
+      await store.appendMessage('c1', message(), { channel: 'web' })
+      await store.saveLead({
+        id: 'l1',
+        conversationId: 'c1',
+        name: 'Amina',
+        email: 'amina@example.com',
+        createdAt: new Date().toISOString(),
+      })
+
+      await store.deleteConversation('c1')
+
+      // The customer asked to be forgotten. Keeping their email address under
+      // a conversation id that no longer exists is the worst of both.
+      const leads = await store.listLeads()
+      expect(leads.items.some((lead) => lead.conversationId === 'c1')).toBe(false)
+    })
+
     it('creates the conversation on the first message', async () => {
       const store = await make()
       await store.appendMessage('c1', message({ content: 'where is my order' }), { channel: 'web' })

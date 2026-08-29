@@ -3,6 +3,7 @@ import { renderForm, renderUi, type UiContext } from './ui.js'
 import { streamChat } from './stream.js'
 import { createDictation, type Dictation } from './dictation.js'
 import { styles } from './styles.js'
+import { resolveStrings, fill } from './strings.js'
 import type {
   ChatMessage,
   ClientActionHandler,
@@ -54,6 +55,7 @@ const ACCEPTED_TYPES = [
 export function createWidget(options: WidgetOptions) {
   if (!options.endpoint) throw new Error('helpdeck: an `endpoint` is required')
 
+  const strings = resolveStrings(options.strings)
   const inline = Boolean(options.target)
   const host = document.createElement('div')
   host.setAttribute('data-helpdeck', '')
@@ -112,7 +114,7 @@ export function createWidget(options: WidgetOptions) {
   const launcher = document.createElement('button')
   launcher.className = `launcher ${side}`
   launcher.type = 'button'
-  launcher.setAttribute('aria-label', 'Open the support chat')
+  launcher.setAttribute('aria-label', strings.open)
   launcher.setAttribute('aria-expanded', 'false')
   launcher.appendChild(icon(ICONS.chat, true))
 
@@ -120,7 +122,7 @@ export function createWidget(options: WidgetOptions) {
   panel.className = `panel ${side}`
   panel.setAttribute('role', 'dialog')
   panel.setAttribute('aria-modal', 'false')
-  panel.setAttribute('aria-label', options.title ?? 'Support chat')
+  panel.setAttribute('aria-label', options.title ?? strings.title)
   panel.dataset.open = String(inline || options.open === true)
 
   const header = document.createElement('div')
@@ -128,7 +130,7 @@ export function createWidget(options: WidgetOptions) {
   const heading = document.createElement('div')
   heading.className = 'grow'
   const title = document.createElement('h2')
-  title.textContent = options.title ?? 'Ask us anything'
+  title.textContent = options.title ?? strings.title
   heading.appendChild(title)
   if (options.subtitle) {
     const subtitle = document.createElement('p')
@@ -137,10 +139,22 @@ export function createWidget(options: WidgetOptions) {
   }
   header.appendChild(heading)
 
+  // Forgetting the conversation, when the host allows it. Before the close
+  // button, because the rightmost control in a panel header is the one people
+  // reach for without looking and it should stay the harmless one.
+  const forget = document.createElement('button')
+  forget.className = 'icon-button'
+  forget.type = 'button'
+  forget.setAttribute('aria-label', strings.deleteConversation)
+  forget.appendChild(
+    icon('M3 6h18v2H3V6zm2 3h14l-1 12H6L5 9zm5 2v8h2v-8h-2zm4 0v8h2v-8h-2zM9 3h6v2H9V3z', false),
+  )
+  if (options.allowDelete) header.appendChild(forget)
+
   const close = document.createElement('button')
   close.className = 'icon-button'
   close.type = 'button'
-  close.setAttribute('aria-label', 'Close the support chat')
+  close.setAttribute('aria-label', strings.close)
   close.appendChild(icon(ICONS.close, false))
   if (!inline) header.appendChild(close)
 
@@ -163,11 +177,11 @@ export function createWidget(options: WidgetOptions) {
   composer.className = 'composer'
   const input = document.createElement('textarea')
   input.rows = 1
-  input.placeholder = 'Type your question'
-  input.setAttribute('aria-label', 'Your question')
+  input.placeholder = strings.placeholder
+  input.setAttribute('aria-label', strings.inputLabel)
   const send = document.createElement('button')
   send.type = 'submit'
-  send.setAttribute('aria-label', 'Send')
+  send.setAttribute('aria-label', strings.send)
   send.appendChild(icon(ICONS.send, true))
 
   // Off unless the host turns it on: an upload button in front of a server
@@ -193,7 +207,7 @@ export function createWidget(options: WidgetOptions) {
   const attach = document.createElement('button')
   attach.type = 'button'
   attach.className = 'attach'
-  attach.setAttribute('aria-label', 'Attach a file')
+  attach.setAttribute('aria-label', strings.attach)
   attach.appendChild(icon(ICONS.clip, false))
 
   // Only built when the host asked for it and the browser can do it. A mic
@@ -207,7 +221,7 @@ export function createWidget(options: WidgetOptions) {
   const mic = document.createElement('button')
   mic.type = 'button'
   mic.className = 'mic'
-  mic.setAttribute('aria-label', 'Dictate your question')
+  mic.setAttribute('aria-label', strings.dictate)
   mic.appendChild(icon(ICONS.mic, false))
 
   let dictation: Dictation | null = null
@@ -218,7 +232,7 @@ export function createWidget(options: WidgetOptions) {
       ...dictationSettings,
       onStateChange: (recording) => {
         mic.dataset.recording = String(recording)
-        mic.setAttribute('aria-label', recording ? 'Stop dictating' : 'Dictate your question')
+        mic.setAttribute('aria-label', recording ? strings.stopDictating : strings.dictate)
         if (!recording) input.dataset.interim = ''
       },
       onInterim: (text) => {
@@ -305,7 +319,7 @@ export function createWidget(options: WidgetOptions) {
     if (open) root.querySelector('.invite')?.remove()
     panel.dataset.open = String(open)
     launcher.setAttribute('aria-expanded', String(open))
-    launcher.setAttribute('aria-label', open ? 'Close the support chat' : 'Open the support chat')
+    launcher.setAttribute('aria-label', open ? strings.close : strings.open)
     if (open) input.focus()
     else launcher.focus()
   }
@@ -371,7 +385,7 @@ export function createWidget(options: WidgetOptions) {
 
       const drop = document.createElement('button')
       drop.type = 'button'
-      drop.setAttribute('aria-label', `Remove ${file.name}`)
+      drop.setAttribute('aria-label', fill(strings.removeFile, { name: file.name }))
       drop.appendChild(icon(ICONS.close, false))
       drop.addEventListener('click', () => {
         state.staged.splice(position, 1)
@@ -483,16 +497,100 @@ export function createWidget(options: WidgetOptions) {
     paintSuggestions()
   }
 
+  /**
+   * Copies the answer as the customer reads it.
+   *
+   * The text, not the rendered markup: somebody pasting an answer into an
+   * email wants the sentence, not a div. Hidden entirely where there is no
+   * clipboard, which is any page served over plain HTTP, because a button that
+   * does nothing is worse than no button.
+   */
+  function paintCopy(text: string) {
+    if (options.copy === false) return
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'icon-button'
+    button.setAttribute('aria-label', strings.copy)
+    button.appendChild(
+      icon('M16 1H4a2 2 0 00-2 2v14h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z', true),
+    )
+
+    button.addEventListener('click', () => {
+      void navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          // The label rather than a toast: a screen reader announces the
+          // change, and there is nothing new on screen to get in the way.
+          button.setAttribute('aria-label', strings.copied)
+          button.setAttribute('data-copied', 'true')
+          setTimeout(() => {
+            button.setAttribute('aria-label', strings.copy)
+            button.removeAttribute('data-copied')
+          }, 1600)
+        })
+        .catch(() => {
+          // A browser can refuse the clipboard even when the API exists, and
+          // there is nothing useful to tell the customer about that.
+        })
+    })
+
+    return button
+  }
+
+  /** Empties this tab. Everything here, nothing anywhere else. */
+  function forgetLocally() {
+    state.messages = []
+    state.suggestions = options.suggestions ?? []
+    state.conversationId = `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+    persist(options.endpoint, [], options.persist !== false)
+    repaint()
+  }
+
+  /**
+   * Forgets the conversation locally, then asks the server to forget it too.
+   *
+   * Local first and unconditionally. If the request fails the visitor has still
+   * had the thing they asked for on the screen in front of them, and telling
+   * them their deletion failed is worse than the transcript outliving it on a
+   * server they cannot see.
+   */
+  async function forgetConversation() {
+    const conversationId = state.conversationId
+    forgetLocally()
+
+    try {
+      await fetch(options.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteConversation: conversationId }),
+      })
+    } catch {
+      // Nothing useful to say about it, and nothing the visitor can do.
+    }
+  }
+
   /** Thumbs, so the host learns which answers were actually any good. */
-  function paintFeedback(wrapper: HTMLElement, messageIndex: number) {
-    if (options.feedback === false) return
+  function paintFeedback(wrapper: HTMLElement, messageIndex: number, text = '') {
+    const copyButton = paintCopy(text)
+
+    if (options.feedback === false) {
+      if (!copyButton) return
+
+      const only = document.createElement('div')
+      only.className = 'feedback'
+      only.appendChild(copyButton)
+      wrapper.appendChild(only)
+      return
+    }
 
     const row = document.createElement('div')
     row.className = 'feedback'
 
     for (const [value, label, glyph] of [
-      ['positive', 'This answered my question', 'M7 11v9H3v-9h4zm3 9V11l4-8a2 2 0 013 2l-1 5h5a2 2 0 012 2l-2 7a2 2 0 01-2 2h-9z'],
-      ['negative', 'This did not help', 'M17 13V4h4v9h-4zm-3-9v9l-4 8a2 2 0 01-3-2l1-5H3a2 2 0 01-2-2l2-7a2 2 0 012-2h9z'],
+      ['positive', strings.helpful, 'M7 11v9H3v-9h4zm3 9V11l4-8a2 2 0 013 2l-1 5h5a2 2 0 012 2l-2 7a2 2 0 01-2 2h-9z'],
+      ['negative', strings.notHelpful, 'M17 13V4h4v9h-4zm-3-9v9l-4 8a2 2 0 01-3-2l1-5H3a2 2 0 01-2-2l2-7a2 2 0 012-2h9z'],
     ] as const) {
       const button = document.createElement('button')
       button.type = 'button'
@@ -508,6 +606,8 @@ export function createWidget(options: WidgetOptions) {
       })
       row.appendChild(button)
     }
+
+    if (copyButton) row.appendChild(copyButton)
 
     wrapper.appendChild(row)
   }
@@ -623,6 +723,7 @@ export function createWidget(options: WidgetOptions) {
         onFrame: (frame) => handleFrame(frame, requested),
       },
       state.controller?.signal,
+      strings,
     )
 
     typing.remove()
@@ -656,7 +757,7 @@ export function createWidget(options: WidgetOptions) {
       answer.sources = citedOnly(sources, answer.content)
       state.messages.push(answer)
       paintSources(wrapper, answer.sources)
-      paintFeedback(wrapper, state.messages.length - 1)
+      paintFeedback(wrapper, state.messages.length - 1, answer.content)
       persist(options.endpoint, state.messages, options.persist !== false)
       emit('response', { text: answer.content, sources: answer.sources })
     } else {
@@ -813,7 +914,7 @@ export function createWidget(options: WidgetOptions) {
     const dismiss = document.createElement('button')
     dismiss.type = 'button'
     dismiss.className = 'invite-dismiss'
-    dismiss.setAttribute('aria-label', 'Dismiss')
+    dismiss.setAttribute('aria-label', strings.dismiss)
     dismiss.appendChild(icon(ICONS.close, false))
 
     const close = () => {
@@ -855,6 +956,14 @@ export function createWidget(options: WidgetOptions) {
 
   launcher.addEventListener('click', () => setOpen(panel.dataset.open !== 'true'))
   close.addEventListener('click', () => setOpen(false))
+
+  forget.addEventListener('click', () => {
+    // Asked once, because the words cannot be brought back and a bin icon next
+    // to a close icon is a mis-click waiting to happen.
+    if (typeof window.confirm === 'function' && !window.confirm(strings.deleteConfirm)) return
+
+    void forgetConversation()
+  })
 
   composer.addEventListener('submit', (event) => {
     event.preventDefault()
@@ -901,12 +1010,10 @@ export function createWidget(options: WidgetOptions) {
       handlers[name] = handler
     },
     clear() {
-      state.messages = []
-      state.suggestions = options.suggestions ?? []
-      state.conversationId = `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
-      persist(options.endpoint, [], options.persist !== false)
-      repaint()
+      forgetLocally()
     },
+    /** Forgets the conversation here and asks the server to do the same. */
+    forget: () => forgetConversation(),
     destroy() {
       state.controller?.abort()
       for (const timer of invites) clearTimeout(timer)

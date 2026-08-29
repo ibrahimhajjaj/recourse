@@ -223,6 +223,20 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
       }
       return removed
     },
+
+    async deleteConversation(conversationId: string) {
+      const existed = conversations.delete(conversationId)
+      messages.delete(conversationId)
+
+      // A lead captured during the conversation goes with it. The customer
+      // asked to be forgotten, and leaving their email address behind under a
+      // conversation id that no longer exists is the worst of both.
+      for (let index = leads.length - 1; index >= 0; index--) {
+        if (leads[index]?.conversationId === conversationId) leads.splice(index, 1)
+      }
+
+      return existed
+    },
   }
 }
 

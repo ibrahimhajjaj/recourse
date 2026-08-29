@@ -679,6 +679,30 @@ export function d1Store(options: D1StoreOptions): Store {
       await run(`DELETE FROM sources WHERE status = 'pending_deletion'`)
       return doomed.length
     },
+
+    async deleteConversation(conversationId: string) {
+      const existing = await first<{ id: string }>(`SELECT id FROM conversations WHERE id = ?`, [
+        conversationId,
+      ])
+
+      const statements = [
+        db.prepare(`DELETE FROM messages WHERE conversation_id = ?`).bind(conversationId),
+        db.prepare(`DELETE FROM leads WHERE conversation_id = ?`).bind(conversationId),
+        db.prepare(`DELETE FROM conversations WHERE id = ?`).bind(conversationId),
+      ]
+
+      // One batch where the binding offers one, because D1 runs a batch in a
+      // transaction and a customer's messages must not be left behind by a
+      // request that died between two deletes. The shim used by the tests has
+      // no batch, so the fallback matters.
+      if (db.batch) {
+        await db.batch(statements)
+      } else {
+        for (const statement of statements) await statement.run()
+      }
+
+      return Boolean(existing)
+    },
   }
 }
 

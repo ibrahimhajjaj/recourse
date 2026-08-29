@@ -122,6 +122,19 @@ export interface Store {
   restoreSource(id: string): Promise<SourceRecord | null>
   /** Permanently removes everything marked for deletion. */
   purgeSources(): Promise<number>
+
+  /**
+   * Forgets one conversation and everything said in it.
+   *
+   * Hard rather than soft, unlike a source: the point of the call is that the
+   * words are gone, so a tombstone carrying them would defeat it. Returns
+   * whether there was anything to delete.
+   *
+   * Called when a visitor asks the widget to forget them. Best-effort privacy
+   * for one browser tab rather than a compliance mechanism: a conversation id
+   * is all the widget can prove it owns.
+   */
+  deleteConversation(conversationId: string): Promise<boolean>
 }
 
 export interface Stats {

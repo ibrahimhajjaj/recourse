@@ -4,6 +4,7 @@ import { simulateReadableStream } from 'ai'
 import { buildIndex } from '../src/knowledge/build.js'
 import { textSource } from '../src/sources/text.js'
 import { createChatHandler } from '../src/server/handler.js'
+import { memoryStore } from '../src/store/memory.js'
 import { createRetriever } from '../src/retrieve/retriever.js'
 import { createKnowledgeSearch, knowledgeTool } from '../src/tool.js'
 import { createAgent } from '../src/agent.js'
@@ -609,5 +610,71 @@ describe('citing when there is nothing to cite', () => {
 
     expect(matches.length).toBeGreaterThan(0)
     expect(buildInstructions({ matches })).not.toContain('Do not write [1]')
+  })
+})
+
+describe('a visitor asking to be forgotten', () => {
+  it('deletes the conversation from the store', async () => {
+    const store = memoryStore()
+    await store.appendMessage('c_abc', {
+      id: 'm1',
+      role: 'user',
+      content: 'my phone number is 07700 900123',
+      createdAt: new Date().toISOString(),
+    }, { channel: 'web' })
+
+    const handler = createChatHandler({ index: await index(), model: mockModel(), embedder: false, store })
+    const response = await handler(
+      new Request('https://example.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteConversation: 'c_abc' }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ deleted: true })
+    expect(await store.getConversation('c_abc')).toBeNull()
+  })
+
+  it('says so plainly when there was nothing to delete', async () => {
+    const handler = createChatHandler({
+      index: await index(),
+      model: mockModel(),
+      embedder: false,
+      store: memoryStore(),
+    })
+
+    const response = await handler(
+      new Request('https://example.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteConversation: 'never-existed' }),
+      }),
+    )
+
+    expect(await response.json()).toEqual({ deleted: false })
+  })
+
+  it('does not fall through to answering a question', async () => {
+    let asked = 0
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        asked++
+        throw new Error('a deletion must never reach the model')
+      },
+    })
+    const handler = createChatHandler({ index: await index(), model, embedder: false, store: memoryStore() })
+
+    await handler(
+      new Request('https://example.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteConversation: 'c_abc', message: 'and also, where is my order?' }),
+      }),
+    )
+
+    // A deletion is not a turn. Answering one would put the words back.
+    expect(asked).toBe(0)
   })
 })

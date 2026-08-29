@@ -650,6 +650,23 @@ export function postgresStore(options: PostgresStoreOptions): Store {
       )
       return rows.length
     },
+
+    async deleteConversation(conversationId: string) {
+      // One statement, so there is no window in which the conversation is gone
+      // and the customer's words are not.
+      //
+      // `messages` carries ON DELETE CASCADE and looks after itself. `leads`
+      // does not: its `conversation_id` is a plain column, because a lead can
+      // outlive the conversation that produced it and a foreign key would stop
+      // that. So it is deleted here, explicitly, in the same statement.
+      const rows = await query<{ id: string }>(
+        `WITH forgotten AS (DELETE FROM leads WHERE conversation_id = $1)
+         DELETE FROM conversations WHERE id = $1 RETURNING id`,
+        [conversationId],
+      )
+
+      return rows.length > 0
+    },
   }
 }
 
