@@ -962,3 +962,4 @@ function json(value: unknown): string | null {
 }
 
 export { SCHEMA } from './schema.js'
+export { pgVectorStore, migrateVectors, type PgVectorStoreOptions } from './vectors.js'

@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { loadBaseline, run, type SuiteRun } from './run.js'
+import { headroom, tooTightToRun, unload } from './machine.js'
 import type { LanguageModel } from './types.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -37,6 +38,12 @@ Options
                      --embed-model (default nomic-embed-text). Some cases
                      cannot pass without it.
   --embed-model <m>  The embedding model on that endpoint.
+  --limit <n>        Only the first n cases of each suite. A local run is the
+                     whole machine for its duration; this makes it a minute
+                     rather than ten.
+  --force            Start even when memory is tight.
+  --keep-loaded      Leave the model in memory afterwards. By default it is
+                     unloaded, because the next thing you do needs the RAM.
   --save             Write results/<date>-<model>.json.
   --compare <file>   Compare against a recorded run and fail on a regression.
   --verbose          Print every case, not only the failures.
@@ -72,6 +79,21 @@ async function main(): Promise<number> {
     process.stdout.write('No --model given, so only the cases that need no model will run.\n\n')
   }
 
+  // A local model takes the whole machine for as long as it runs. Better to
+  // say so now than to have it discovered as a laptop that stopped responding.
+  if (model && !flags.force) {
+    const blocked = await tooTightToRun()
+    if (blocked) {
+      process.stderr.write(`${blocked}\n`)
+      return 1
+    }
+  }
+
+  if (model) {
+    const { free, source } = await headroom()
+    process.stdout.write(`${(free * 100).toFixed(0)}% memory free (${source})\n`)
+  }
+
   const started = Date.now()
   const runs = await run(suites, {
     root: ROOT,
@@ -88,6 +110,7 @@ async function main(): Promise<number> {
         }
       : {}),
     timeoutMs: typeof flags.timeout === 'string' ? Number(flags.timeout) : undefined,
+    ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}),
     onCase: (result) => {
       if (result.passed && !flags.verbose) return
       const mark = result.passed ? 'ok  ' : result.case.known ? 'known' : 'FAIL'
@@ -99,6 +122,15 @@ async function main(): Promise<number> {
       }
     },
   })
+
+  // Handed back before anything else, including writing the results file: the
+  // numbers are already in memory and the machine wants its RAM more.
+  if (modelId && !flags['keep-loaded']) {
+    const baseURL = typeof flags['base-url'] === 'string' ? flags['base-url'] : 'http://localhost:11434/v1'
+    if (await unload(baseURL, modelId)) {
+      process.stdout.write(`\nunloaded ${modelId}\n`)
+    }
+  }
 
   report(runs, modelName, Date.now() - started)
 

@@ -71,6 +71,7 @@ export {
   type RetrieverOptions,
   type VectorStore,
   type VectorHit,
+  type VectorSearchOptions,
 } from './retrieve/index.js'
 export { createEmbedder, canReachGateway, type EmbedderOptions } from './embed.js'
 

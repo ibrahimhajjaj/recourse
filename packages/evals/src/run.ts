@@ -28,6 +28,13 @@ export interface RunOptions {
   /** Caps a single case, so one hung request cannot stall a whole suite. */
   timeoutMs?: number
   /**
+   * Only the first n cases of each suite.
+   *
+   * A full local run is several minutes of the machine being unusable for
+   * anything else. A slice is how you check a change without paying that.
+   */
+  limit?: number
+  /**
    * Adds vector search, using an OpenAI-compatible embeddings endpoint.
    *
    * Off by default, so the retrieval suite stays a deterministic thing CI can
@@ -79,7 +86,8 @@ export async function run(suites: string[], options: RunOptions): Promise<SuiteR
 
   for (const path of suites) {
     const suite = basename(path).replace(/\.jsonl$/, '')
-    const cases = parseSuite(await readFile(path, 'utf8'), suite)
+    const all = parseSuite(await readFile(path, 'utf8'), suite)
+    const cases = options.limit ? all.slice(0, options.limit) : all
     const results: CaseResult[] = []
 
     for (const item of cases) {

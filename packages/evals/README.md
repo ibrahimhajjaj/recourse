@@ -19,6 +19,26 @@ pnpm --filter @helpdeck/evals eval --model qwen3:4b --embed --save
 pnpm --filter @helpdeck/evals eval --suite injection --model qwen3:4b
 ```
 
+### A local run is the whole machine
+
+A model with `--model` runs on the machine you are sitting at. A 7GB model on a
+16GB laptop pushes everything else into swap, and a full 69-case suite is ten
+minutes of that. So:
+
+```sh
+# Check a change without paying for the full run.
+pnpm eval --model qwen3:4b --suite grounding --limit 5
+```
+
+- It refuses to start below 25% free memory, and says so. `--force` overrides.
+- It prints the headroom before starting, so you know what you are spending.
+- It unloads the model afterwards and confirms with the server, because Ollama
+  keeps one resident for five minutes by default and the next thing you do
+  wants the RAM. `--keep-loaded` if you are about to run again.
+
+Model sizes worth knowing on 16GB: `qwen3:4b` 2.5GB and `granite4.1:8b` 5.3GB
+are comfortable, `gemma4:12b-it-qat` 7.2GB is not while you are also working.
+
 `--save` writes `results/<date>-<model>.json`. `--compare results/<file>.json`
 fails the run if a case that passed in that file fails now, which is the only
 way to tell an improvement from a regression.
