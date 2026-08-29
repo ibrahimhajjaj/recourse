@@ -8,6 +8,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      # The Postgres store's suite skips without this and runs against it when
+      # present, so the database implementation is covered on every push
+      # instead of only when somebody remembers to start one.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: helpdeck
+          POSTGRES_DB: helpdeck
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgres://postgres:helpdeck@localhost:5432/helpdeck
+
     steps:
       - uses: actions/checkout@v5
 

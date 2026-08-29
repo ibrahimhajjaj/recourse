@@ -1,0 +1,39 @@
+{
+  "name": "@helpdeck/store-postgres",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Postgres implementation of the helpdeck Store. Survives more than one instance.",
+  "license": "MIT",
+  "author": "Ibrahim Hajjaj",
+  "homepage": "https://github.com/ibrahimhajjaj/helpdeck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ibrahimhajjaj/helpdeck.git",
+    "directory": "packages/store-postgres"
+  },
+  "keywords": ["helpdeck", "postgres", "store", "support"],
+  "files": ["dist", "README.md"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "helpdeck": "workspace:*",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "helpdeck": "workspace:*",
+    "pg": "^8.13.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
