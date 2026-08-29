@@ -34,9 +34,26 @@ function pick(root: ShadowRoot, files: File[]) {
   picker.dispatchEvent(new Event('change'))
 }
 
-/** The tray repaints after the FileReader resolves, so tests wait a tick. */
+/**
+ * Waits for the DOM to reach a state rather than for a fixed number of
+ * milliseconds.
+ *
+ * A fixed delay is a bet on how busy the machine is. FileReader and the fetch
+ * mock both resolve on their own schedule, and a 20ms wait that passes on an
+ * idle laptop fails in CI while something else is compiling.
+ */
+async function until(condition: () => boolean, what = 'condition'): Promise<void> {
+  const deadline = Date.now() + 2000
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  throw new Error(`timed out waiting for ${what}`)
+}
+
+/** A few turns of the event loop, for the cases with nothing to wait on. */
 async function settle() {
-  await new Promise((resolve) => setTimeout(resolve, 20))
+  for (let turn = 0; turn < 5; turn++) await new Promise((resolve) => setTimeout(resolve, 1))
 }
 
 beforeEach(() => {
@@ -71,7 +88,7 @@ describe('staging a file', () => {
   it('shows a removable chip for what was picked', async () => {
     const { root } = mount({ attachments: true })
     pick(root, [file('damage.png', 'image/png')])
-    await settle()
+    await until(() => root.querySelector('.tray .chip') !== null, 'the chip to appear')
 
     const chip = root.querySelector('.tray .chip')
     expect(chip?.textContent).toContain('damage.png')
@@ -83,7 +100,7 @@ describe('staging a file', () => {
   it('refuses a type the server would refuse anyway', async () => {
     const { root } = mount({ attachments: true })
     pick(root, [file('payload.exe', 'application/x-msdownload')])
-    await settle()
+    await until(() => !(root.querySelector('.error') as HTMLElement).hidden, 'the error to show')
 
     expect(root.querySelector('.tray .chip')).toBeNull()
     expect((root.querySelector('.error') as HTMLElement).textContent).toContain('payload.exe')
@@ -92,7 +109,7 @@ describe('staging a file', () => {
   it('refuses a file over the cap before uploading it', async () => {
     const { root } = mount({ attachments: { maxBytes: 100 } })
     pick(root, [file('big.png', 'image/png', 5000)])
-    await settle()
+    await until(() => !(root.querySelector('.error') as HTMLElement).hidden, 'the error to show')
 
     expect(root.querySelector('.tray .chip')).toBeNull()
     expect((root.querySelector('.error') as HTMLElement).textContent).toContain('big.png')
@@ -105,7 +122,7 @@ describe('staging a file', () => {
       file('b.png', 'image/png'),
       file('c.png', 'image/png'),
     ])
-    await settle()
+    await until(() => root.querySelectorAll('.tray .chip').length === 2, 'two chips')
 
     expect(root.querySelectorAll('.tray .chip')).toHaveLength(2)
     expect((root.querySelector('.error') as HTMLElement).textContent).toContain('2 files')
@@ -114,7 +131,7 @@ describe('staging a file', () => {
   it('renders a hostile filename as text, never as markup', async () => {
     const { root } = mount({ attachments: true })
     pick(root, [file('<img src=x onerror=alert(1)>.png', 'image/png')])
-    await settle()
+    await until(() => root.querySelector('.tray .chip') !== null, 'the chip to appear')
 
     const chip = root.querySelector('.tray .chip') as HTMLElement
     expect(chip.querySelector('img')).toBeNull()
@@ -153,8 +170,9 @@ describe('sending', () => {
     const { root } = mount({ attachments: true })
 
     pick(root, [file('damage.png', 'image/png')])
-    await settle()
+    await until(() => root.querySelector('.tray .chip') !== null, 'the chip to appear')
     await submit(root, 'is this covered?')
+    await until(() => bodies.length > 0, 'the request to be sent')
 
     const sent = bodies[0]?.attachments as Array<{ name: string; mimeType: string; dataUrl: string }>
     expect(sent).toHaveLength(1)
@@ -173,8 +191,9 @@ describe('sending', () => {
     const { root } = mount({ attachments: true })
 
     pick(root, [file('damage.png', 'image/png')])
-    await settle()
+    await until(() => root.querySelector('.tray .chip') !== null, 'the chip to appear')
     await submit(root, '')
+    await until(() => bodies.length > 0, 'the request to be sent')
 
     expect(bodies).toHaveLength(1)
     expect((bodies[0]?.attachments as unknown[]).length).toBe(1)
@@ -193,8 +212,9 @@ describe('sending', () => {
     const { root } = mount({ attachments: true })
 
     pick(root, [file('damage.png', 'image/png')])
-    await settle()
+    await until(() => root.querySelector('.tray .chip') !== null, 'the chip to appear')
     await submit(root, 'here')
+    await until(() => root.querySelector('.msg[data-role="user"] .attached') !== null, 'the thumbnail')
 
     const thumb = root.querySelector('.msg[data-role="user"] .attached img') as HTMLImageElement
     expect(thumb).not.toBeNull()
@@ -206,8 +226,9 @@ describe('sending', () => {
     const { root } = mount({ attachments: true })
 
     pick(root, [file('invoice.pdf', 'application/pdf')])
-    await settle()
+    await until(() => root.querySelector('.tray .chip') !== null, 'the chip to appear')
     await submit(root, 'is this paid?')
+    await until(() => root.querySelector('.msg[data-role="user"] .attached') !== null, 'the chip row')
 
     const row = root.querySelector('.msg[data-role="user"] .attached') as HTMLElement
     expect(row.querySelector('img')).toBeNull()
@@ -228,6 +249,7 @@ describe('sending', () => {
 
     const { root } = mount({ attachments: true })
     await submit(root, 'here')
+    await until(() => root.querySelector('.notice') !== null, 'the notice')
 
     expect((root.querySelector('.notice') as HTMLElement).textContent).toContain('virus.exe')
   })
