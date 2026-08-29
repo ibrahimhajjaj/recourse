@@ -28,6 +28,9 @@ class Plugin {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_widget' ) );
 
 		Indexer::register();
+		Abilities::register();
+		Tickets::register();
+		WooCommerce::register();
 
 		if ( is_admin() ) {
 			Admin::register();
@@ -87,6 +90,22 @@ class Plugin {
 		if ( '' !== $settings['persona']['greeting'] ) {
 			$config['greeting'] = $settings['persona']['greeting'];
 		}
+
+		/**
+		 * Filters the line telling the visitor they are talking to software.
+		 *
+		 * There is a default because the EU AI Act has required this disclosure
+		 * of visitor-facing chatbots since 2 August 2026, and a shop owner
+		 * installing a plugin should not have to know that. The duty is the
+		 * site's rather than this plugin's, so the wording can be changed, but
+		 * it starts present rather than absent.
+		 *
+		 * @param string $disclosure The line shown under the assistant's name.
+		 */
+		$config['subtitle'] = apply_filters(
+			'helpdeck_ai_disclosure',
+			__( 'Automated assistant. Answers can be wrong.', 'helpdeck' )
+		);
 
 		wp_localize_script( 'helpdeck-widget', 'helpdeckConfig', $config );
 	}

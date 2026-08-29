@@ -205,9 +205,25 @@ class Settings {
 	public static function ready() {
 		$settings = self::all();
 
-		return $settings['enabled']
-			&& '' !== $settings['model']['base_url']
-			&& '' !== $settings['model']['model']
-			&& null !== Storage::load();
+		return $settings['enabled'] && self::has_a_model() && null !== Storage::load();
+	}
+
+	/**
+	 * Whether anything can write an answer.
+	 *
+	 * Either an endpoint configured here, or WordPress's own AI client with a
+	 * connector behind it, which needs nothing configured in this plugin at
+	 * all.
+	 *
+	 * @return bool
+	 */
+	public static function has_a_model() {
+		$settings = self::all();
+
+		if ( '' !== $settings['model']['base_url'] && '' !== $settings['model']['model'] ) {
+			return true;
+		}
+
+		return function_exists( 'wp_supports_ai' ) && wp_supports_ai();
 	}
 }

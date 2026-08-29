@@ -275,6 +275,8 @@ class Admin {
 						<?php
 						if ( '' !== $settings['model']['base_url'] && '' !== $settings['model']['model'] ) {
 							esc_html_e( 'The model is configured.', 'helpdeck' );
+						} elseif ( Settings::has_a_model() ) {
+							esc_html_e( "This site's own AI connector will be used, so there is nothing to configure here.", 'helpdeck' );
 						} else {
 							esc_html_e( 'The model is not fully configured.', 'helpdeck' );
 						}

@@ -40,14 +40,167 @@ class Model {
 	const TIMEOUT = 60;
 
 	/**
-	 * Asks the model.
+	 * Asks the model, letting it call actions on the way.
+	 *
+	 * A loop rather than one request, because a tool call is a turn: the model
+	 * asks for a lookup, gets the result, and only then writes an answer. It is
+	 * bounded, because a model that keeps asking for the same lookup is a model
+	 * spending somebody's money in a circle.
+	 *
+	 * Small local models are unreliable at this. When one returns no tool call
+	 * the loop simply ends with whatever text it produced, which is the same
+	 * behaviour as having no actions at all rather than an error.
 	 *
 	 * @param string                            $instructions System prompt.
 	 * @param array<int, array<string, string>> $messages     Conversation.
 	 * @param array<string, string>             $config       Keys: base_url, api_key, model.
-	 * @return array{ok: bool, text: string, error: string}
+	 * @param array<string, mixed>              $context      Passed to action callbacks.
+	 * @return array{ok: bool, text: string, error: string, used: array<int, string>}
 	 */
-	public static function answer( $instructions, $messages, $config ) {
+	public static function answer( $instructions, $messages, $config, $context = array() ) {
+		$actions = Actions::all();
+		$tools   = Actions::to_tools( $actions );
+
+		// Nothing configured here, but the site has WordPress's own AI client
+		// and a connector behind it. Then there is nothing to configure: the
+		// key is the site's, the provider is the site's, and this plugin never
+		// sees either.
+		if ( '' === trim( isset( $config['base_url'] ) ? $config['base_url'] : '' ) && self::core_client_available() ) {
+			return self::via_core_client( $instructions, $messages );
+		}
+
+		$turns = array_merge(
+			array(
+				array(
+					'role'    => 'system',
+					'content' => $instructions . Actions::instructions( $actions ),
+				),
+			),
+			$messages
+		);
+
+		$used = array();
+
+		for ( $step = 0; $step < Actions::MAX_STEPS; $step++ ) {
+			$reply = self::request( $turns, $tools, $config );
+
+			if ( ! $reply['ok'] ) {
+				return array_merge( $reply, array( 'used' => $used ) );
+			}
+
+			$calls = $reply['tool_calls'];
+
+			if ( empty( $calls ) ) {
+				return array(
+					'ok'    => true,
+					'text'  => self::without_reasoning( $reply['text'] ),
+					'error' => '',
+					'used'  => $used,
+				);
+			}
+
+			// The assistant's own turn has to go back verbatim, tool calls and
+			// all, or the provider rejects the results that follow it.
+			$turns[] = $reply['message'];
+
+			foreach ( $calls as $call ) {
+				$name      = isset( $call['function']['name'] ) ? (string) $call['function']['name'] : '';
+				$arguments = isset( $call['function']['arguments'] ) ? $call['function']['arguments'] : '{}';
+				$input     = json_decode( is_string( $arguments ) ? $arguments : '{}', true );
+
+				$outcome = Actions::run( $name, is_array( $input ) ? $input : array(), $context );
+				$used[]  = $name;
+
+				$turns[] = array(
+					'role'         => 'tool',
+					'tool_call_id' => isset( $call['id'] ) ? (string) $call['id'] : $name,
+					'content'      => (string) wp_json_encode( $outcome ),
+				);
+			}
+		}
+
+		// Out of steps with no answer written. Saying so is better than showing
+		// the customer the last half-finished thought.
+		self::log( 'the model used every step without answering' );
+
+		return array(
+			'ok'    => false,
+			'text'  => '',
+			'error' => __( 'That took too long to work out. Try asking a simpler question.', 'helpdeck' ),
+			'used'  => $used,
+		);
+	}
+
+	/**
+	 * Whether this WordPress can call a model on its own.
+	 *
+	 * `wp_supports_ai()` answers whether the client exists, not whether a
+	 * provider is connected, so a site with no connector passes this and fails
+	 * at generation. The failure is handled where it happens rather than
+	 * predicted here.
+	 *
+	 * @return bool
+	 */
+	private static function core_client_available() {
+		return function_exists( 'wp_ai_client_prompt' ) && function_exists( 'wp_supports_ai' ) && wp_supports_ai();
+	}
+
+	/**
+	 * Answers through the AI client built into WordPress 7.0 and later.
+	 *
+	 * Actions travel as abilities, which is how core does tool calling: it
+	 * converts each one to a function declaration and runs the loop itself. So
+	 * only abilities are reachable on this path, not actions registered through
+	 * this plugin's own filter.
+	 *
+	 * @param string                            $instructions System prompt.
+	 * @param array<int, array<string, string>> $messages     Conversation.
+	 * @return array{ok: bool, text: string, error: string, used: array<int, string>}
+	 */
+	private static function via_core_client( $instructions, $messages ) {
+		$question = '';
+
+		foreach ( array_reverse( $messages ) as $message ) {
+			if ( isset( $message['role'] ) && 'user' === $message['role'] ) {
+				$question = (string) $message['content'];
+				break;
+			}
+		}
+
+		$prompt = wp_ai_client_prompt( $question )
+			->using_system_instruction( $instructions )
+			->using_temperature( 0 );
+
+		$text = $prompt->generate_text();
+
+		if ( is_wp_error( $text ) ) {
+			self::log( 'the core AI client refused: ' . $text->get_error_message() );
+
+			return array(
+				'ok'    => false,
+				'text'  => '',
+				'error' => __( 'The assistant is not configured yet.', 'helpdeck' ),
+				'used'  => array(),
+			);
+		}
+
+		return array(
+			'ok'    => true,
+			'text'  => self::without_reasoning( (string) $text ),
+			'error' => '',
+			'used'  => array(),
+		);
+	}
+
+	/**
+	 * One request to the provider.
+	 *
+	 * @param array<int, array<string, mixed>> $turns  Conversation so far.
+	 * @param array<int, array<string, mixed>> $tools  Actions on offer.
+	 * @param array<string, string>            $config Keys: base_url, api_key, model.
+	 * @return array{ok: bool, text: string, error: string, tool_calls: array<int, mixed>, message: array<string, mixed>}
+	 */
+	private static function request( $turns, $tools, $config ) {
 		$base = isset( $config['base_url'] ) ? untrailingslashit( trim( $config['base_url'] ) ) : '';
 		$name = isset( $config['model'] ) ? trim( $config['model'] ) : '';
 
@@ -57,21 +210,18 @@ class Model {
 
 		$payload = array(
 			'model'       => $name,
-			'messages'    => array_merge(
-				array(
-					array(
-						'role'    => 'system',
-						'content' => $instructions,
-					),
-				),
-				$messages
-			),
+			'messages'    => $turns,
 			// Support answers should be reproducible. A shop owner who tests a
 			// question and gets a different answer on the second try has no way
 			// to tell a fix from luck.
 			'temperature' => 0,
 			'stream'      => false,
 		);
+
+		if ( ! empty( $tools ) ) {
+			$payload['tools']       = $tools;
+			$payload['tool_choice'] = 'auto';
+		}
 
 		$headers = array( 'Content-Type' => 'application/json' );
 
@@ -115,18 +265,27 @@ class Model {
 			return self::failure( __( 'The assistant could not answer just now.', 'helpdeck' ) );
 		}
 
-		$text = isset( $body['choices'][0]['message']['content'] ) ? $body['choices'][0]['message']['content'] : '';
+		$message = isset( $body['choices'][0]['message'] ) && is_array( $body['choices'][0]['message'] )
+			? $body['choices'][0]['message']
+			: array();
 
-		if ( ! is_string( $text ) || '' === trim( $text ) ) {
+		$text  = isset( $message['content'] ) && is_string( $message['content'] ) ? $message['content'] : '';
+		$calls = isset( $message['tool_calls'] ) && is_array( $message['tool_calls'] ) ? $message['tool_calls'] : array();
+
+		// A turn that asks for a lookup often carries no text at all, so empty
+		// content is only a failure when there is nothing else in the reply.
+		if ( '' === trim( $text ) && empty( $calls ) ) {
 			self::log( 'the model returned an empty answer' );
 
 			return self::failure( __( 'The assistant had nothing to say. Try rephrasing.', 'helpdeck' ) );
 		}
 
 		return array(
-			'ok'    => true,
-			'text'  => self::without_reasoning( $text ),
-			'error' => '',
+			'ok'         => true,
+			'text'       => $text,
+			'error'      => '',
+			'tool_calls' => $calls,
+			'message'    => $message,
 		);
 	}
 
@@ -159,14 +318,21 @@ class Model {
 	 * @return array{ok: bool, text: string, error: string}
 	 */
 	public static function check( $config ) {
-		return self::answer(
-			'Reply with the single word: ready.',
+		// Straight to the provider, with no actions offered. A connection test
+		// that can call a lookup is a connection test that can charge somebody
+		// for a lookup.
+		return self::request(
 			array(
+				array(
+					'role'    => 'system',
+					'content' => 'Reply with the single word: ready.',
+				),
 				array(
 					'role'    => 'user',
 					'content' => 'Are you there?',
 				),
 			),
+			array(),
 			$config
 		);
 	}
@@ -175,13 +341,15 @@ class Model {
 	 * A failure the customer can be shown.
 	 *
 	 * @param string $message Message.
-	 * @return array{ok: bool, text: string, error: string}
+	 * @return array{ok: bool, text: string, error: string, tool_calls: array<int, mixed>, message: array<string, mixed>}
 	 */
 	private static function failure( $message ) {
 		return array(
-			'ok'    => false,
-			'text'  => '',
-			'error' => $message,
+			'ok'         => false,
+			'text'       => '',
+			'error'      => $message,
+			'tool_calls' => array(),
+			'message'    => array(),
 		);
 	}
 

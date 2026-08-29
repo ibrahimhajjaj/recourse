@@ -48,6 +48,10 @@ are asserted now.
 | `includes/class-chunker.php` | Heading-aware splitting |
 | `includes/class-retriever.php` | The policy: floors, coverage, per-page cap |
 | `includes/class-index.php` | Building, reading and writing the shared format |
+| `includes/class-actions.php` | The action registry, and the rules the model gets with it |
+| `includes/class-abilities.php` | Both directions of core's Abilities API |
+| `includes/class-woocommerce.php` | Order lookup and stock, when Woo is active |
+| `includes/class-tickets.php` | Where a handoff lands on a site with no help desk |
 
 The index format is the core's, version and all, so a shop that outgrows the
 plugin can take its index to the Node service, and an index built by
@@ -93,3 +97,93 @@ npm run lint           # php -l over everything
 
 `npm test` skips loudly rather than failing when there is no PHP on the
 machine, which is most machines running `pnpm verify`.
+
+## Actions
+
+The agent can do things, not only answer. Actions are registered through a
+filter, so a site adds one from its own plugin without knowing anything about
+this one:
+
+```php
+add_filter( 'helpdeck_actions', function ( $actions ) {
+	$actions['book_a_call'] = array(
+		'description' => 'Book a call with the team. Use when somebody asks to speak to a person about a quote.',
+		'fields'      => array(
+			'email' => array(
+				'type'        => 'string',
+				'description' => 'Where to send the invitation.',
+				'required'    => true,
+			),
+		),
+		'callback'    => 'my_book_a_call',
+	);
+
+	return $actions;
+} );
+```
+
+Three ship in the box. `create_support_request` writes to a private post type,
+so a handoff has somewhere to go on a site with no help desk, and fires
+`helpdeck_ticket_created` for a site that has one. `look_up_order` and
+`check_stock` appear only when WooCommerce is active.
+
+**An order number is not identity.** Order numbers are sequential, so anybody
+holding one of their own can guess a hundred others. The lookup demands the
+email the order was placed with, compares it in constant time, and answers a
+wrong email exactly as it answers a missing order. Two different answers would
+turn the endpoint into a way of mapping which numbers exist.
+
+Nothing shipped writes to a shop. A model that misreads a sentence should not
+be able to refund an order.
+
+## What core now does, checked on a live 7.1
+
+WordPress grew two things that overlap with this plugin, so both are used
+rather than reimplemented.
+
+**The Abilities API, core since 6.9** (about 76% of installs). It is a registry
+of callable things with a JSON Schema and a permission callback, which is
+exactly the shape a model wants. This plugin registers `helpdeck/answer` and
+`helpdeck/search` there, both annotated `readonly`, so any other agent on the
+site can use them. `helpdeck/search` needs no model and no credential at all.
+
+It reads from the registry too, but only what the site names:
+
+```php
+add_filter( 'helpdeck_allowed_abilities', function () {
+	return array( 'woocommerce/products-query' );
+} );
+```
+
+Empty by default, and that is load-bearing. A stock WooCommerce registers seven
+abilities and two of them are `product-delete` and `order-update-status`, while
+the visitor at the other end of this chat is an anonymous member of the public.
+Three gates, all verified on a live install with WooCommerce active: the site's
+allowlist, then the `destructive` annotation, then the ability's own permission
+callback.
+
+```
+woocommerce/product-delete   destructive=yes  anonymous=false
+woocommerce/products-query   destructive=no   anonymous=false
+                             as an administrator: allowed, offered as
+                             woocommerce_products_query
+```
+
+**The AI Client, core since 7.0** (about 67%). When the site has a connector
+configured and nothing is set here, the plugin uses it: no endpoint to paste,
+no key to store, and the credential is the site's rather than this plugin's.
+Core does tool calling on that path through `using_abilities()`, so abilities
+work there and actions registered through the filter do not.
+
+One trap worth knowing: `wp_supports_ai()` answers whether the client exists,
+not whether a provider is connected. A site with no connector passes it and
+then fails at generation, so the failure is handled where it happens.
+
+Streaming and embeddings are not in core yet. Embeddings are targeted at 7.2,
+and they are the thing that could replace this index layer entirely.
+
+## What is not here
+
+Ten channels, voice, attachments, the safety classifier, four database stores,
+procedures and the eval harness are all in the Node core and none of them is
+planned for PHP. This is the standalone path, for a site with no Node anywhere.

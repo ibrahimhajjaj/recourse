@@ -30,6 +30,25 @@ Helpdeck needs an OpenAI-compatible chat completions endpoint to write an answer
 *   What is sent: the visitor's question, up to twelve previous turns of the same conversation, the persona text you configured, your business name (your site title unless you change it), and the passages, titles and permalinks from your published content that matched the question. Nothing is sent from drafts, private posts, or post types you did not tick.
 *   What comes back: one block of answer text, shown to the visitor. Nothing else from the response is kept.
 
+== Works with what your site already has ==
+
+On WordPress 6.9 and later the assistant registers itself with the Abilities
+API, so other tools on your site can use it, and it can call abilities other
+plugins register once you list them. Nothing is called without you naming it,
+and an ability marked as destructive is refused even then.
+
+On WordPress 7.0 and later, if your site already has an AI connector set up
+under Settings, the assistant will use it and you do not need to enter an
+endpoint or a key here at all.
+
+== Telling visitors they are talking to software ==
+
+The chat window says "Automated assistant. Answers can be wrong." under the
+assistant's name. The EU AI Act has required that disclosure of visitor-facing
+chatbots since 2 August 2026, and the duty falls on the site rather than on the
+plugin, so the wording is yours to change through the `helpdeck_ai_disclosure`
+filter. It is there by default rather than absent.
+
 == Source code ==
 
 The widget script shipped as `assets/helpdeck.min.js` is built from the TypeScript sources at https://github.com/ibrahimhajjaj/helpdeck, under `packages/widget/src`. The readable build is shipped alongside it as `assets/helpdeck.js`. Build it yourself with `npm install && npm run build` in that directory.

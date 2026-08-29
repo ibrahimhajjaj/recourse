@@ -121,7 +121,11 @@ class Rest {
 		$answer = Model::answer(
 			Prompt::instructions( $matches, $settings['persona'] ),
 			$messages,
-			$settings['model']
+			$settings['model'],
+			array(
+				'conversation' => sanitize_text_field( (string) $request->get_param( 'conversationId' ) ),
+				'caller'       => $caller,
+			)
 		);
 
 		if ( ! $answer['ok'] ) {

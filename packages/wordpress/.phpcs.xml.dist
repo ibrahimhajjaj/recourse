@@ -4,6 +4,8 @@
 
 	<file>.</file>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<!-- The built plugin, which is a copy of everything above it. -->
+	<exclude-pattern>*/dist/*</exclude-pattern>
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/tests/fixtures/*</exclude-pattern>
 

@@ -23,6 +23,7 @@ define( 'HELPDECK_TESTING', true );
 // `defined( 'ABSPATH' ) || exit;`. Defining it here means the guard can be the
 // standard one in every file rather than a variant with a test escape hatch in
 // it, which is the sort of thing a reviewer reads twice.
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- WordPress's own constant, stood up here because WordPress is not loaded.
 define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 
 require_once __DIR__ . '/../vendor/autoload.php';
