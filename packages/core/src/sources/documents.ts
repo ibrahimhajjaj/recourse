@@ -13,19 +13,42 @@ export interface ParserRegistry {
   [extension: string]: DocumentParser
 }
 
-async function optional<T>(specifier: string, install: string): Promise<T> {
+/**
+ * Imports a parser package that may not be there.
+ *
+ * Exported because `ParserRegistry` is a documented extension point: anyone
+ * adding a reader for a format we do not ship should fail the same way, with
+ * the same distinction between absent and broken.
+ */
+export async function loadParser<T>(specifier: string, install: string): Promise<T>
+export async function loadParser<T>(load: () => Promise<T>, install?: string): Promise<T>
+export async function loadParser<T>(
+  source: string | (() => Promise<T>),
+  install = '',
+): Promise<T> {
+  const specifier = typeof source === 'string' ? source : 'the parser'
   try {
-    return (await import(/* @vite-ignore */ specifier)) as T
-  } catch {
+    return typeof source === 'string'
+      ? ((await import(/* @vite-ignore */ source)) as T)
+      : await source()
+  } catch (error) {
+    // Only a genuinely absent package should be answered with "install it".
+    // A parser that is installed but will not load on this runtime is a
+    // different problem, and sending someone to reinstall it wastes their day.
+    if ((error as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND') {
+      throw new Error(
+        `reading this file needs the optional "${specifier}" package. Install it with: ${install}`,
+      )
+    }
     throw new Error(
-      `reading this file needs the optional "${specifier}" package. Install it with: ${install}`,
+      `the "${specifier}" package is installed but failed to load: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
 }
 
 /** Extracts the text layer. A scanned PDF has none, and yields nothing. */
 export const parsePdf: DocumentParser = async (data) => {
-  const pdfjs = await optional<{
+  const pdfjs = await loadParser<{
     getDocument(source: { data: Uint8Array; useSystemFonts?: boolean }): { promise: Promise<PdfDocument> }
   }>('pdfjs-dist/legacy/build/pdf.mjs', 'npm install pdfjs-dist')
 
@@ -54,7 +77,7 @@ interface PdfDocument {
 
 /** Word documents, converted to markdown so headings survive into chunking. */
 export const parseDocx: DocumentParser = async (data) => {
-  const mammoth = await optional<{
+  const mammoth = await loadParser<{
     convertToMarkdown(input: { buffer: Buffer }): Promise<{ value: string }>
   }>('mammoth', 'npm install mammoth')
 

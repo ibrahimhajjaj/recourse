@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { qnaSource } from '../src/sources/qna.js'
 import { filesSource } from '../src/sources/files.js'
+import { loadParser } from '../src/sources/documents.js'
 import { buildIndex } from '../src/knowledge/build.js'
 import { createRetriever } from '../src/retrieve/retriever.js'
 
@@ -83,6 +84,17 @@ describe('local files', () => {
 
     const documents = await filesSource({ path: dir, maxBytes: 100 }).load({})
     expect(documents).toEqual([])
+  })
+
+  it('separates a missing parser package from one that will not load', async () => {
+    // The distinction matters: telling someone to install a package they
+    // already have sends them to fix the wrong thing.
+    const missing = Object.assign(new Error('Cannot find module'), { code: 'ERR_MODULE_NOT_FOUND' })
+    const broken = new ReferenceError('DOMMatrix is not defined')
+
+    await expect(loadParser(async () => { throw missing })).rejects.toThrow(/Install it with/)
+    await expect(loadParser(async () => { throw broken })).rejects.toThrow(/installed but failed to load/)
+    await expect(loadParser(async () => { throw broken })).rejects.toThrow(/DOMMatrix/)
   })
 
   it('tells you which package to install when a parser is missing', async () => {
