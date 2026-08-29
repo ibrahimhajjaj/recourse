@@ -28,6 +28,21 @@ define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+/**
+ * What `__()` does when no translation is loaded, which is what it does on most
+ * installs. Enough to let the classes that only use it for message text be
+ * tested without WordPress.
+ *
+ * @param string $text   Text.
+ * @param string $domain Text domain, ignored.
+ * @return string
+ */
+function __( $text, $domain = 'default' ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	unset( $domain );
+
+	return $text;
+}
+
 $helpdeck_testable = array(
 	'tokenizer',
 	'bm25',
@@ -36,6 +51,7 @@ $helpdeck_testable = array(
 	'index',
 	'html',
 	'prompt',
+	'actions',
 );
 
 foreach ( $helpdeck_testable as $helpdeck_class ) {

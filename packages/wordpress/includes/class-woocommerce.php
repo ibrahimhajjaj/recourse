@@ -143,12 +143,32 @@ class WooCommerce {
 			'order_number' => $order->get_order_number(),
 			'status'       => wc_get_order_status_name( $order->get_status() ),
 			'placed'       => $created ? $created->date( 'Y-m-d' ) : '',
-			'total'        => wp_strip_all_tags( wc_price( $order->get_total(), array( 'currency' => $order->get_currency() ) ) ),
+			'total'        => self::money( $order->get_total(), $order->get_currency() ),
 			'items'        => $items,
 			// The tracking number is what the customer actually wants, and
 			// every shipping plugin stores it somewhere different.
 			'tracking'     => apply_filters( 'helpdeck_order_tracking', '', $order ),
 		);
+	}
+
+	/**
+	 * A price, as a person would read it.
+	 *
+	 * `wc_price()` returns markup with the currency symbol as an entity, so a
+	 * total handed straight to a model arrives as `&#36;29.00` and comes back
+	 * out in the answer that way. Stripping the tags is not enough; the entity
+	 * has to be decoded too.
+	 *
+	 * @param string|float $amount   Amount.
+	 * @param string       $currency Currency code, when it is not the shop's.
+	 * @return string
+	 */
+	private static function money( $amount, $currency = '' ) {
+		$formatted = '' !== $currency
+			? wc_price( $amount, array( 'currency' => $currency ) )
+			: wc_price( $amount );
+
+		return html_entity_decode( wp_strip_all_tags( $formatted ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 	}
 
 	/**
@@ -181,7 +201,7 @@ class WooCommerce {
 		foreach ( $found as $product ) {
 			$products[] = array(
 				'name'         => $product->get_name(),
-				'price'        => wp_strip_all_tags( wc_price( $product->get_price() ) ),
+				'price'        => self::money( $product->get_price() ),
 				'in_stock'     => $product->is_in_stock(),
 				'stock_status' => $product->get_stock_status(),
 				'url'          => $product->get_permalink(),

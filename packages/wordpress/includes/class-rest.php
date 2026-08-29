@@ -119,7 +119,7 @@ class Rest {
 		$settings = Settings::all();
 
 		$answer = Model::answer(
-			Prompt::instructions( $matches, $settings['persona'] ),
+			Prompt::instructions( $matches, $settings['persona'], ! empty( Actions::all() ) ),
 			$messages,
 			$settings['model'],
 			array(

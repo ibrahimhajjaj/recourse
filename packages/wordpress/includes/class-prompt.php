@@ -25,11 +25,12 @@ class Prompt {
 	/**
 	 * Builds the system prompt.
 	 *
-	 * @param array<int, array<string, mixed>> $matches Retrieved passages.
-	 * @param array<string, string>            $persona Keys: name, business, fallback, instructions.
+	 * @param array<int, array<string, mixed>> $matches     Retrieved passages.
+	 * @param array<string, string>            $persona     Keys: name, business, fallback, instructions.
+	 * @param bool                             $has_actions Whether the agent has actions to reach for.
 	 * @return string
 	 */
-	public static function instructions( $matches, $persona = array() ) {
+	public static function instructions( $matches, $persona = array(), $has_actions = false ) {
 		$name     = isset( $persona['name'] ) && '' !== $persona['name'] ? $persona['name'] : 'the support assistant';
 		$business = isset( $persona['business'] ) && '' !== $persona['business'] ? ' for ' . $persona['business'] : '';
 		$fallback = isset( $persona['fallback'] ) && '' !== $persona['fallback']
@@ -40,12 +41,30 @@ class Prompt {
 			'You are ' . $name . ', a customer support agent' . $business . '.',
 			'',
 			'Answering:',
-			'- Answer from the numbered sources below. Nothing else.',
-			'- If the sources do not answer the question, say exactly this and stop: "' . $fallback . '"',
-			'- Never invent prices, policies, dates, URLs, order details or availability. A wrong answer costs more than no answer.',
-			'- Cite the sources you used inline as [1], [2]. Cite only what you actually relied on.',
-			'- Be brief. Two or three sentences unless the question genuinely needs steps.',
-			'- Reply in the language the customer wrote in.',
+			$has_actions
+				? '- Answer from the numbered sources below and from what your actions return. Nothing else.'
+				: '- Answer from the numbered sources below. Nothing else.',
+		);
+
+		// Ordered deliberately. A model told "say the fallback when the sources
+		// do not answer" reaches for it the moment retrieval comes back empty,
+		// which is exactly the moment an action was going to earn its keep. An
+		// order lookup is never in the help pages.
+		if ( $has_actions ) {
+			$lines[] = '- The sources are help pages, not live data. If the question needs something only an action can get, use the action. Not finding it in the sources is not an answer.';
+			$lines[] = '- Only when the sources cannot answer and no action can either, say exactly this and stop: "' . $fallback . '"';
+		} else {
+			$lines[] = '- If the sources do not answer the question, say exactly this and stop: "' . $fallback . '"';
+		}
+
+		$lines = array_merge(
+			$lines,
+			array(
+				'- Never invent prices, policies, dates, URLs, order details or availability. A wrong answer costs more than no answer.',
+				'- Cite the sources you used inline as [1], [2]. Cite only what you actually relied on.',
+				'- Be brief. Two or three sentences unless the question genuinely needs steps.',
+				'- Reply in the language the customer wrote in.',
+			)
 		);
 
 		if ( isset( $persona['instructions'] ) && '' !== $persona['instructions'] ) {

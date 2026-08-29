@@ -69,11 +69,13 @@ class Model {
 			return self::via_core_client( $instructions, $messages );
 		}
 
+		$instructions .= Actions::instructions( $actions );
+
 		$turns = array_merge(
 			array(
 				array(
 					'role'    => 'system',
-					'content' => $instructions . Actions::instructions( $actions ),
+					'content' => $instructions,
 				),
 			),
 			$messages
@@ -93,7 +95,7 @@ class Model {
 			if ( empty( $calls ) ) {
 				return array(
 					'ok'    => true,
-					'text'  => self::without_reasoning( $reply['text'] ),
+					'text'  => Actions::redact( self::without_reasoning( $reply['text'] ), $actions ),
 					'error' => '',
 					'used'  => $used,
 				);
