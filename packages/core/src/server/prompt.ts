@@ -67,21 +67,30 @@ export function buildInstructions(options: InstructionOptions): string {
     })
     .join('\n\n---\n\n')
 
+  // Procedure-only actions are described inside their procedure, not here, so
+  // the agent has no standing invitation to reach for them.
+  const openActions = actions.filter((action) => !action.procedureOnly)
+
   const lines = [
     `You are ${name}, a customer support agent${business}.`,
     '',
     'Answering:',
     '- Answer from the numbered sources below and from what actions return. Nothing else.',
-    `- If neither answers the question, say exactly this and stop: "${fallback}"`,
+    // Ordered deliberately. A model told "say the fallback when the sources do
+    // not answer" reaches for it the moment retrieval comes back empty, which
+    // is exactly the moment an action was going to earn its keep: an order
+    // lookup or a ticket is never in the help pages.
+    ...(openActions.length > 0
+      ? [
+          '- The sources are help pages, not live data. If the question needs something only an action can get, use the action. Not finding it in the sources is not an answer.',
+          `- Only when the sources cannot answer and no action can either, say exactly this and stop: "${fallback}"`,
+        ]
+      : [`- If the sources do not answer the question, say exactly this and stop: "${fallback}"`]),
     '- Never invent prices, policies, dates, URLs, order details or availability. A wrong answer costs more than no answer.',
     '- Cite the sources you used inline as [1], [2]. Cite only what you actually relied on.',
     '- Be brief. Two or three sentences unless the question genuinely needs steps.',
     '- Reply in the language the customer wrote in.',
   ]
-
-  // Procedure-only actions are described inside their procedure, not here, so
-  // the agent has no standing invitation to reach for them.
-  const openActions = actions.filter((action) => !action.procedureOnly)
 
   if (openActions.length > 0) {
     lines.push(
