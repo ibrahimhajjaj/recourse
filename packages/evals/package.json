@@ -10,7 +10,8 @@
   "scripts": {
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "eval": "tsx src/cli.ts"
+    "eval": "tsx src/cli.ts",
+    "channels": "tsx src/channel-harness.mts"
   },
   "dependencies": {
     "helpdeck": "workspace:*"
