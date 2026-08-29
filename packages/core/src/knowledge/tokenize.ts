@@ -41,6 +41,45 @@ function hasVowel(word: string): boolean {
   return /[aeiouy]/.test(word)
 }
 
+/**
+ * Suffixes that turn one part of speech into another without changing what the
+ * word is about. "Freshness" is a heading, "stay fresh" is how somebody asks
+ * about it, and a keyword index that cannot connect the two loses the answer.
+ *
+ * Deliberately short. Each entry earns its place by connecting words a support
+ * corpus and a customer actually use; a longer list buys recall at the cost of
+ * precision on every other query.
+ */
+const DERIVATIONS: Array<[string, string]> = [
+  ['fulness', 'ful'],
+  ['ousness', 'ous'],
+  ['iveness', 'ive'],
+  ['ability', 'able'],
+  ['ibility', 'ible'],
+  ['ational', 'ate'],
+  ['ization', 'ize'],
+  ['fulness', 'ful'],
+  ['ication', 'ify'],
+  ['iveness', 'ive'],
+  ['ousness', 'ous'],
+  ['ational', 'ate'],
+  ['tional', 'tion'],
+  ['ements', 'e'],
+  ['ement', 'e'],
+  ['ments', ''],
+  ['ness', ''],
+  ['ment', ''],
+  ['ities', 'ity'],
+  ['ance', ''],
+  ['ence', ''],
+  ['able', ''],
+  ['ible', ''],
+  ['ical', 'ic'],
+  ['less', ''],
+  ['ity', ''],
+  ['ful', ''],
+]
+
 function stem(word: string): string {
   let out = word
 
@@ -49,6 +88,17 @@ function stem(word: string): string {
   else if (out.length > 4 && out.endsWith('sses')) out = out.slice(0, -2)
   else if (out.length > 3 && out.endsWith('s') && !out.endsWith('ss') && !out.endsWith('us')) {
     out = out.slice(0, -1)
+  }
+
+  // Derivational endings, so a heading like "Freshness" and a question asking
+  // "stay fresh" land on the same term. Ordered longest first, applied once,
+  // and guarded on what is left behind: over-stemming costs precision on every
+  // query, so nothing here fires on a short word.
+  for (const [suffix, replacement] of DERIVATIONS) {
+    if (out.length > suffix.length + 3 && out.endsWith(suffix)) {
+      out = out.slice(0, -suffix.length) + replacement
+      break
+    }
   }
 
   // Verb endings, only when something pronounceable is left behind.
