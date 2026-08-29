@@ -54,7 +54,7 @@ export interface R2Like {
 
 export interface R2BindingOptions {
   /**
-   * A public base for read URLs, a custom domain on the bucket, or a route on
+   * A public base for read URLs: a custom domain on the bucket, or a route on
    * your own Worker that streams objects back.
    *
    * Without one there is no `signedUrl`, because a binding cannot make a link

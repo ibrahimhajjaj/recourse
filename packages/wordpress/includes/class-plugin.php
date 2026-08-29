@@ -68,16 +68,25 @@ class Plugin {
 			true
 		);
 
-		// Configuration travels as data attributes on the script tag, which is
-		// what the widget reads. `wp_localize_script` would work too and would
-		// put a global on the page for no reason.
+		// The widget reads `window.helpdeckConfig` and merges it over whatever
+		// the script tag carries, so the configuration goes in a global rather
+		// than in data attributes. The key names are the widget's, not the
+		// settings screen's, and they are not the same: it wants a `title`
+		// where the settings call it a persona name, and `bottom-left` where
+		// the settings say `left`.
 		$config = array(
 			'endpoint' => esc_url_raw( rest_url( Rest::NAMESPACE_V1 . '/chat' ) ),
-			'name'     => $settings['persona']['name'],
-			'greeting' => $settings['persona']['greeting'],
 			'accent'   => $settings['appearance']['accent'],
-			'position' => $settings['appearance']['position'],
+			'position' => 'left' === $settings['appearance']['position'] ? 'bottom-left' : 'bottom-right',
 		);
+
+		if ( '' !== $settings['persona']['name'] ) {
+			$config['title'] = $settings['persona']['name'];
+		}
+
+		if ( '' !== $settings['persona']['greeting'] ) {
+			$config['greeting'] = $settings['persona']['greeting'];
+		}
 
 		wp_localize_script( 'helpdeck-widget', 'helpdeckConfig', $config );
 	}

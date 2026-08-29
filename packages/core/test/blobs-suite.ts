@@ -3,10 +3,10 @@
  *
  * The same argument as `store-suite.ts`: an adapter that passes a suite
  * written for it is not interchangeable with anything. This one is worth more
- * than most, because the failures it catches, a `get` on a missing key
- * throwing instead of answering null, metadata that does not survive a round
- * trip, are exactly what a hand-written test forgets to check and exactly
- * what breaks a deployment on a different provider.
+ * than most, because of the failures it catches: a `get` on a missing key
+ * throwing instead of answering null, or metadata that does not survive a
+ * round trip. Those are exactly what a hand-written test forgets to check, and
+ * exactly what breaks a deployment on a different provider.
  *
  * Monorepo scaffolding, not shipped.
  */

@@ -1,8 +1,8 @@
 /**
  * AWS Signature Version 4, written against Web Crypto.
  *
- * Every S3-compatible service authenticates this way, R2, MinIO, Backblaze,
- * Wasabi, S3 itself, so this one file is what lets object storage be a seam
+ * Every S3-compatible service authenticates this way: R2, MinIO, Backblaze,
+ * Wasabi and S3 itself. So this one file is what lets object storage be a seam
  * rather than a vendor.
  *
  * It exists instead of a dependency for the reason the D1 store has no
@@ -74,7 +74,7 @@ export const MAX_EXPIRES_IN = 604_800
 /**
  * Signs a request and returns the headers to send with it.
  *
- * `host` is always signed, it is the minimum the specification requires, and
+ * `host` is always signed. It is the minimum the specification requires, and
  * it is what stops a signature for one bucket being replayed against another.
  */
 export async function signHeaders(options: SignHeadersOptions): Promise<Record<string, string>> {

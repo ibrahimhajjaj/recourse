@@ -34,8 +34,17 @@ if (!existsSync(join(root, 'assets', 'helpdeck.min.js'))) {
   process.exit(1)
 }
 
-rmSync(join(root, 'dist'), { recursive: true, force: true })
+// The contents go, the directory stays. Deleting and recreating it breaks any
+// bind mount pointing at it, which is how wp-env serves the plugin: the
+// container keeps the unlinked inode and the plugin silently disappears from
+// the site while the files sit there on disk looking fine.
 mkdirSync(out, { recursive: true })
+
+for (const entry of readdirSync(out)) {
+  rmSync(join(out, entry), { recursive: true, force: true })
+}
+
+rmSync(join(root, 'dist', 'helpdeck.zip'), { force: true })
 
 for (const entry of SHIPS) {
   const from = join(root, entry)

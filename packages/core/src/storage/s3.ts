@@ -50,7 +50,7 @@ export interface S3BlobsOptions {
    */
   pathStyle?: boolean
   /**
-   * A public base for read URLs, an R2 custom domain, or a CDN in front of
+   * A public base for read URLs: an R2 custom domain, or a CDN in front of
    * the bucket. When set, `signedUrl` is not needed to show a file.
    *
    * Cloudflare's `r2.dev` subdomain is explicitly not for production: it is

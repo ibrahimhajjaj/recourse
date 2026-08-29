@@ -1,7 +1,7 @@
 /**
  * Turning "I uploaded a file" into "here is the file", safely.
  *
- * Once attachments live in a bucket, a message no longer carries the file, it
+ * Once attachments live in a bucket, a message no longer carries the file. It
  * carries a key. And a key arriving from a browser is not evidence of
  * anything: `attachments/2026-08-29/…-invoice.pdf` is a guessable shape, and
  * somebody else's key is exactly as valid as your own.
@@ -67,7 +67,7 @@ export interface ResolveOptions {
   /**
    * Sends images to the model as bytes rather than as a signed link.
    *
-   * A link is cheaper, the file never passes through this server, but it
+   * A link is cheaper (the file never passes through this server) but it
    * requires the provider to be able to fetch it, and a self-hosted model on a
    * private network cannot.
    */

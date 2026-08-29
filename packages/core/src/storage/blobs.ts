@@ -10,8 +10,8 @@
  * exceed 2MB, so anything larger than a screenshot has to live somewhere else
  * regardless of who is hosting.
  *
- * The interface is deliberately small, put, get, head, delete, and two
- * optional signing methods, because that is the intersection of R2, S3,
+ * The interface is deliberately small (put, get, head, delete, and two
+ * optional signing methods) because that is the intersection of R2, S3,
  * MinIO, Backblaze, and a directory on a disk. Anything richer would be an S3
  * client wearing a seam's clothes.
  */
@@ -68,8 +68,8 @@ export interface Blobs {
   /**
    * A URL something outside this process can read the object through.
    *
-   * Signed and expiring where the backend can sign, that is the S3 path, and
-   * a plain public URL where it cannot, which is what a bucket with a custom
+   * Signed and expiring where the backend can sign (the S3 path), and a plain
+   * public URL where it cannot, which is what a bucket with a custom
    * domain in front of it gives you. The difference matters: one leaks for
    * five minutes, the other leaks forever.
    *
@@ -91,7 +91,7 @@ export const DEFAULT_EXPIRES_IN = 300
  * A key for one uploaded file.
  *
  * The random part comes before the visitor's filename so that two people
- * uploading `invoice.pdf` never collide, R2 rate limits concurrent writes to
+ * uploading `invoice.pdf` never collide. R2 rate limits concurrent writes to
  * the *same* key to one per second, and a shared name would find that limit.
  * The name is kept on the end because a key that reads `a7f3c2e9d1b4` tells
  * whoever opens the bucket nothing at all.

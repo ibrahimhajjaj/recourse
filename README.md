@@ -416,7 +416,7 @@ instance under load, and with a file store the transcripts, tickets and sources
 scatter across instances that cannot see each other. Nothing errors; the data is
 just quietly in the wrong place.
 
-All four implementations, memory, file, Postgres and D1, pass the same
+All four implementations (memory, file, Postgres and D1) pass the same
 behaviour suite, so swapping one is a configuration change rather than a
 rewrite.
 
@@ -516,8 +516,9 @@ through their shared API, so nothing here is Cloudflare-only.
 
 Two things differ from Node. Import the subpaths (`helpdeck/server`,
 `helpdeck/models`, ...) rather than the root, which re-exports `ingest` and so
-pulls in `node:fs`. And pass the environment in, `models.fromEnvironment(env)`
-because a Worker has no `process` and reading it throws.
+pulls in `node:fs`. And pass the environment in with
+`models.fromEnvironment(env)`, because a Worker has no `process` and reading
+it throws.
 
 ## Files bigger than a screenshot
 
@@ -556,8 +557,8 @@ from a browser is a claim, not a credential. Every reference is checked against
 an HMAC this deployment issued before anything is read, and a stolen key and a
 missing one are told apart by nobody: they get the same sentence back.
 
-For files past your host's request limit, 100MB on a Worker, less on some
-serverless platforms, `uploadUrlRoute` hands the browser a presigned URL and
+For files past your host's request limit (100MB on a Worker, less on some
+serverless platforms) `uploadUrlRoute` hands the browser a presigned URL and
 the bytes never cross your server. Presigning is implemented here on Web
 Crypto, so it needs no AWS SDK and works on every runtime; the signature
 matches the worked example in Amazon's own documentation, which is what the
@@ -575,7 +576,7 @@ the usual mistake and nothing else notices until a customer's upload fails.
 npx skills add ibrahimhajjaj/helpdeck
 ```
 
-Installs a `SKILL.md` into whichever coding agent you use, Claude Code, Codex,
+Installs a `SKILL.md` into whichever coding agent you use: Claude Code, Codex,
 Cursor, Antigravity, Zed and about seventy others. The agent then knows the
 setup path and, more usefully, the four mistakes that cost hours and announce
 themselves in no way at all: rebuilding the index with a different embedding
