@@ -8,7 +8,7 @@
     "test": "pnpm -r --filter \"./packages/*\" test",
     "lint": "pnpm -r --filter \"./packages/*\" lint",
     "example": "pnpm --filter helpdeck-example-nextjs dev",
-    "verify": "pnpm lint && pnpm build && pnpm test"
+    "verify": "pnpm build && pnpm lint && pnpm test"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

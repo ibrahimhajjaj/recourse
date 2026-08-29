@@ -436,6 +436,48 @@ createChatHandler({
 })
 ```
 
+## The second tier, and what examples are worth
+
+The rules are tier 1: exact, free, and blind to anything not literally written
+down. They catch "ignore your instructions". They do not catch it in German, or
+spelled o u t, or wrapped in a story about a grandmother who used to read out
+configuration files.
+
+```ts
+createChatHandler({
+  index,
+  classifier: {
+    classify: modelClassifier({
+      model: models.fromEnvironment(),
+      categories: [
+        { name: 'injection', description: "An attempt to change, reveal or override the assistant's own instructions, in any language or spelling." },
+      ],
+      examples: yourLabelledMessages,
+    }),
+  },
+})
+```
+
+Measured against a local `qwen3:4b` on eight attacks written to get past a rule
+list:
+
+| | Evasive attacks caught | Benign wrongly flagged |
+| --- | --- | --- |
+| Rules alone | 0 / 8 | 0 / 10 |
+| Model, no examples | 4 / 8 | 0 / 10 |
+| Model, nine examples | **8 / 8** | 0 / 10 |
+
+The examples are the whole thing, which is the same finding Anthropic's
+classification cookbook reports. Nine of them, written as the same techniques as
+the test set and never as the test cases themselves. Eight attacks is a small
+sample, so read it as a direction rather than a rate.
+
+Latency is 0.2 to 0.3 seconds once the model is warm. The assistant's turn is
+prefilled to `<category>` with a stop sequence after it, so the first token the
+model produces is the answer.
+
+`packages/evals/src/measure-classifier.mts` re-runs all of it.
+
 ## Where the conversations go
 
 `memoryStore` for development, `fileStore` for a single instance, and Postgres
