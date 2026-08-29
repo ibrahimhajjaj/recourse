@@ -32,6 +32,7 @@ export {
   type Sensitivity,
   type Signal,
 } from './types.js'
+export { translateCategories } from './types.js'
 export {
   modelClassifier,
   buildPrompt,

@@ -334,6 +334,7 @@ export {
   type Signal,
 } from './safety/index.js'
 export { models, embedders, type OpenAICompatibleOptions } from './models.js'
+export { translateCategories } from './safety/types.js'
 export {
   modelClassifier,
   buildPrompt as buildClassifierPrompt,

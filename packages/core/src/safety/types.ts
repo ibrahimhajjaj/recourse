@@ -137,6 +137,30 @@ export const THRESHOLDS: Record<Sensitivity, number> = {
  * refuse or escalate on any site, in any industry; anything arguable is left
  * for the business to turn on.
  */
+/**
+ * Turns the shipped categories into ones that speak another language.
+ *
+ * The refusal messages here are English, and a customer reads them. A Dutch
+ * shop with an otherwise Dutch widget would refuse in English, which is the
+ * one moment a visitor is most likely to be confused already.
+ *
+ * Only the messages change; the actions and sensitivities are the same policy
+ * whatever language it refuses in.
+ *
+ *     categories: translateCategories({
+ *       injection: 'Ik kan alleen helpen met vragen over onze producten.',
+ *       abuse: 'Ik wil graag helpen, maar houd het alstublieft netjes.',
+ *     })
+ */
+export function translateCategories(
+  messages: Record<string, string>,
+  categories: CategoryPolicy[] = DEFAULT_CATEGORIES,
+): CategoryPolicy[] {
+  return categories.map((category) =>
+    messages[category.name] ? { ...category, message: messages[category.name] as string } : category,
+  )
+}
+
 export const DEFAULT_CATEGORIES: CategoryPolicy[] = [
   {
     name: 'injection',

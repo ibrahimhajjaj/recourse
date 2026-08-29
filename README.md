@@ -488,6 +488,24 @@ createChatHandler({
 })
 ```
 
+## Refusing in the customer's language
+
+The refusal messages are the one part of the safety layer a customer reads, and
+they ship in English.
+
+```ts
+classifier: {
+  categories: translateCategories({
+    injection: 'Ik kan alleen helpen met vragen over onze producten.',
+    abuse: 'Ik wil graag helpen, maar houd het alstublieft netjes.',
+  }),
+}
+```
+
+Only the words change. The actions and sensitivities are the same policy
+whatever language it refuses in, and a category you do not name keeps its
+default.
+
 ## The second tier, and what examples are worth
 
 The rules are tier 1: exact, free, and blind to anything not literally written
