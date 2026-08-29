@@ -1,0 +1,17 @@
+{
+  "name": "helpdeck-example-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "node check-bundle.mjs"
+  },
+  "dependencies": {
+    "helpdeck": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "wrangler": "^4.0.0"
+  }
+}

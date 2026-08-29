@@ -53,6 +53,11 @@ jobs:
       - name: retrieval evals
         run: pnpm --filter @helpdeck/evals eval -- --suite retrieval
 
+      # Fails if anything Node-only reaches the serving path. A test cannot
+      # catch that; only a bundle can.
+      - name: worker bundle guard
+        run: pnpm --filter helpdeck-example-worker check
+
       # The example is the deployable demo, so a broken build is a broken demo.
       - name: build the example
         run: pnpm --filter helpdeck-example-nextjs build

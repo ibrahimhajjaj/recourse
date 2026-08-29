@@ -490,6 +490,24 @@ Reads `SLACK_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`,
 `TWILIO_AUTH_TOKEN`, `ELEVENLABS_API_KEY` and `FIRECRAWL_API_KEY`, and skips
 whatever is absent.
 
+## Cloudflare Workers
+
+The chat handler is a `Request -> Response` function, so it runs on a Worker
+with no adapter and no `nodejs_compat`:
+
+```
+Worker bundle: 117.9 KB, no Node built-ins, no nodejs_compat needed.
+```
+
+That is asserted in CI rather than claimed. `examples/worker` has the whole
+setup and a bundle guard that fails the build if a Node built-in reaches the
+serving path.
+
+Two things differ from Node. Import the subpaths (`helpdeck/server`,
+`helpdeck/models`, ...) rather than the root, which re-exports `ingest` and so
+pulls in `node:fs`. And pass the environment in, `models.fromEnvironment(env)`
+because a Worker has no `process` and reading it throws.
+
 ## Setting it up with a coding agent
 
 ```bash

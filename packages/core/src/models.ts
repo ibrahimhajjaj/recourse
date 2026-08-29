@@ -64,21 +64,38 @@ export const models = {
    *
    * This is the shape every example ends up with: `OPENAI_COMPATIBLE_BASE_URL`
    * and friends for a local or self-hosted model, otherwise a gateway id.
+   *
+   * Pass the environment explicitly on a runtime that has no `process`. On a
+   * Cloudflare Worker the variables arrive with the request rather than
+   * existing globally, so it is `models.fromEnvironment(env)`.
    */
-  fromEnvironment(fallback = 'openai/gpt-4o-mini'): LanguageModel {
-    const baseURL = process.env.OPENAI_COMPATIBLE_BASE_URL
-    const model = process.env.OPENAI_COMPATIBLE_MODEL
+  fromEnvironment(env: EnvironmentLike = readableEnvironment(), fallback = 'openai/gpt-4o-mini'): LanguageModel {
+    const baseURL = env.OPENAI_COMPATIBLE_BASE_URL
+    const model = env.OPENAI_COMPATIBLE_MODEL
 
     if (baseURL && model) {
       return models.openaiCompatible({
         baseURL,
         model,
-        ...(process.env.OPENAI_COMPATIBLE_API_KEY ? { apiKey: process.env.OPENAI_COMPATIBLE_API_KEY } : {}),
+        ...(env.OPENAI_COMPATIBLE_API_KEY ? { apiKey: env.OPENAI_COMPATIBLE_API_KEY } : {}),
       })
     }
 
-    return process.env.HELPDECK_MODEL ?? fallback
+    return env.HELPDECK_MODEL ?? fallback
   },
+}
+
+export type EnvironmentLike = Record<string, string | undefined>
+
+/**
+ * `process.env`, or nothing at all.
+ *
+ * Workers and other edge runtimes have no `process`, and merely *reading* it
+ * throws rather than returning undefined. A helper whose whole job is reading
+ * configuration should not be the reason a deployment cannot start.
+ */
+function readableEnvironment(): EnvironmentLike {
+  return typeof process === 'undefined' ? {} : (process.env ?? {})
 }
 
 export const embedders = {
@@ -94,14 +111,14 @@ export const embedders = {
   },
 
   /** Matches `models.fromEnvironment`, so the pair stays consistent. */
-  fromEnvironment(): Embedder | undefined {
-    const baseURL = process.env.OPENAI_COMPATIBLE_BASE_URL
+  fromEnvironment(env: EnvironmentLike = readableEnvironment()): Embedder | undefined {
+    const baseURL = env.OPENAI_COMPATIBLE_BASE_URL
     if (!baseURL) return undefined
 
     return createEmbedder({
       baseURL,
-      model: process.env.OPENAI_COMPATIBLE_EMBED_MODEL ?? 'nomic-embed-text',
-      ...(process.env.OPENAI_COMPATIBLE_API_KEY ? { apiKey: process.env.OPENAI_COMPATIBLE_API_KEY } : {}),
+      model: env.OPENAI_COMPATIBLE_EMBED_MODEL ?? 'nomic-embed-text',
+      ...(env.OPENAI_COMPATIBLE_API_KEY ? { apiKey: env.OPENAI_COMPATIBLE_API_KEY } : {}),
     })
   },
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "helpdeck-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+
+  // Deliberately absent: `nodejs_compat`. The chat handler is written against
+  // Request, Response, Web Crypto and fetch, so it needs no Node polyfills at
+  // all. If a change ever makes this necessary, that is the signal something
+  // Node-only leaked onto the serving path.
+
+  "observability": { "enabled": true }
+}

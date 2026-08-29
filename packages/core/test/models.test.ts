@@ -63,7 +63,33 @@ describe('reading the environment', () => {
     expect(models.fromEnvironment()).toBe('anthropic/claude-haiku-4-5')
 
     delete process.env.HELPDECK_MODEL
-    expect(models.fromEnvironment('openai/gpt-5')).toBe('openai/gpt-5')
+    expect(models.fromEnvironment(undefined, 'openai/gpt-5')).toBe('openai/gpt-5')
+  })
+
+  it('takes an environment object, for runtimes that have no process', () => {
+    // A Worker's variables arrive with the request rather than existing
+    // globally, and merely reading `process` there throws.
+    const model = models.fromEnvironment({
+      OPENAI_COMPATIBLE_BASE_URL: 'http://localhost:11434/v1',
+      OPENAI_COMPATIBLE_MODEL: 'qwen3:4b',
+    })
+
+    expect((model as { modelId?: string }).modelId).toBe('qwen3:4b')
+  })
+
+  it('does not touch process when given an environment', () => {
+    // The failure this prevents is a Worker that cannot start, reported as
+    // "process is not defined" from inside a helper whose only job is reading
+    // configuration.
+    const original = globalThis.process
+    try {
+      // @ts-expect-error deliberately removing it, the way a Worker has none
+      delete globalThis.process
+      expect(models.fromEnvironment({ HELPDECK_MODEL: 'openai/gpt-4o-mini' })).toBe('openai/gpt-4o-mini')
+      expect(embedders.fromEnvironment({})).toBeUndefined()
+    } finally {
+      globalThis.process = original
+    }
   })
 })
 

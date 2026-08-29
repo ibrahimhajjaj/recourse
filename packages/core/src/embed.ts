@@ -107,6 +107,10 @@ export function createEmbedder(options: EmbedderOptions = {}): Embedder {
  * to decide whether to attempt embeddings rather than failing the whole ingest
  * over an optional step.
  */
-export function canReachGateway(env: Record<string, string | undefined> = process.env): boolean {
+export function canReachGateway(
+  // Not `= process.env`: a default parameter is evaluated at call time, and on
+  // a runtime without `process` that throws rather than yielding undefined.
+  env: Record<string, string | undefined> = typeof process === 'undefined' ? {} : (process.env ?? {}),
+): boolean {
   return Boolean(env.AI_GATEWAY_API_KEY || env.VERCEL_OIDC_TOKEN)
 }

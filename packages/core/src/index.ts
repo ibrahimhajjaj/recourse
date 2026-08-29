@@ -1,4 +1,18 @@
 /**
+ * Everything, for a Node or Bun server.
+ *
+ * **This entry point is not safe to import in a Worker or on the edge.** It
+ * re-exports `ingest` and the local-file source, which read from disk and
+ * therefore import `node:fs`. A bundler targeting a runtime without Node
+ * built-ins will refuse it.
+ *
+ * On those runtimes import the subpaths instead, none of which touch the
+ * filesystem: `helpdeck/server`, `helpdeck/agent`, `helpdeck/models`,
+ * `helpdeck/actions`, `helpdeck/channels`, `helpdeck/safety`, `helpdeck/store`.
+ * `examples/worker` does exactly that and asserts it in its build.
+ */
+
+/**
  * helpdeck: a support agent that learns your site and plugs into any app.
  *
  * Two moving parts. `ingest` turns content into a knowledge index at build
