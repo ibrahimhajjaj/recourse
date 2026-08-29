@@ -97,6 +97,8 @@ export interface ClassifyContext {
   conversationId?: string
   /** The passages retrieval found, when checking an answer against them. */
   sources?: string[]
+  /** What the customer said, so their own order number is not a fabrication. */
+  asked?: string[]
 }
 
 export interface Decision {
@@ -153,6 +155,15 @@ export const DEFAULT_CATEGORIES: CategoryPolicy[] = [
     action: 'handoff',
     sensitivity: 'high',
     message: 'I am putting you through to a person who can help properly. One moment.',
+  },
+  {
+    // Observed, not blocked. A number the sources do not contain is worth
+    // seeing on the transcript, and withholding an otherwise good answer over
+    // one stray figure would cost more than it saves. Change to `refuse` or
+    // `deflect` once you have looked at a week of them on your own content.
+    name: 'ungrounded',
+    action: 'flag',
+    sensitivity: 'medium',
   },
 ]
 

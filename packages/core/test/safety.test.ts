@@ -416,6 +416,59 @@ describe('checking the answer, not just the question', () => {
     expect(scoreOf(signals, 'leak')).toBeGreaterThan(0)
   })
 
+  it('flags a number no source contains', () => {
+    // The most expensive thing this agent can invent is a figure a customer
+    // then acts on.
+    const { signals } = runRules('You have 45 days to return it.', OUTPUT_RULES, {
+      sources: ['Any unopened bag can be returned within 30 days of delivery.'],
+    })
+
+    expect(scoreOf(signals, 'ungrounded')).toBeGreaterThan(0)
+    expect(signals[0]?.reason).toContain('45')
+  })
+
+  it('accepts a number the sources do contain', () => {
+    const { signals } = runRules('You have 30 days to return it [1].', OUTPUT_RULES, {
+      sources: ['Any unopened bag can be returned within 30 days of delivery.'],
+    })
+
+    expect(signals).toEqual([])
+  })
+
+  it('accepts a number the customer themselves gave', () => {
+    // An order number quoted back is not a fabrication.
+    const { signals } = runRules('Order LC-88231 is on its way.', OUTPUT_RULES, {
+      sources: ['Orders ship within two business days.'],
+      asked: ['where is order LC-88231?'],
+    })
+
+    expect(signals).toEqual([])
+  })
+
+  it('does not count citation markers as claims', () => {
+    // [1] and [2] are ours, not the model asserting something about the world.
+    const { signals } = runRules('Delivery takes 30 days [12].', OUTPUT_RULES, {
+      sources: ['Delivery takes 30 days.'],
+    })
+
+    expect(signals).toEqual([])
+  })
+
+  it('says nothing when there were no sources to be grounded in', () => {
+    // An unanswered turn is a different signal. Every number would look
+    // invented, which would make the check useless noise.
+    const { signals } = runRules('It costs 45 EUR.', OUTPUT_RULES, { sources: [] })
+    expect(signals).toEqual([])
+  })
+
+  it('scores a wholly invented answer above a single stray figure', () => {
+    const sources = { sources: ['Delivery is free over 30 GBP.'] }
+    const one = runRules('It costs 45 GBP.', OUTPUT_RULES, sources)
+    const many = runRules('It is 45 GBP, ships in 12 days, and 87 percent arrive by 19:00.', OUTPUT_RULES, sources)
+
+    expect(scoreOf(many.signals, 'ungrounded')).toBeGreaterThan(scoreOf(one.signals, 'ungrounded'))
+  })
+
   it('leaves an ordinary answer alone', () => {
     const { signals } = runRules('Delivery to Ireland takes about a week [1].', OUTPUT_RULES)
     expect(signals).toEqual([])

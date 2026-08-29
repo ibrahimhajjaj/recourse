@@ -52,7 +52,10 @@ export function createClassifier(policy: ClassifierPolicy = {}): Classifier {
     rules: typeof INPUT_RULES,
     context: ClassifyContext,
   ): Promise<Decision> {
-    const fromRules = runRules(text, rules)
+    const fromRules = runRules(text, rules, {
+      ...(context.sources ? { sources: context.sources } : {}),
+      ...(context.asked ? { asked: context.asked } : {}),
+    })
     const signals = [...fromRules.signals]
 
     // The host's own classifier runs on the text the rules have already

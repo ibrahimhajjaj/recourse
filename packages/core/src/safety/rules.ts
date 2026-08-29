@@ -25,7 +25,15 @@ import type { Signal } from './types.js'
  */
 export interface Rule {
   name: string
-  run(text: string, matchable: string): { text: string; signals: Signal[] }
+  run(text: string, matchable: string, context?: RuleContext): { text: string; signals: Signal[] }
+}
+
+/** What a rule can know beyond the text it is looking at. */
+export interface RuleContext {
+  /** The passages retrieval returned, when an answer is being checked. */
+  sources?: string[]
+  /** What the customer said, so their own order number is not a fabrication. */
+  asked?: string[]
 }
 
 /**
@@ -310,6 +318,7 @@ export const INPUT_RULES: Rule[] = [
  * here and nowhere else.
  */
 export const OUTPUT_RULES: Rule[] = [
+  { name: 'ungrounded-numbers', run: (text, _matchable, context) => ({ text, signals: ungroundedNumbers(text, context) }) },
   {
     name: 'leaked-credentials',
     run(text) {
@@ -352,14 +361,66 @@ export const OUTPUT_RULES: Rule[] = [
   },
 ]
 
+/**
+ * Numbers in the answer that appear in none of its sources.
+ *
+ * The most expensive thing a support agent can invent is a number: a price, a
+ * deadline, a quantity, a percentage. A customer acts on those, and a wrong one
+ * costs a refund argument rather than a follow-up question.
+ *
+ * Deliberately narrow, because the alternative is a model grading a model. It
+ * only asks whether a number the answer states occurs anywhere in the passages
+ * it was given or in what the customer already said. That misses paraphrase
+ * ("a month" for 30 days) and it catches nothing about wrong prose, which is
+ * why it ships as `flag` rather than `refuse`: worth seeing, not worth
+ * blocking an answer over.
+ */
+function ungroundedNumbers(text: string, context?: RuleContext): Signal[] {
+  const sources = context?.sources
+  // With no sources there is nothing to be grounded in, and every number would
+  // look invented. An unanswered turn is a different signal entirely.
+  if (!sources || sources.length === 0) return []
+
+  const haystack = [...sources, ...(context.asked ?? [])].join(' ')
+
+  // Citation markers are ours, not the model's claims about the world.
+  const withoutCitations = text.replace(/\[\d{1,2}\]/g, ' ')
+
+  const stated = new Set<string>()
+  for (const match of withoutCitations.matchAll(/\b\d+(?:[.,]\d+)?\b/g)) {
+    const number = match[0] as string
+    // Single digits are ordinals, list markers and "two or three days" written
+    // as numerals. Too noisy to be worth a signal.
+    if (number.replace(/[.,]/g, '').length < 2) continue
+    stated.add(number)
+  }
+
+  const invented = [...stated].filter((number) => !haystack.includes(number))
+  if (invented.length === 0) return []
+
+  return [
+    {
+      category: 'ungrounded',
+      // Scaled by how much of the answer is unsupported: one stray figure is
+      // usually a formatting artefact, four is an answer being made up.
+      score: Math.min(0.4 + invented.length * 0.2, 0.95),
+      reason: `states ${invented.join(', ')}, which no source contains`,
+    },
+  ]
+}
+
 /** Runs a set of rules in order, threading the possibly rewritten text. */
-export function runRules(text: string, rules: Rule[]): { text: string; signals: Signal[] } {
+export function runRules(
+  text: string,
+  rules: Rule[],
+  context?: RuleContext,
+): { text: string; signals: Signal[] } {
   let current = text
   const signals: Signal[] = []
 
   for (const rule of rules) {
     // Recomputed each time because a rule may have rewritten the text.
-    const result = rule.run(current, forMatching(current))
+    const result = rule.run(current, forMatching(current), context)
     current = result.text
     signals.push(...result.signals)
   }

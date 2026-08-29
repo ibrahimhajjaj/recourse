@@ -28,6 +28,12 @@ export interface StoredMessage {
   /** True when retrieval found nothing, which marks a documentation gap. */
   unanswered?: boolean
   /**
+   * What the answer checks noticed but did not block: a figure no source
+   * contains, most usefully. This is the list a business reads to find out
+   * where its agent is guessing.
+   */
+  flags?: Array<{ category: string; score: number; reason: string }>
+  /**
    * What the customer attached, without the bytes. A transcript is read months
    * later and by people who should not be handed a customer's uploaded ID; the
    * names and sizes are enough to understand the conversation.

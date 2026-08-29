@@ -422,7 +422,7 @@ describe('screening an answer', () => {
     expect(result.text).toBe('Delivery to Ireland takes about a week [1].')
   })
 
-  it('does not check the answer at all unless asked to', async () => {
+  it('looks at the finished answer by default, but never withholds it', async () => {
     const checked: string[] = []
     const { model } = countingModel('Your key is sk-abcdefghijklmnopqrstuvwxyz012345.')
     const agent = createAgent({
@@ -434,10 +434,31 @@ describe('screening an answer', () => {
 
     const result = await agent.answer('how long is delivery?')
 
-    expect(checked).toEqual(['input'])
-    // Input-only is the default, and it means a leak gets through. That is the
-    // cost of the default, stated here so it cannot change unnoticed.
+    // Both stages run: looking at the answer costs microseconds and is how a
+    // business learns its agent is guessing.
+    expect(checked).toEqual(['input', 'output'])
+    // But nothing is gated without `output`, so the answer arrives whole and
+    // streaming stays word-by-word. The leak getting through is the cost of
+    // that default, stated here so it cannot change unnoticed.
     expect(result.text).toContain('sk-abcdefghij')
+  })
+
+  it('records what it noticed on the transcript', async () => {
+    const store = memoryStore()
+    // The corpus says "two business days". 45 appears nowhere in it, which is
+    // the shape of an invented figure.
+    const { model } = countingModel('Delivery takes 45 days.')
+    const agent = createAgent({ index: await index(), model, embedder: false, store })
+
+    await agent.answer('how long does delivery take?', [], { conversationId: 'c_flag' })
+
+    const found = await store.getConversation('c_flag')
+    const answer = found?.messages.find((m) => m.role === 'assistant')
+
+    expect(answer?.flags?.[0]?.category).toBe('ungrounded')
+    expect(answer?.flags?.[0]?.reason).toContain('45')
+    // Recorded, not blocked: the customer still got the answer.
+    expect(answer?.content).toContain('45 days')
   })
 })
 

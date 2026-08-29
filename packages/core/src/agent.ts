@@ -12,7 +12,7 @@ import { createEmbedder } from './embed.js'
 import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
 import { blocks, createClassifier } from './safety/classify.js'
 import { INPUT_RULES, runRules } from './safety/rules.js'
-import type { ClassifierPolicy, Decision } from './safety/types.js'
+import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -363,8 +363,21 @@ export function createAgent(options: AgentOptions) {
     let released = 0
     let checkedTo = 0
 
+    // Gating the stream is opt-in, because it costs sentence-at-a-time delivery
+    // instead of word-by-word. Looking at the finished answer costs nothing and
+    // is how a business finds out its agent invented a price, so that happens
+    // whenever a classifier exists.
     const checksOutput = classifier?.checksOutput === true
     const buffering = classifier?.buffers === true
+
+    // What the answer is allowed to have got its facts from: the passages it
+    // was given, and what the customer already told us. A number outside both
+    // came from somewhere the agent cannot cite.
+    const outputContext = {
+      conversationId,
+      sources: matches.map((match) => match.chunk.text),
+      asked: messages.map((message) => message.content),
+    }
 
     for await (const part of result.fullStream) {
       if (part.type === 'text-delta') {
@@ -381,7 +394,7 @@ export function createAgent(options: AgentOptions) {
           // that the answer arrives a sentence at a time rather than a word.
           const boundary = lastBoundary(answered)
           if (boundary > checkedTo) {
-            const verdict = await classifier.checkOutput(answered.slice(0, boundary), { conversationId })
+            const verdict = await classifier.checkOutput(answered.slice(0, boundary), outputContext)
             if (blocks(verdict)) {
               withheld = verdict
               break
@@ -418,7 +431,7 @@ export function createAgent(options: AgentOptions) {
     if (checksOutput && !withheld && answered.length > released) {
       // The tail after the last sentence boundary, and the whole answer when
       // buffering. Either way this is the last chance to look at it.
-      const verdict = await classifier.checkOutput(answered, { conversationId })
+      const verdict = await classifier.checkOutput(answered, outputContext)
       if (blocks(verdict)) withheld = verdict
       else {
         yield { type: 'delta', text: answered.slice(released) }
@@ -449,6 +462,15 @@ export function createAgent(options: AgentOptions) {
       )
     }
 
+    // The answer nobody gated, looked at once it is finished. Blocking actions
+    // are ignored here: the customer has already read it, and pretending
+    // otherwise would be a lie. What this produces is a record.
+    let flagged: Signal[] = []
+    if (classifier && !checksOutput && answered.trim()) {
+      const verdict = await classifier.checkOutput(answered, outputContext)
+      flagged = verdict.signals
+    }
+
     // The paused half of a client-action turn says nothing; recording it would
     // put a blank reply in the transcript above the real one.
     const saidNothing = answered.trim().length === 0 && ran.length === 0
@@ -464,6 +486,11 @@ export function createAgent(options: AgentOptions) {
         unanswered: matches.length === 0 && ran.length === 0,
       }
       if (ran.length > 0) record.actions = ran
+      // Kept so "which answers invented a number" is a query rather than an
+      // afternoon of reading transcripts.
+      if (flagged.length > 0) {
+        record.flags = flagged.map(({ category, score, reason }) => ({ category, score, reason }))
+      }
       await store.appendMessage(conversationId, record, { channel, contact })
     }
 

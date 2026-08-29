@@ -92,6 +92,11 @@ message that sounds like a crisis goes to a person rather than a refusal.
 **Tells you what it could not answer.** Every unanswered question is recorded and
 ranked, which is the list of content worth writing next.
 
+**Tells you where it was guessing.** Every answer is checked against the
+passages it was given, and a figure that appears in none of them is recorded on
+the transcript. The most expensive thing a support agent can invent is a
+number, because a customer acts on it.
+
 ## Retrieval, and what it costs you to skip embeddings
 
 An index built with no credentials is keyword-only. That is genuinely good at
