@@ -1,7 +1,14 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionContext, ActionField, ActionInput } from '../types.js'
 
-export interface Ticket {
+/**
+ * What `escalate` hands to whatever opens the ticket.
+ *
+ * Named for the request rather than the record on purpose: `Ticket` is the
+ * thing the help desk stores, with a number, a status and an assignee. This is
+ * the message that asks for one.
+ */
+export interface EscalationRequest {
   subject: string
   body: string
   priority?: 'low' | 'normal' | 'high' | 'urgent'
@@ -35,7 +42,7 @@ export interface EscalateOptions {
    * Any help desk works: Zendesk, Freshdesk, Intercom, Linear, a database, an
    * email to your support alias.
    */
-  createTicket?(ticket: Ticket, ctx: ActionContext): Promise<{ id?: string } | void> | { id?: string } | void
+  createTicket?(ticket: EscalationRequest, ctx: ActionContext): Promise<{ id?: string } | void> | { id?: string } | void
   /** Said to the customer once the ticket exists. */
   confirmation?: string
   /** Keeps it off the agent's own initiative; only a procedure can call it. */
@@ -86,7 +93,7 @@ export function escalate(options: EscalateOptions): Action {
     async execute(input: ActionInput, ctx) {
       const priority = String(input.priority ?? 'normal')
 
-      const ticket: Ticket = {
+      const ticket: EscalationRequest = {
         subject: String(input.subject ?? 'Support request'),
         body: String(input.body ?? ''),
         priority: (['low', 'normal', 'high', 'urgent'] as const).includes(
