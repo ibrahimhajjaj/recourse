@@ -64,7 +64,14 @@ export type {
   ParserRegistry,
 } from './sources/index.js'
 
-export { createRetriever, fuse, type RetrieverOptions } from './retrieve/index.js'
+export {
+  createRetriever,
+  fuse,
+  indexVectorStore,
+  type RetrieverOptions,
+  type VectorStore,
+  type VectorHit,
+} from './retrieve/index.js'
 export { createEmbedder, canReachGateway, type EmbedderOptions } from './embed.js'
 
 export {

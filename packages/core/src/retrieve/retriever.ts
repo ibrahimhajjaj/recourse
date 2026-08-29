@@ -1,6 +1,6 @@
 import type { Embedder, KnowledgeIndex, Match, RetrieveOptions, Retriever } from '../types.js'
 import { queryTermCount, searchKeyword } from '../knowledge/bm25.js'
-import { searchVector } from '../knowledge/vector.js'
+import { indexVectorStore, type VectorStore } from './vector-store.js'
 import { fuse, type RankedList } from './fuse.js'
 
 export interface RetrieverOptions {
@@ -28,6 +28,14 @@ export interface RetrieverOptions {
    * room to spare.
    */
   coverageFrom?: number
+  /**
+   * Where the vectors live.
+   *
+   * Defaults to the ones inside the index file, which is right until the file
+   * itself becomes the problem. Point this at a database and the index keeps
+   * only the keyword half, which is the smaller half by some margin.
+   */
+  vectorStore?: VectorStore
 }
 
 const DEFAULT_TOP_K = 6
@@ -84,7 +92,25 @@ export function createRetriever(options: RetrieverOptions): Retriever {
   const keywordFloor = options.keywordFloor ?? DEFAULT_KEYWORD_FLOOR
   const vectorFloor = options.vectorFloor ?? DEFAULT_VECTOR_FLOOR
   const coverageFrom = options.coverageFrom ?? DEFAULT_COVERAGE_FROM
-  const canUseVectors = Boolean(index.vectors && options.embedder)
+  // Either a store was given, or the index brought its own. Both answer the
+  // same question, so everything below this line is identical for both.
+  const vectorStore = options.vectorStore ?? indexVectorStore(index)
+  const canUseVectors = Boolean(vectorStore && options.embedder)
+
+  if (vectorStore && index.vectors && vectorStore.dimensions !== index.vectors.dimensions) {
+    // A query vector from one model against stored vectors from another gives
+    // distances that mean nothing, and the answers degrade in a way that looks
+    // like a bad model rather than a misconfiguration.
+    throw new Error(
+      `the vector store holds ${vectorStore.dimensions}-dimension vectors but the index was built with ` +
+        `${index.vectors.dimensions}. They have to come from the same embedding model.`,
+    )
+  }
+
+  // Fusion works in ids so the two halves can be compared, and a store knows
+  // nothing about positions in this file. Built once rather than per query.
+  const idOf = (ord: number): string => index.chunks[ord]?.id ?? String(ord)
+  const byId = new Map(index.chunks.map((chunk) => [chunk.id, chunk]))
 
   return {
     name: canUseVectors ? 'hybrid' : 'keyword',
@@ -92,7 +118,7 @@ export function createRetriever(options: RetrieverOptions): Retriever {
     async retrieve(query: string, retrieveOptions: RetrieveOptions = {}): Promise<Match[]> {
       const limit = retrieveOptions.topK ?? topK
       const candidates = limit * CANDIDATE_MULTIPLIER
-      const lists: RankedList<number>[] = []
+      const lists: RankedList<string>[] = []
 
       const keyword = searchKeyword(index.keyword, query, candidates)
       // Relative, because BM25 scores mean nothing in absolute terms: they
@@ -108,22 +134,25 @@ export function createRetriever(options: RetrieverOptions): Retriever {
               (hit.matched >= required || hit.score >= keywordBest * 0.9) &&
               hit.score >= keywordBest * keywordFloor,
           )
-          .map((hit) => hit.ord),
+          .map((hit) => idOf(hit.ord)),
       })
 
-      if (canUseVectors && index.vectors && options.embedder) {
+      if (canUseVectors && vectorStore && options.embedder) {
         try {
           const [vector] = await options.embedder.embed([query], { signal: retrieveOptions.signal })
           if (vector) {
-            const hits = searchVector(index.vectors, vector, candidates)
-            // Absolute, because cosine is already normalised and comparable.
-            lists.push({
-              label: 'vector',
-              ids: hits.filter((hit) => hit.score >= vectorFloor).map((hit) => hit.ord),
+            // The floor is absolute, because cosine is already normalised and
+            // comparable. Pushed into the store so a database can apply it in
+            // SQL rather than shipping rows back to be discarded.
+            const hits = await vectorStore.search(vector, candidates, {
+              minScore: vectorFloor,
+              ...(retrieveOptions.signal ? { signal: retrieveOptions.signal } : {}),
             })
+            lists.push({ label: 'vector', ids: hits.map((hit) => hit.id) })
           }
         } catch {
-          // An embedding outage should degrade the answer, not break the chat.
+          // An embedding or database outage should degrade the answer, not
+          // break the chat: the keyword half still works.
         }
       }
 
@@ -132,7 +161,10 @@ export function createRetriever(options: RetrieverOptions): Retriever {
       const matches: Match[] = []
 
       for (const result of fused) {
-        const chunk = index.chunks[result.id]
+        // A store may know about a chunk this index does not, if the two were
+        // built from different content. Skipping is the only safe reading:
+        // there is no text to put in the prompt.
+        const chunk = byId.get(result.id)
         if (!chunk) continue
         if (retrieveOptions.minScore != null && result.score < retrieveOptions.minScore) continue
 
