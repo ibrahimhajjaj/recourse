@@ -11,6 +11,7 @@ import { createRetriever } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
 import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
 import { blocks, createClassifier } from './safety/classify.js'
+import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision } from './safety/types.js'
 import {
   buildInstructions,
@@ -215,7 +216,16 @@ export function createAgent(options: AgentOptions) {
       return
     }
 
-    const matches = await search(messages, signal)
+    const found = await search(messages, signal)
+
+    // Screen the passages themselves, not only the question.
+    //
+    // A knowledge base is treated as trusted, which is exactly why it is worth
+    // attacking: text planted in a page arrives with the business's own
+    // authority and never passes through the input screen at all. Anything in
+    // a retrieved passage that reads as an instruction to the agent is not
+    // content, whatever page it came from.
+    const matches = classifier ? withoutPoisoned(found) : found
     onMatches(matches)
 
     // Only the newest message's files. Older ones were already read into an
@@ -558,6 +568,40 @@ function lastBoundary(text: string): number {
     if (next === undefined || /\s/.test(next)) return index + 1
   }
   return 0
+}
+
+/**
+ * Drops retrieved passages that carry instructions rather than information.
+ *
+ * The bar is high (0.8) because a false positive here silently removes a real
+ * help page from the answer, which is its own kind of failure. What clears
+ * that bar is unambiguous: text telling the reader to ignore its instructions,
+ * adopt a new role, or emit a marker.
+ */
+function withoutPoisoned(matches: Match[]): Match[] {
+  const kept: Match[] = []
+
+  for (const match of matches) {
+    const { signals } = runRules(match.chunk.text, INPUT_RULES)
+    const worst = signals
+      .filter((signal) => signal.category === 'injection')
+      .reduce((highest, signal) => Math.max(highest, signal.score), 0)
+
+    if (worst >= 0.8) {
+      // Loud on purpose. A poisoned knowledge base is something the business
+      // has to go and fix; quietly dropping the page hides an intrusion.
+      console.warn(
+        `[helpdeck] ignoring a retrieved passage from "${match.chunk.title}": ` +
+          `${signals.find((signal) => signal.score === worst)?.reason}. ` +
+          'Check this page for text aimed at the agent rather than the reader.',
+      )
+      continue
+    }
+
+    kept.push(match)
+  }
+
+  return kept
 }
 
 /** Reasons come from parsers that may or may not punctuate. One stop, not two. */
