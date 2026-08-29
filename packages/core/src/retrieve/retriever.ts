@@ -51,6 +51,15 @@ const DEFAULT_KEYWORD_FLOOR = 0.35
  *
  * The scale is model-dependent. If you swap the embedder, measure your own
  * separation and set `vectorFloor` rather than trusting this number.
+ *
+ * Know what this does and does not do. It is an off-topic detector, not a
+ * relevance classifier. Independent measurement of the same signal across five
+ * BEIR benchmarks (arXiv 2604.15484) reports F1 = 0.996 separating queries
+ * from a different subject entirely, falling to F1 = 0.472 separating relevant
+ * from irrelevant questions inside the same subject. Our own numbers were
+ * measured on cross-subject questions, which is the easy half. Expect this to
+ * catch "what is the weather" and not to catch a question about the wrong
+ * product line.
  */
 const DEFAULT_VECTOR_FLOOR = 0.5
 /**
