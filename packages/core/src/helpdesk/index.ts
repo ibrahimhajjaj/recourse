@@ -16,6 +16,16 @@ export {
   type TranslationOptions,
   type Translated,
 } from './translate.js'
+export {
+  availabilityAt,
+  anyoneOnShift,
+  shiftCovers,
+  onTimeOff,
+  localTime,
+  type Schedule,
+  type Shift,
+  type TimeOff,
+} from './schedule.js'
 export { assignTicket, loadOf, type AssignmentAlgorithm, type Availability, type AssignOptions } from './assignment.js'
 export {
   STATUS_CATEGORIES,

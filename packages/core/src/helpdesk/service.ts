@@ -7,6 +7,7 @@ import { assignTicket, loadOf, type AssignmentAlgorithm } from './assignment.js'
 import { routeTicket, type RoutingRule } from './routing.js'
 import { DEFAULT_STATUSES, defaultStatusFor, validateStatuses } from './statuses.js'
 import { detectAndTranslate, type TranslationOptions } from './translate.js'
+import { anyoneOnShift, availabilityAt, type Schedule } from './schedule.js'
 import type {
   StatusCategory,
   Team,
@@ -50,6 +51,15 @@ export interface HelpdeskOptions {
    * translator themselves.
    */
   translation?: TranslationOptions
+  /**
+   * Who is at work, so a ticket is not handed to somebody asleep.
+   *
+   * Without it everybody counts as available, which is what happened before
+   * and is why a three in the morning ticket went to whoever was next in the
+   * list. An unassigned ticket is visible in the queue; a ticket assigned to a
+   * sleeping person is not.
+   */
+  schedule?: Schedule
 }
 
 export interface OpenTicketInput {
@@ -176,9 +186,13 @@ export function createHelpdesk(options: HelpdeskOptions) {
       const team = teams.find((candidate) => candidate.id === draft.teamId)
       if (team?.members.length) {
         const open = await store.listTickets({ openOnly: true, limit: 200 })
+        const loads = loadOf(open.items, team.members)
+
         const assignee = assignTicket({
           algorithm: options.assignment,
-          candidates: loadOf(open.items, team.members),
+          candidates: options.schedule
+            ? availabilityAt(new Date(now), options.schedule, loads)
+            : loads,
           lastAssignedId,
         })
         if (assignee) {
@@ -314,6 +328,38 @@ export function createHelpdesk(options: HelpdeskOptions) {
   return {
     openTicket,
     update,
+
+    /**
+     * Whether anybody is on shift right now.
+     *
+     * What `{{agentAvailable}}` resolves to in a procedure, so one can say
+     * "offer live chat if somebody is there, open a ticket if not" rather than
+     * promising a reply nobody is awake to write.
+     *
+     * True with no schedule configured, because a deployment that has not
+     * described its hours has not said anybody is away.
+     */
+    agentAvailable(at: Date = new Date()): boolean {
+      if (!options.schedule) return true
+
+      const members = teams.flatMap((team) => team.members)
+      return anyoneOnShift(at, options.schedule, members)
+    },
+
+    /** Who is on shift now, for the management API. */
+    availability(at: Date = new Date()) {
+      const members = [...new Set(teams.flatMap((team) => team.members))]
+
+      if (!options.schedule) {
+        return members.map((id) => ({ id, available: true, openTickets: 0 }))
+      }
+
+      return availabilityAt(
+        at,
+        options.schedule,
+        members.map((id) => ({ id, openTickets: 0 })),
+      )
+    },
 
     getTicket: (ticketNumber: number) => store.getTicket(ticketNumber),
     listTickets: (filter?: TicketFilter) => store.listTickets(filter),

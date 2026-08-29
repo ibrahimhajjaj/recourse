@@ -71,6 +71,14 @@ export interface ChatHandlerOptions {
   /** Standard operating procedures the agent follows on matching conversations. */
   procedures?: Procedure[]
   /**
+   * Extra `{{name}}` values for procedures, read fresh on every turn.
+   *
+   * `procedureVariables: () => ({ agentAvailable: helpdesk.agentAvailable() })`
+   * is the one this exists for: a procedure that offers live chat should stop
+   * offering it when nobody is on shift.
+   */
+  procedureVariables?: () => Record<string, string | number | boolean | undefined>
+  /**
    * What files a visitor may attach. `false` refuses them outright, which is
    * the right setting for a public FAQ that has no use for one.
    *
@@ -141,6 +149,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     actions: options.actions,
     maxSteps: options.maxSteps,
     procedures: options.procedures,
+    ...(options.procedureVariables ? { procedureVariables: options.procedureVariables } : {}),
     // The same option carries both halves: what is accepted, and how it is
     // read. Splitting them across two settings only invites them to disagree.
     ...(options.attachments ? { attachments: options.attachments } : {}),

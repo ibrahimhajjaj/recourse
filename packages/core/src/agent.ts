@@ -68,6 +68,17 @@ export interface AgentOptions {
    * the agent never gets halfway through one and improvises the rest.
    */
   procedures?: Procedure[]
+  /**
+   * Extra `{{name}}` values for procedures, read fresh on every turn.
+   *
+   * A function rather than an object because the interesting ones change:
+   * `{{agentAvailable}}` is false at three in the morning and true at ten, and
+   * a value read once at startup would have a procedure offering live chat all
+   * night.
+   *
+   *     procedureVariables: () => ({ agentAvailable: helpdesk.agentAvailable() })
+   */
+  procedureVariables?: () => Record<string, string | number | boolean | undefined>
   /** Notifies other systems as things happen. */
   webhooks?: Webhooks
   /**
@@ -320,7 +331,10 @@ export function createAgent(options: AgentOptions) {
       persona: options.persona,
       matches,
       actions,
-      procedures: renderProcedures(procedures, { contact }),
+      procedures: renderProcedures(procedures, {
+        contact,
+        ...(options.procedureVariables ? { extra: options.procedureVariables() } : {}),
+      }),
       clientResults: call.clientResults,
       ...(prepared?.context ? { attachments: prepared.context } : {}),
       ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),

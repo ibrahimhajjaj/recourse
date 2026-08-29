@@ -143,6 +143,13 @@ export type {
 } from './helpdesk/index.js'
 
 export {
+  availabilityAt,
+  anyoneOnShift,
+  type Schedule,
+  type Shift,
+  type TimeOff,
+} from './helpdesk/schedule.js'
+export {
   detectAndTranslate,
   looksEnglish,
   type TranslationOptions,
