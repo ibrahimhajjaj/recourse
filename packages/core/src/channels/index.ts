@@ -54,3 +54,12 @@ export {
   safeEqual,
 } from './verify.js'
 export type { ChannelBase, InboundMessage } from './shared.js'
+export {
+  elevenLabsTranscriber,
+  openAiCompatibleTranscriber,
+  transcriptionRoute,
+  type Transcriber,
+  type Transcript,
+  type TranscribeOptions,
+  type TranscriptionRouteOptions,
+} from './voice-stt.js'
