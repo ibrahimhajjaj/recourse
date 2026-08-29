@@ -35,7 +35,24 @@ const DEFAULT_MAX_PER_DOCUMENT = 3
 /** Over-fetch before fusing: fusion can only reorder what it was given. */
 const CANDIDATE_MULTIPLIER = 4
 const DEFAULT_KEYWORD_FLOOR = 0.35
-const DEFAULT_VECTOR_FLOOR = 0.25
+/**
+ * The cosine a passage must reach to count as relevant at all.
+ *
+ * Measured rather than guessed. Against nomic-embed-text on a support corpus,
+ * questions the corpus can answer score 0.63 and up, while questions it cannot
+ * ("do you sell bicycles?", "what is the weather in Cairo?") top out at 0.49.
+ * Embedding models do not return low numbers for unrelated text the way people
+ * expect; nothing scored below 0.39 even when the subject was completely
+ * different, so a floor down at 0.25 admitted everything.
+ *
+ * That matters beyond retrieval quality: passages in the prompt are what the
+ * model answers from, so an off-topic question that retrieves three irrelevant
+ * pages is a question the agent will try to answer instead of declining.
+ *
+ * The scale is model-dependent. If you swap the embedder, measure your own
+ * separation and set `vectorFloor` rather than trusting this number.
+ */
+const DEFAULT_VECTOR_FLOOR = 0.5
 /**
  * Tuned on real support content: at four terms or more, a single shared word
  * is reliably a coincidence, while at three it is still often the answer.
@@ -77,7 +94,11 @@ export function createRetriever(options: RetrieverOptions): Retriever {
       lists.push({
         label: 'keyword',
         ids: keyword
-          .filter((hit) => hit.matched >= required && hit.score >= keywordBest * keywordFloor)
+          .filter(
+            (hit) =>
+              (hit.matched >= required || hit.score >= keywordBest * 0.9) &&
+              hit.score >= keywordBest * keywordFloor,
+          )
           .map((hit) => hit.ord),
       })
 
