@@ -197,3 +197,77 @@ describe('a vector store of your own', () => {
     expect(matches.every((match) => match.chunk.id !== 'a-chunk-from-some-other-corpus')).toBe(true)
   })
 })
+
+describe('building straight into a store', () => {
+  it('writes the vectors there and leaves them out of the index', async () => {
+    const written: Array<{ id: string; vector: Float32Array }> = []
+    const store = {
+      name: 'fake',
+      dimensions: 3,
+      async search() {
+        return []
+      },
+      async upsert(entries: Array<{ id: string; chunk: unknown; vector: Float32Array }>) {
+        for (const entry of entries) written.push({ id: entry.id, vector: entry.vector })
+      },
+    }
+
+    const index = await buildIndex({
+      sources: [textSource([{ id: 'a', title: 'A', text: '# A\n\nSomething to embed.' }])],
+      embedder: {
+        name: 'fake',
+        dimensions: 3,
+        embed: async (texts: string[]) => texts.map(() => Float32Array.from([0.1, 0.2, 0.3])),
+      },
+      vectorStore: store,
+    })
+
+    // The whole point: the file no longer carries them.
+    expect(index.vectors).toBeUndefined()
+    expect(written).toHaveLength(index.chunks.length)
+    expect(index.keyword.lengths.length).toBe(index.chunks.length)
+
+    // Full precision, not the int8 the file format would have packed them to.
+    expect(written[0]?.vector[0]).toBeCloseTo(0.1, 6)
+  })
+
+  it('keeps the vectors in the file when no store is given', async () => {
+    const index = await buildIndex({
+      sources: [textSource([{ id: 'a', title: 'A', text: '# A\n\nSomething to embed.' }])],
+      embedder: {
+        name: 'fake',
+        dimensions: 3,
+        embed: async (texts: string[]) => texts.map(() => Float32Array.from([0.1, 0.2, 0.3])),
+      },
+    })
+
+    expect(index.vectors).toBeDefined()
+  })
+
+  it('lets a store failure fail the build rather than shipping an index with no vectors', async () => {
+    const store = {
+      name: 'broken',
+      dimensions: 3,
+      async search() {
+        return []
+      },
+      async upsert() {
+        throw new Error('the database refused')
+      },
+    }
+
+    // An index with no vectors in either place answers every question badly and
+    // looks fine, which is the worst way for this to fail.
+    await expect(
+      buildIndex({
+        sources: [textSource([{ id: 'a', title: 'A', text: '# A\n\nText.' }])],
+        embedder: {
+          name: 'fake',
+          dimensions: 3,
+          embed: async (texts: string[]) => texts.map(() => Float32Array.from([0.1, 0.2, 0.3])),
+        },
+        vectorStore: store,
+      }),
+    ).rejects.toThrow('the database refused')
+  })
+})

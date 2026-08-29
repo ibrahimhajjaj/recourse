@@ -90,12 +90,21 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.40
         version: 3.0.40(zod@4.5.1)
+      '@helpdeck/store-postgres':
+        specifier: workspace:*
+        version: link:../store-postgres
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.23.1
       ai:
         specifier: ^7.0.84
         version: 7.0.84(zod@4.5.1)
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.0
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
@@ -156,6 +165,8 @@ importers:
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@22.20.1)(happy-dom@20.11.13)(jsdom@30.0.1)(tsx@4.23.12)
+
+  packages/wordpress: {}
 
 packages:
 

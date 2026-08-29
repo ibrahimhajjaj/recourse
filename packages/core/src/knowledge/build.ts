@@ -1,4 +1,5 @@
 import type {
+  Chunk,
   Chunker,
   Document,
   Embedder,
@@ -9,6 +10,7 @@ import type {
 import { markdownChunker } from '../chunk/index.js'
 import { buildKeywordIndex } from './bm25.js'
 import { buildVectorIndex } from './vector.js'
+import type { VectorStore } from '../retrieve/vector-store.js'
 
 export interface BuildOptions {
   /** One or many places to read content from. */
@@ -19,6 +21,19 @@ export interface BuildOptions {
   embedder?: Embedder
   onProgress?: (event: ProgressEvent) => void
   signal?: AbortSignal
+  /**
+   * Writes the vectors to a database instead of into the index file.
+   *
+   * The file carries its vectors inline by default, which is right until the
+   * file is the problem: it is parsed on every cold start and the vectors are
+   * most of its weight. Point this at a store and the index keeps only the
+   * keyword half.
+   *
+   * Written here rather than after the fact because this is where the vectors
+   * are still full-precision floats. The file format packs them to int8, and
+   * moving them out afterwards would quantise a second time for nothing.
+   */
+  vectorStore?: VectorStore
 }
 
 /**
@@ -61,8 +76,13 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
   if (options.embedder) {
     report({ phase: 'embed', message: `embedding ${chunks.length} chunks`, done: 0, total: chunks.length })
     const values = await options.embedder.embed(searchable, ctx)
-    vectors = buildVectorIndex(values, options.embedder.name)
     embedded = values.length
+
+    if (options.vectorStore) {
+      await writeVectors(options.vectorStore, chunks, values, report)
+    } else {
+      vectors = buildVectorIndex(values, options.embedder.name)
+    }
   }
 
   return {
@@ -77,5 +97,38 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
       characters: unique.reduce((sum, doc) => sum + doc.text.length, 0),
       embedded,
     },
+  }
+}
+
+/**
+ * Puts the vectors in a store, in batches.
+ *
+ * A single statement carrying fifty thousand vectors is one most databases
+ * refuse and every one of them dislikes, so this is chunked. Failure
+ * propagates: a build that silently produced an index with no vectors in
+ * either place would answer every question badly and look fine.
+ */
+async function writeVectors(
+  store: VectorStore,
+  chunks: Chunk[],
+  values: Float32Array[],
+  report: (event: ProgressEvent) => void,
+): Promise<void> {
+  const BATCH = 500
+
+  for (let start = 0; start < chunks.length; start += BATCH) {
+    const entries = chunks.slice(start, start + BATCH).map((chunk, offset) => ({
+      id: chunk.id,
+      chunk,
+      vector: values[start + offset] as Float32Array,
+    }))
+
+    await store.upsert(entries)
+    report({
+      phase: 'embed',
+      message: `wrote ${Math.min(start + BATCH, chunks.length)} of ${chunks.length} vectors to ${store.name}`,
+      done: Math.min(start + BATCH, chunks.length),
+      total: chunks.length,
+    })
   }
 }

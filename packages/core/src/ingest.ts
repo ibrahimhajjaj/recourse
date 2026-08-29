@@ -6,6 +6,7 @@ import { serializeIndex } from './knowledge/serialize.js'
 import { websiteSource } from './sources/website.js'
 import { filesSource } from './sources/files.js'
 import { canReachGateway, createEmbedder } from './embed.js'
+import type { VectorStore } from './retrieve/vector-store.js'
 
 export interface IngestOptions {
   /** Shorthand for a single website source. */
@@ -31,6 +32,18 @@ export interface IngestOptions {
   apiKey?: string
   onProgress?: (event: ProgressEvent) => void
   signal?: AbortSignal
+  /**
+   * Writes the vectors to a database instead of leaving them in the file.
+   *
+   * The index file carries its vectors inline by default, which is right until
+   * the file is the problem: it is parsed on every cold start, and the vectors
+   * are most of its weight. Point this at a store and the returned index keeps
+   * only the keyword half, which is the smaller half by a long way.
+   *
+   * The keyword index still travels in the file, so retrieval degrades to
+   * keyword search rather than to nothing if the database is unreachable.
+   */
+  vectorStore?: VectorStore
 }
 
 /**
@@ -53,9 +66,10 @@ export async function ingest(options: IngestOptions): Promise<KnowledgeIndex> {
     )
   }
 
-  return buildIndex({
+  const index = await buildIndex({
     sources,
     chunker: options.chunker,
+    ...(options.vectorStore ? { vectorStore: options.vectorStore } : {}),
     embedder: wantsEmbeddings
       ? (options.embedder ??
         createEmbedder({
@@ -67,6 +81,8 @@ export async function ingest(options: IngestOptions): Promise<KnowledgeIndex> {
     onProgress: options.onProgress,
     signal: options.signal,
   })
+
+  return index
 }
 
 /** Writes the index where the app can import it, creating the folder if needed. */
