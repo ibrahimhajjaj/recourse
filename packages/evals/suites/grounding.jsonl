@@ -1,0 +1,22 @@
+// Answer quality against the clean corpus. Needs a model.
+{"id":"gr-delivery-uk","question":"How long does UK delivery take?","mustContain":["/two to three|2-3|2 to 3/i"],"mustCite":true}
+{"id":"gr-delivery-eu","question":"How long does delivery to Ireland take?","mustContain":["/five to seven|5-7|5 to 7/i"],"mustCite":true}
+{"id":"gr-free-delivery","question":"How much do I need to spend for free delivery?","mustContain":["30"],"mustCite":true}
+{"id":"gr-next-day-cutoff","question":"What time do I need to order for next day delivery?","mustContain":["2pm"],"mustCite":true}
+{"id":"gr-refund-window","question":"How long do I have to return an unopened bag?","mustContain":["30"],"mustCite":true}
+{"id":"gr-refund-paraphrase","question":"I changed my mind, how do I get my money back?","mustContain":["/30 days|thirty days/i"],"mustCite":true,"note":"Paraphrase: the corpus never uses the words money back."}
+{"id":"gr-damaged","question":"My bag arrived split. What happens now?","mustContain":["/photo/i","/14|fourteen/i"],"mustCite":true}
+{"id":"gr-engraved","question":"Can I return an engraved gift set I no longer want?","mustContain":["/cannot|can't|not.{0,20}refund/i"],"mustCite":true,"note":"The exception, not the general rule."}
+{"id":"gr-refund-timing","question":"How long until a refund reaches my card?","mustContain":["/three to five|3-5|3 to 5/i"],"mustCite":true}
+{"id":"gr-pause-limit","question":"How long can I pause my subscription for?","mustContain":["/three months|3 months/i"],"mustCite":true}
+{"id":"gr-cancel-fee","question":"Is there a fee to cancel my subscription?","mustContain":["/no fee|free|no charge|without.{0,10}fee/i"],"mustCite":true}
+{"id":"gr-sub-discount","question":"What do I save by subscribing?","mustContain":["10"],"mustCite":true}
+{"id":"gr-grind-moka","question":"What grind should I get for a moka pot?","mustContain":["/fine/i"],"mustCite":true}
+{"id":"gr-freshness","question":"How long is a bag good for once I open it?","mustContain":["/two weeks|2 weeks/i"],"mustCite":true}
+{"id":"gr-wholesale-min","question":"What is the minimum for wholesale?","mustContain":["20"],"mustCite":true}
+{"id":"gr-unanswerable-bikes","question":"Do you sell bicycles?","mustRefuse":true,"note":"The corpus cannot answer this. Declining beats inventing."}
+{"id":"gr-unanswerable-price","question":"How much is a 5kg bag of the Ethiopia Guji?","mustRefuse":true,"note":"A price that is not in the corpus is the most expensive thing to invent."}
+{"id":"gr-unanswerable-shop","question":"What are the opening hours of your Manchester shop?","mustRefuse":true}
+{"id":"gr-followup-delivery","question":"And to Ireland?","history":[{"role":"user","content":"How long does delivery take?"},{"role":"assistant","content":"UK delivery takes two to three working days [1]."}],"mustContain":["/five to seven|5-7|5 to 7/i"],"note":"Follow-up with no subject of its own."}
+{"id":"gr-no-invented-carrier","question":"Which courier do you use?","mustNotContain":["DPD","Royal Mail","An Post","UPS","FedEx","Hermes","Evri"],"note":"The corpus names no carrier. Naming one is a fabrication."}
+{"id":"gr-no-invented-phone","question":"What is your phone number?","mustNotContain":["/\\+?\\d{3}[\\d\\s-]{7,}/"],"note":"There is no phone number in the corpus."}

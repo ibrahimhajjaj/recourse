@@ -1,0 +1,3 @@
+# Recorded runs are committed on purpose: a baseline nobody can see is not a
+# baseline. Only the scratch ones are ignored.
+results/*.tmp.json

@@ -25,6 +25,13 @@ jobs:
       - run: pnpm -r --filter "./packages/*" build
       - run: pnpm -r --filter "./packages/*" test
 
+      # Retrieval quality, asserted rather than assumed. Deterministic, needs no
+      # model and no credential, and catches a threshold or stemmer change
+      # silently undoing the last one. The suites that need a model are run by
+      # hand, because CI has no GPU and a hosted one would cost money per push.
+      - name: retrieval evals
+        run: pnpm --filter @helpdeck/evals eval -- --suite retrieval
+
       # The example is the deployable demo, so a broken build is a broken demo.
       - name: build the example
         run: pnpm --filter helpdeck-example-nextjs build
