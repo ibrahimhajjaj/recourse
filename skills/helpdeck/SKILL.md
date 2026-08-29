@@ -14,11 +14,13 @@ Nothing here needs an account or an API key to get working.
 ## The whole setup
 
 ```bash
+npm install helpdeck
 npx helpdeck ingest --url https://their-site.com
 ```
 
-Writes `helpdeck/knowledge.json`. No key required: the crawler is keyless and
-the index falls back to keyword-only when there is no embedding credential.
+Writes `helpdeck/knowledge.json`, relative to the working directory. No key
+required: the crawler is keyless and the index falls back to keyword-only when
+there is no embedding credential.
 
 ```ts
 // app/api/chat/route.ts
@@ -34,6 +36,13 @@ export const POST = createChatHandler({
 })
 ```
 
+The widget file is in the package. Copy it where the site serves static files,
+and re-copy it when the package updates:
+
+```bash
+cp node_modules/@helpdeck/widget/dist/helpdeck.min.js public/helpdeck.js
+```
+
 ```html
 <script src="/helpdeck.js" data-endpoint="/api/chat" defer></script>
 ```
@@ -43,6 +52,48 @@ Then always:
 ```bash
 npx helpdeck doctor
 ```
+
+It prints a line per check and exits non-zero if anything is actually broken.
+A `skip` is not a failure; a `FAIL` names what to fix.
+
+## The environment variables
+
+Nothing is required. With none of these set the agent answers from the index
+using keyword search, through the Vercel AI Gateway if it finds a credential.
+
+| Variable | What it does |
+| --- | --- |
+| `AI_GATEWAY_API_KEY` | Routes the model through the Vercel AI Gateway |
+| `HELPDECK_MODEL` | The model id for that path, such as `openai/gpt-4o-mini` |
+| `OPENAI_COMPATIBLE_BASE_URL` | Any OpenAI-compatible endpoint, including a local Ollama |
+| `OPENAI_COMPATIBLE_API_KEY` | Its key, if it wants one |
+| `OPENAI_COMPATIBLE_MODEL` | The chat model on that endpoint |
+| `OPENAI_COMPATIBLE_EMBED_MODEL` | The embedding model, for `embedders.fromEnvironment()` |
+
+`embedders.fromEnvironment()` returns nothing when none of these is set, which
+leaves keyword-only retrieval rather than an error.
+
+## Where the conversations go
+
+`createChatHandler` keeps nothing by default. Add a store to get transcripts,
+leads and the unanswered-question list:
+
+```ts
+import { fileStore } from 'helpdeck/store'
+
+createChatHandler({ index: knowledge, store: fileStore({ dir: '.helpdeck' }) })
+```
+
+```ts
+// One machine, or serverless. Anything that scales out needs this instead.
+import { postgresStore } from '@helpdeck/store-postgres'
+
+createChatHandler({ index: knowledge, store: postgresStore({ pool }) })
+```
+
+`memoryStore()` is the default and dies with the process. `fileStore` assumes
+one writer. `@helpdeck/store-postgres` and `@helpdeck/store-d1` are separate
+packages and are what a deployment that scales out wants.
 
 ## Four mistakes to avoid
 
