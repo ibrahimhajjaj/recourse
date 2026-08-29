@@ -1,0 +1,13 @@
+{
+  "name": "@helpdeck/wordpress",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The WordPress plugin. PHP, with a retrieval engine proven identical to the TypeScript core's.",
+  "type": "module",
+  "scripts": {
+    "fixtures": "node tools/generate-parity-fixtures.mjs",
+    "test": "node tools/test.mjs",
+    "test:php74": "node tools/test.mjs --php74",
+    "lint": "node tools/test.mjs --lint-only"
+  }
+}

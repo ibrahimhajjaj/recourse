@@ -1,0 +1,21 @@
+{
+  "name": "helpdeck/wordpress",
+  "description": "A support agent that learns a WordPress site's own content. Ships as a plugin.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=7.4"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6"
+  },
+  "scripts": {
+    "test": "phpunit",
+    "fixtures": "node tools/generate-parity-fixtures.mjs"
+  },
+  "config": {
+    "platform": {
+      "php": "7.4.33"
+    }
+  }
+}

@@ -1,0 +1,171 @@
+/**
+ * Records what the TypeScript implementation does, so the PHP port can be
+ * asserted against it rather than eyeballed.
+ *
+ * Two implementations of one ranking is the risk this plugin takes on, and the
+ * only thing that makes it survivable is a fixture the PHP tests read. Run this
+ * after any change to the tokeniser, the chunker or BM25, and the PHP suite
+ * will tell you what the port missed.
+ *
+ *   node tools/generate-parity-fixtures.mjs
+ */
+
+import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+import { tokenize } from '../../core/dist/knowledge/tokenize.js'
+import { buildKeywordIndex, searchKeyword, queryTermCount } from '../../core/dist/knowledge/bm25.js'
+import { markdownChunker } from '../../core/dist/chunk/index.js'
+import { buildIndex } from '../../core/dist/knowledge/build.js'
+import { createRetriever } from '../../core/dist/retrieve/retriever.js'
+import { textSource } from '../../core/dist/sources/text.js'
+
+const here = dirname(fileURLToPath(import.meta.url))
+
+/**
+ * Words chosen because each one exercises a rule that is easy to port wrongly:
+ * the plural rules, the derivational list, the doubled consonant, the silent
+ * "e", and the guards that stop a short word being stemmed to nothing.
+ *
+ * The non-English entries are not decoration. A tokeniser written with
+ * `strtolower` and `strlen` passes every English case and silently halves
+ * recall on an Arabic or German site.
+ */
+const WORDS = [
+  'pause', 'pausing', 'paused', 'pauses',
+  'ship', 'shipping', 'shipped', 'ships',
+  'freshness', 'fresh', 'refund', 'refunds', 'refunded', 'refunding',
+  'delivery', 'deliveries', 'cancel', 'cancelled', 'cancellation',
+  'subscription', 'subscriptions', 'availability', 'available',
+  'happiness', 'careless', 'organization', 'international', 'management',
+  'classes', 'glasses', 'analysis', 'status', 'business', 'address',
+  'use', 'used', 'using', 'call', 'calling', 'called',
+  'is', 'a', 'the', 'and', 'i', 'ok',
+  'Größe', 'Grösse', 'CAFÉ', 'café', 'ÜBER',
+  'فاتورة', 'الشحن', 'التوصيل',
+  '配送', '返品',
+  'ORDER-1042', 'sku_88', '2026', 'v2.1',
+]
+
+const SENTENCES = [
+  'How long does delivery take to Ireland?',
+  'I want my money back on order 1042.',
+  'Do you ship to the United Arab Emirates, and what does it cost?',
+  'كيف يمكنني إرجاع الطلب؟',
+  'Wie lange dauert der Versand nach Österreich?',
+  '   ',
+  'a the and of',
+  'ORDER-1042 arrived cracked!!! Replacement please.',
+]
+
+/**
+ * A corpus with the shapes that break a chunker: nested headings, a fenced
+ * code block containing something that looks like a heading, a navigation run,
+ * a paragraph over the size budget, and a section too small to stand alone.
+ */
+const DOCUMENTS = [
+  {
+    id: 'shipping',
+    title: 'Shipping',
+    url: 'https://shop.example/shipping',
+    text: [
+      '# Shipping',
+      '',
+      'We ship worldwide from our roastery in Bristol.',
+      '',
+      '## Delivery times',
+      '',
+      'United Kingdom orders arrive in 1-2 working days. Ireland and the EU take 3-5 working days.',
+      '',
+      '### Outside Europe',
+      '',
+      'The United States takes 4-7 working days. Everywhere else takes 7-14.',
+      '',
+      '## [​](/shipping#costs) Costs',
+      '',
+      'Delivery is free over £30.',
+    ].join('\n'),
+  },
+  {
+    id: 'returns',
+    title: 'Returns',
+    url: 'https://shop.example/returns',
+    text: [
+      '[Home](/)',
+      '[Shop](/shop)',
+      '[About](/about)',
+      '[Contact](/contact)',
+      '[Blog](/blog)',
+      '',
+      '# Returns',
+      '',
+      'Damaged items are replaced free of charge. Send a photo within 14 days.',
+      '',
+      '## Refunds',
+      '',
+      'Short.',
+      '',
+      '## The long one',
+      '',
+      `A very long paragraph that has to be split hard because there is no better seam inside it. ${'Coffee beans are roasted in small batches. '.repeat(60)}`,
+      '',
+      '```',
+      '# this is not a heading',
+      'curl https://shop.example/api',
+      '```',
+      '',
+      'After the fence.',
+    ].join('\n'),
+  },
+]
+
+const QUERIES = [
+  'how long does delivery take',
+  'refund policy',
+  'is delivery free',
+  'do you ship to the united states',
+  'money back',
+  'bicycles',
+  'shipping shipping shipping',
+  'الشحن',
+]
+
+const chunker = markdownChunker()
+
+const chunks = DOCUMENTS.flatMap((doc) => chunker.split(doc))
+const searchable = chunks.map((chunk) =>
+  [chunk.title, chunk.section, chunk.text].filter(Boolean).join('\n'),
+)
+const keyword = buildKeywordIndex(searchable)
+
+const index = await buildIndex({ sources: [textSource(DOCUMENTS)] })
+const retriever = createRetriever({ index })
+
+const retrieval = {}
+for (const query of QUERIES) {
+  const matches = await retriever.retrieve(query)
+  retrieval[query] = matches.map((match) => ({ id: match.chunk.id, score: match.score }))
+}
+
+const fixture = {
+  note: 'Generated by tools/generate-parity-fixtures.mjs. Do not edit by hand.',
+  tokens: Object.fromEntries(WORDS.map((word) => [word, tokenize(word)])),
+  sentences: Object.fromEntries(SENTENCES.map((sentence) => [sentence, tokenize(sentence)])),
+  queryTermCounts: Object.fromEntries(QUERIES.map((query) => [query, queryTermCount(query)])),
+  documents: DOCUMENTS,
+  chunks,
+  keyword,
+  search: Object.fromEntries(
+    QUERIES.map((query) => [query, searchKeyword(keyword, query, 10)]),
+  ),
+  retrieval,
+}
+
+const out = join(here, '..', 'tests', 'fixtures', 'parity.json')
+writeFileSync(out, `${JSON.stringify(fixture, null, 2)}\n`)
+
+console.log(
+  `wrote ${out}\n  ${WORDS.length} words, ${SENTENCES.length} sentences, ` +
+    `${chunks.length} chunks, ${Object.keys(keyword.postings).length} terms, ${QUERIES.length} queries`,
+)
