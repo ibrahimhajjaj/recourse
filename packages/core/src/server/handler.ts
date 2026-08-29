@@ -4,6 +4,8 @@ import type { Store } from '../store/types.js'
 import type { Action } from '../actions/types.js'
 import type { Procedure } from '../procedures/types.js'
 import { validateAttachments, type AttachmentPolicy } from '../attachments.js'
+import type { Blobs } from '../storage/blobs.js'
+import { resolveStoredAttachments } from '../storage/references.js'
 import type { PrepareOptions } from '../attachments-prepare.js'
 import type { ClassifierPolicy } from '../safety/types.js'
 import { createAgent, type AgentOptions } from '../agent.js'
@@ -76,6 +78,22 @@ export interface ChatHandlerOptions {
    * customer is told early, but a request can be made by anything.
    */
   attachments?: (AttachmentPolicy & PrepareOptions) | false
+  /**
+   * Where uploaded files live, paired with the secret the upload route signed
+   * their keys with.
+   *
+   * Without this, a message referring to a stored file is refused rather than
+   * looked up against nothing. With it, the reference is checked before
+   * anything is read: the token proves this deployment issued that key.
+   */
+  storage?: {
+    blobs: Blobs
+    secret: string
+    /** Largest stored file loaded into a turn. 25MB by default. */
+    maxBytes?: number
+    /** Sends images as bytes rather than as a signed link. */
+    inlineImages?: boolean
+  }
   /**
    * What to refuse, deflect or escalate, and how readily. On by default with a
    * narrow policy; `false` turns it off entirely.
@@ -169,7 +187,24 @@ export function createChatHandler(options: ChatHandlerOptions) {
               reason: 'files are not accepted here',
             })),
           }
-        : validateAttachments(submitted, attachmentPolicy)
+        : validateAttachments(submitted, {
+            ...attachmentPolicy,
+            allowStored: attachmentPolicy?.allowStored ?? Boolean(options.storage),
+          })
+
+    // Stored files are fetched only after their reference has been checked,
+    // and only ever from our own bucket. A customer-supplied `url` is still
+    // never fetched by this server.
+    if (options.storage && files.accepted.some((file) => file.key)) {
+      const resolved = await resolveStoredAttachments(files.accepted, {
+        blobs: options.storage.blobs,
+        secret: options.storage.secret,
+        ...(options.storage.maxBytes ? { maxBytes: options.storage.maxBytes } : {}),
+        ...(options.storage.inlineImages ? { inlineImages: true } : {}),
+      })
+      files.accepted = resolved.accepted
+      files.rejected = [...files.rejected, ...resolved.rejected]
+    }
 
 
     let messages: Message[]

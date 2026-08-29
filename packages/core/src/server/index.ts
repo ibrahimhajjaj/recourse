@@ -21,3 +21,11 @@ export {
   type RedisRateLimitOptions,
   type RedisLike,
 } from './ratelimit-shared.js'
+export {
+  uploadRoute,
+  uploadUrlRoute,
+  downloadRoute,
+  DEFAULT_UPLOAD_MAX_BYTES,
+  type UploadRouteOptions,
+  type UploadUrlRouteOptions,
+} from './upload.js'

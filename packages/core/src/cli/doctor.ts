@@ -10,6 +10,8 @@
  * call each one has. It reads nothing and changes nothing.
  */
 
+import type { Blobs } from '../storage/blobs.js'
+
 export type Health = 'ok' | 'warn' | 'fail' | 'skip'
 
 export interface Check {
@@ -278,6 +280,64 @@ export async function checkCredentials(credentials: Credentials, signal?: AbortS
   }
 
   return checks
+}
+
+/**
+ * Whether the bucket actually works, by using it.
+ *
+ * Credentials that list a bucket but cannot write to it are the common R2
+ * misconfiguration, an API token scoped to read, and nothing notices until a
+ * customer's upload fails. So this writes, reads, and deletes one tiny object
+ * under a name nothing else will use.
+ */
+export async function checkStorage(blobs: Blobs): Promise<Check[]> {
+  const key = `helpdeck-doctor/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.txt`
+  const payload = new TextEncoder().encode('helpdeck doctor')
+
+  return [
+    await attempt('storage', async () => {
+      try {
+        await blobs.put(key, payload, { mimeType: 'text/plain', filename: 'doctor.txt' })
+      } catch (error) {
+        return {
+          name: 'storage',
+          status: 'fail',
+          detail: `${blobs.name} would not accept a write: ${message(error)}`,
+          fix: 'the credentials need object write permission on this bucket',
+        }
+      }
+
+      try {
+        const read = await blobs.get(key)
+        if (!read || read.bytes.byteLength !== payload.byteLength) {
+          return {
+            name: 'storage',
+            status: 'fail',
+            detail: `${blobs.name} accepted a write but did not return it`,
+            fix: 'check the bucket name, and that reads and writes go to the same one',
+          }
+        }
+      } finally {
+        // Left behind, a failed check would accumulate objects you pay for.
+        await blobs.delete(key).catch(() => undefined)
+      }
+
+      return {
+        name: 'storage',
+        status: blobs.signedUpload ? 'ok' : 'warn',
+        detail: blobs.signedUpload
+          ? `${blobs.name} can store, read and sign`
+          : `${blobs.name} can store and read, but cannot sign an upload`,
+        ...(blobs.signedUpload
+          ? {}
+          : { fix: 'browsers will upload through your server, which caps files at its body limit' }),
+      }
+    }),
+  ]
+}
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /** Formats a report for a terminal. Grouped by outcome, worst first. */

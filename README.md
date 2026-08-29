@@ -497,7 +497,7 @@ The chat handler is a `Request -> Response` function, so it runs on a Worker
 with no adapter and no `nodejs_compat`:
 
 ```
-Worker bundle: 117.9 KB, no Node built-ins, no nodejs_compat needed.
+Worker bundle: 129.4 KB, no Node built-ins, no nodejs_compat needed.
 ```
 
 That is asserted in CI rather than claimed. `examples/worker` has the whole
@@ -509,10 +509,65 @@ no connection pool, no credential, nothing to exhaust. It passes the same
 behaviour suite as the memory, file and Postgres stores. Watch the free tier's
 **50 queries per invocation**, which is per request rather than per day.
 
+`helpdeck/storage` puts attachments in R2 through a binding, which is the part
+a Worker does better than anywhere else: no credentials in the environment and
+no signature to compute. The same seam runs on S3, MinIO, Backblaze and Wasabi
+through their shared API, so nothing here is Cloudflare-only.
+
 Two things differ from Node. Import the subpaths (`helpdeck/server`,
 `helpdeck/models`, ...) rather than the root, which re-exports `ingest` and so
 pulls in `node:fs`. And pass the environment in, `models.fromEnvironment(env)`
 because a Worker has no `process` and reading it throws.
+
+## Files bigger than a screenshot
+
+A visitor can attach a file three ways, and they fail at different sizes.
+
+Inline base64 rides the chat request and needs no storage at all, which is
+right for a screenshot and wrong for a 30MB scan: base64 adds a third, and the
+whole thing has to fit in one request body. A `url` you already host works and
+is never fetched by this server. The third is a bucket.
+
+```ts
+import { s3Blobs } from 'helpdeck/storage'
+import { uploadRoute } from 'helpdeck/server'
+
+const blobs = s3Blobs({
+  bucket: 'support-attachments',
+  endpoint: `https://${accountId}.r2.cloudflarestorage.com`, // or MinIO, or S3
+  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+})
+
+// POST a file here; it answers { key, token }.
+export const POST = uploadRoute({ blobs, secret: process.env.UPLOAD_SECRET! })
+```
+
+Then hand the chat handler the same two things, and a message can carry
+`{ name, mimeType, key, token }` instead of the bytes:
+
+```ts
+createChatHandler({ index, storage: { blobs, secret: process.env.UPLOAD_SECRET! } })
+```
+
+**The token is not decoration.** A key like
+`attachments/2026-08-29/…-invoice.pdf` is a guessable shape, and a key arriving
+from a browser is a claim, not a credential. Every reference is checked against
+an HMAC this deployment issued before anything is read, and a stolen key and a
+missing one are told apart by nobody: they get the same sentence back.
+
+For files past your host's request limit, 100MB on a Worker, less on some
+serverless platforms, `uploadUrlRoute` hands the browser a presigned URL and
+the bytes never cross your server. Presigning is implemented here on Web
+Crypto, so it needs no AWS SDK and works on every runtime; the signature
+matches the worked example in Amazon's own documentation, which is what the
+test asserts. Two things to know: an R2 presigned URL cannot be used with a
+custom domain, and an expired one comes back as a 403 with no CORS headers, so
+the browser cannot read the error. Refresh before expiry rather than after.
+
+`helpdeck doctor` checks the bucket by writing to it, reading it back and
+deleting it, because credentials that can list a bucket but not write to it are
+the usual mistake and nothing else notices until a customer's upload fails.
 
 ## Setting it up with a coding agent
 

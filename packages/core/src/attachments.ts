@@ -13,6 +13,10 @@
  * - `url` points at something you already host. Right when the files are large,
  *   or when they should outlive the turn. Off unless `allowUrls` is set,
  *   because accepting an arbitrary link means asking a provider to fetch it.
+ * - `key` names an object this deployment stored itself, through the upload
+ *   route in `server/upload.ts`. Right for anything big, and the only one of
+ *   the three that survives the request. It arrives with a signature, because
+ *   a bare key is a guess away from somebody else's file.
  */
 
 export interface Attachment {
@@ -24,6 +28,13 @@ export interface Attachment {
   dataUrl?: string
   /** Somewhere the provider can fetch it instead of receiving it inline. */
   url?: string
+  /**
+   * An object this deployment stored, from the upload route. Needs `token`:
+   * a key on its own is an identifier, and identifiers are guessable.
+   */
+  key?: string
+  /** The signature the upload route issued alongside `key`. */
+  token?: string
   /** Decoded size, filled in by validation. */
   bytes?: number
 }
@@ -40,6 +51,12 @@ export interface AttachmentPolicy {
   maxCount?: number
   /** Permits `url` attachments. Off by default. */
   allowUrls?: boolean
+  /**
+   * Permits references to objects this deployment stored. Set by the chat
+   * handler when it has somewhere to store them, so a reference is refused
+   * outright rather than looked up against nothing.
+   */
+  allowStored?: boolean
 }
 
 export const DEFAULT_ALLOWED_TYPES = [
@@ -99,6 +116,25 @@ export function validateAttachments(
 
     if (!mimeType || !allow.includes(mimeType)) {
       rejected.push({ name, reason: `${mimeType || 'that file type'} is not accepted` })
+      continue
+    }
+
+    // A stored reference carries no content, so there is nothing to measure
+    // here. It is checked properly at resolve time, against the object.
+    if (typeof item.key === 'string' && item.key) {
+      if (!policy.allowStored) {
+        rejected.push({ name, reason: 'uploaded files are not accepted here' })
+        continue
+      }
+      if (typeof item.token !== 'string' || !/^[0-9a-f]{64}$/.test(item.token)) {
+        rejected.push({ name, reason: 'that file is no longer available' })
+        continue
+      }
+      if (item.key.length > 1024 || item.key.includes('..')) {
+        rejected.push({ name, reason: 'that file is no longer available' })
+        continue
+      }
+      accepted.push({ name, mimeType, key: item.key, token: item.token })
       continue
     }
 

@@ -6,6 +6,8 @@ import { textSource } from '../src/sources/text.js'
 import { createAgent } from '../src/agent.js'
 import { createChatHandler } from '../src/server/handler.js'
 import { memoryStore } from '../src/store/memory.js'
+import { memoryBlobs } from '../src/storage/blobs.js'
+import { signReference } from '../src/storage/references.js'
 import type { Document, KnowledgeIndex, StreamFrame } from '../src/types.js'
 
 const documents: Document[] = [
@@ -359,5 +361,78 @@ describe('attachments through the HTTP handler', () => {
     const notice = (await frames(response)).find((frame) => frame.type === 'notice')
     expect((notice as { message: string }).message).toContain('._._etc_passwd')
     expect((notice as { message: string }).message).not.toContain('../')
+  })
+})
+
+describe('attachments that live in a bucket', () => {
+  const SECRET = 'the-deployment-secret'
+
+  async function post(body: unknown, options: Record<string, unknown> = {}) {
+    const { model } = recordingModel()
+    const handler = createChatHandler({ index: await index(), model, embedder: false, ...options })
+    return handler(
+      new Request('https://example.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    )
+  }
+
+  it('reads a stored file the visitor uploaded earlier', async () => {
+    const blobs = memoryBlobs()
+    const key = 'attachments/2026-08-29/abc-order.txt'
+    await blobs.put(key, new TextEncoder().encode('order 4471, arrived cracked'), {
+      mimeType: 'text/plain',
+    })
+
+    const response = await post(
+      {
+        message: 'what does my complaint say?',
+        attachments: [
+          {
+            name: 'order.txt',
+            mimeType: 'text/plain',
+            key,
+            token: await signReference(SECRET, key),
+          },
+        ],
+      },
+      { storage: { blobs, secret: SECRET } },
+    )
+
+    const sent = await frames(response)
+    expect(sent.some((frame) => frame.type === 'delta')).toBe(true)
+    expect(sent.some((frame) => frame.type === 'notice')).toBe(false)
+  })
+
+  it('tells the customer, rather than answering anyway, when the reference is not ours', async () => {
+    const blobs = memoryBlobs()
+    const key = 'attachments/2026-08-29/abc-order.txt'
+    await blobs.put(key, new TextEncoder().encode('somebody elses file'), { mimeType: 'text/plain' })
+
+    const response = await post(
+      {
+        message: 'what does it say?',
+        attachments: [{ name: 'order.txt', mimeType: 'text/plain', key, token: '0'.repeat(64) }],
+      },
+      { storage: { blobs, secret: SECRET } },
+    )
+
+    const sent = await frames(response)
+    const notice = sent.find((frame) => frame.type === 'notice')
+    expect(notice).toBeDefined()
+  })
+
+  it('refuses a stored reference when the deployment has no storage at all', async () => {
+    const response = await post({
+      message: 'what does it say?',
+      attachments: [
+        { name: 'order.txt', mimeType: 'text/plain', key: 'attachments/x', token: '0'.repeat(64) },
+      ],
+    })
+
+    const sent = await frames(response)
+    expect(sent.some((frame) => frame.type === 'notice')).toBe(true)
   })
 })

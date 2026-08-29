@@ -96,7 +96,11 @@ const { text, sources, unanswered } = await agent.answer('where is my order?')
   agent. Lead capture, order lookup, escalation, or an HTTP call to their API.
 - `procedures: [...]`, ordered steps with branches for refunds and
   cancellations, where the sensitive actions are unreachable anywhere else.
-- `attachments: { maxBytes }`, photos and PDFs. Off unless set.
+- `attachments: { maxBytes }`, photos and PDFs. Off unless set. Inline base64
+  is right up to a screenshot; past that add `storage: { blobs, secret }` and
+  `uploadRoute`, since a large file has to fit in one request body otherwise.
+  Never accept a bare `key` from a browser: the upload route issues a `token`
+  beside it and the chat handler checks it.
 - `dictation: true` on the widget, a mic, on-device by default.
 - `classifier`, on by default. Instruction-override attempts and threats are
   refused before the model is called; a message that sounds like a crisis goes

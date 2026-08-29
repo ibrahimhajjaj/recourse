@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkCredentials, checkModel, exitCodeFor, formatChecks, type Check } from '../src/cli/doctor.js'
+import { checkCredentials, checkModel, checkStorage, exitCodeFor, formatChecks, type Check } from '../src/cli/doctor.js'
+import { memoryBlobs } from '../src/storage/blobs.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -171,5 +172,49 @@ describe('the report', () => {
 
   it('says so plainly when everything works', () => {
     expect(formatChecks([{ name: 'a', status: 'ok', detail: 'd' }])).toContain('Everything checked is working')
+  })
+})
+
+describe('storage', () => {
+  it('confirms a bucket by writing to it, and leaves nothing behind', async () => {
+    const blobs = memoryBlobs()
+    const written: string[] = []
+    const watched = {
+      ...blobs,
+      put: async (...args: Parameters<typeof blobs.put>) => (written.push(args[0]), blobs.put(...args)),
+    }
+
+    const [check] = await checkStorage(watched)
+
+    expect(check?.status).toBe('warn')
+    expect(check?.detail).toContain('cannot sign')
+    expect(await blobs.head(written[0] as string)).toBeNull()
+  })
+
+  it('says which permission is missing when a write is refused', async () => {
+    const blobs = memoryBlobs()
+    const readOnly = {
+      ...blobs,
+      put: async () => {
+        throw new Error('could not store "x": AccessDenied (403)')
+      },
+    }
+
+    const [check] = await checkStorage(readOnly)
+
+    expect(check?.status).toBe('fail')
+    expect(check?.fix).toContain('write permission')
+  })
+
+  it('catches a bucket that accepts writes and returns nothing', async () => {
+    // The shape of a misconfigured lifecycle rule, or two different buckets
+    // behind one name. Green on write, empty on read.
+    const blobs = memoryBlobs()
+    const forgetful = { ...blobs, get: async () => null }
+
+    const [check] = await checkStorage(forgetful)
+
+    expect(check?.status).toBe('fail')
+    expect(check?.detail).toContain('did not return it')
   })
 })

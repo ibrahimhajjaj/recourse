@@ -9,7 +9,7 @@ import { canReachGateway, createEmbedder } from '../embed.js'
 import { buildInstructions } from '../server/prompt.js'
 import type { ProgressEvent } from '../types.js'
 import { list, num, parseArgs } from './args.js'
-import { checkCredentials, checkModel, exitCodeFor, formatChecks, type Check } from './doctor.js'
+import { checkCredentials, checkModel, checkStorage, exitCodeFor, formatChecks, type Check } from './doctor.js'
 
 const DEFAULT_OUT = 'helpdeck/knowledge.json'
 
@@ -239,6 +239,26 @@ async function runDoctor(flags: Record<string, string | boolean>): Promise<numbe
       firecrawl: process.env.FIRECRAWL_API_KEY ? { apiKey: process.env.FIRECRAWL_API_KEY } : {},
     })),
   )
+
+  // Object storage, when the environment describes a bucket. Checked by using
+  // it: credentials that can list a bucket but not write to it are the usual
+  // R2 mistake, and nothing else notices until a customer's upload fails.
+  if (process.env.S3_BUCKET && process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
+    const { s3Blobs } = await import('../storage/s3.js')
+    checks.push(
+      ...(await checkStorage(
+        s3Blobs({
+          bucket: process.env.S3_BUCKET,
+          endpoint:
+            process.env.S3_ENDPOINT ??
+            `https://${process.env.R2_ACCOUNT_ID ?? ''}.r2.cloudflarestorage.com`,
+          accessKeyId: process.env.S3_ACCESS_KEY_ID,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+          ...(process.env.S3_REGION ? { region: process.env.S3_REGION } : {}),
+        }),
+      )),
+    )
+  }
 
   process.stdout.write(`\n${formatChecks(checks)}\n\n`)
   return exitCodeFor(checks)

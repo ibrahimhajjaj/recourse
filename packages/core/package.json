@@ -98,6 +98,10 @@
       "types": "./dist/safety/index.d.ts",
       "import": "./dist/safety/index.js"
     },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
+    },
     "./models": {
       "types": "./dist/models.d.ts",
       "import": "./dist/models.js"

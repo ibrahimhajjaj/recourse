@@ -60,3 +60,48 @@ Ireland and EU (3-5 working days) [4]
 ```
 
 Bundle: 117.9 KB including a 44 KB knowledge index, zero Node built-ins.
+
+## Attachments in R2
+
+`wrangler.jsonc` binds a bucket as `ATTACHMENTS`, and `wrangler dev` backs it
+with local storage until you create the real one:
+
+```bash
+wrangler r2 bucket create helpdeck-attachments
+wrangler secret put HELPDECK_UPLOAD_SECRET   # any long random string
+```
+
+Two routes appear when both are present, and neither exists without them:
+
+```bash
+# Upload. Answers { key, token }.
+curl -X POST http://localhost:8798/api/upload \
+  -H 'x-file-type: text/plain' -H 'x-file-name: complaint.txt' \
+  --data-binary @complaint.txt
+
+# Then ask about it, sending the key and token instead of the bytes.
+curl -X POST http://localhost:8798/api/chat -H 'Content-Type: application/json' -d '{
+  "message": "what does my complaint say?",
+  "attachments": [{ "name": "complaint.txt", "mimeType": "text/plain",
+                    "key": "<key>", "token": "<token>" }]
+}'
+```
+
+Verified locally against a real binding, which is where the answer below came
+from:
+
+```
+Your attached complaint file says Order 8823 arrived with the seal broken and
+coffee spilled through the box. You're asking for a replacement, not a refund.
+```
+
+**A key from a browser is a claim, not a credential.** `/api/file` and the chat
+path both verify the token before reading anything, and answer 404 either way
+when they cannot, a different message for "not yours" and "not there" would
+turn the endpoint into a way of mapping the bucket.
+
+The binding cannot sign a URL; that is an S3-API feature and R2 bindings have
+no equivalent. So images go to the model as bytes here rather than as links,
+which is also the only thing that works for a model on a private network. If
+you want links, put a custom domain on the bucket and pass it as `publicBase` , 
+and be sure the objects are not secret, because a public base is public.

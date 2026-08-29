@@ -9,5 +9,14 @@
   // all. If a change ever makes this necessary, that is the signal something
   // Node-only leaked onto the serving path.
 
+  // Attachments. Create it with `wrangler r2 bucket create helpdeck-attachments`;
+  // `wrangler dev` backs it with local storage until you do.
+  "r2_buckets": [
+    {
+      "binding": "ATTACHMENTS",
+      "bucket_name": "helpdeck-attachments"
+    }
+  ],
+
   "observability": { "enabled": true }
 }
