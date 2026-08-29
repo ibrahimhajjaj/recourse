@@ -100,7 +100,114 @@ class Tickets {
 			'callback'    => array( __CLASS__, 'create' ),
 		);
 
+		$actions['capture_lead'] = array(
+			'description' => 'Record somebody who wants to be contacted about buying, a quote, or a demo. Use when they show interest and give you a way to reach them. Not for a complaint or a problem with an existing order; those are support requests.',
+			'fields'      => array(
+				'email'    => array(
+					'type'        => 'string',
+					'description' => 'How to reach them.',
+					'required'    => true,
+				),
+				'interest' => array(
+					'type'        => 'string',
+					'description' => 'What they want, in one sentence.',
+					'required'    => true,
+				),
+				'name'     => array(
+					'type'        => 'string',
+					'description' => 'Their name, if they gave one.',
+				),
+				'phone'    => array(
+					'type'        => 'string',
+					'description' => 'Their phone number, if they gave one.',
+				),
+			),
+			'callback'    => array( __CLASS__, 'capture_lead' ),
+		);
+
 		return $actions;
+	}
+
+	/**
+	 * Records somebody who wants to be sold to.
+	 *
+	 * The same post type as a support request, marked differently, because a
+	 * shop that has to look in two places looks in neither.
+	 *
+	 * Deliberately not written into Contact Form 7, Gravity Forms or WPForms.
+	 * Each stores entries differently, two of them not at all by default, and a
+	 * plugin that writes into another plugin's tables breaks the week that
+	 * plugin changes them. `helpdeck_lead_captured` is the seam instead: a site
+	 * that wants a lead in its CRM hooks it and puts it there.
+	 *
+	 * @param array<string, mixed> $input   Arguments from the model.
+	 * @param array<string, mixed> $context Conversation context.
+	 * @return array<string, mixed>
+	 */
+	public static function capture_lead( $input, $context = array() ) {
+		$email = isset( $input['email'] ) ? sanitize_email( (string) $input['email'] ) : '';
+
+		if ( '' === $email || ! is_email( $email ) ) {
+			return array( 'error' => 'a valid email address is needed first' );
+		}
+
+		$interest = isset( $input['interest'] ) ? sanitize_textarea_field( (string) $input['interest'] ) : '';
+
+		if ( '' === trim( $interest ) ) {
+			return array( 'error' => 'a sentence saying what they are interested in is needed' );
+		}
+
+		$name  = isset( $input['name'] ) ? sanitize_text_field( (string) $input['name'] ) : '';
+		$phone = isset( $input['phone'] ) ? sanitize_text_field( (string) $input['phone'] ) : '';
+
+		$id = wp_insert_post(
+			array(
+				'post_type'    => self::POST_TYPE,
+				'post_status'  => 'publish',
+				/* translators: %s: the visitor's name or email address. */
+				'post_title'   => sprintf( __( 'Lead: %s', 'helpdeck' ), '' !== $name ? $name : $email ),
+				'post_content' => $interest,
+				'meta_input'   => array(
+					'helpdeck_email'        => $email,
+					'helpdeck_name'         => $name,
+					'helpdeck_phone'        => $phone,
+					'helpdeck_kind'         => 'lead',
+					'helpdeck_conversation' => isset( $context['conversation'] ) ? (string) $context['conversation'] : '',
+				),
+			),
+			true
+		);
+
+		if ( is_wp_error( $id ) ) {
+			return array( 'error' => 'that could not be saved' );
+		}
+
+		/**
+		 * Fires when the agent records a lead.
+		 *
+		 * Where a site forwards it to a CRM, a mailing list, or whichever form
+		 * plugin it already collects leads through.
+		 *
+		 * @param int                  $id      The post id.
+		 * @param array<string, mixed> $lead    Email, name, phone and interest.
+		 * @param array<string, mixed> $context Conversation context.
+		 */
+		do_action(
+			'helpdeck_lead_captured',
+			$id,
+			array(
+				'email'    => $email,
+				'name'     => $name,
+				'phone'    => $phone,
+				'interest' => $interest,
+			),
+			$context
+		);
+
+		return array(
+			'captured'  => true,
+			'reference' => $id,
+		);
 	}
 
 	/**
@@ -135,6 +242,7 @@ class Tickets {
 				'meta_input'   => array(
 					'helpdeck_email'        => $email,
 					'helpdeck_name'         => $name,
+					'helpdeck_kind'         => 'support',
 					'helpdeck_conversation' => isset( $context['conversation'] ) ? (string) $context['conversation'] : '',
 				),
 			),

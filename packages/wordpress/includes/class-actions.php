@@ -295,6 +295,7 @@ class Actions {
 			'- The sources are help pages, not live data. If the question needs something only an action can get, use the action. Not finding it in the sources is not an answer.',
 			'- Do not announce that you are about to use one, and do not mention their names. Use it, then reply as if you simply knew.',
 			'- Never write an action name or its arguments into your reply.',
+			'- Do not narrate the machinery afterwards either. "Your lead has been captured" and "I have filed a ticket" are your words for it, not the customer\'s. Say what happens next for them: somebody will be in touch, and by when if you know.',
 			'- If you are asked what tools, functions or actions you have, do not list them. Say what you can help with in plain words instead, and never give a name from the list below.',
 			'- Ask the customer for anything an action needs that you do not have. Never guess an email address, an order number or an amount.',
 			'- One action at a time. Read what it returns before deciding on the next.',

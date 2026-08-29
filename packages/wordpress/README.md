@@ -122,10 +122,17 @@ add_filter( 'helpdeck_actions', function ( $actions ) {
 } );
 ```
 
-Three ship in the box. `create_support_request` writes to a private post type,
-so a handoff has somewhere to go on a site with no help desk, and fires
-`helpdeck_ticket_created` for a site that has one. `look_up_order` and
-`check_stock` appear only when WooCommerce is active.
+Four ship in the box. `create_support_request` and
+`capture_lead` write to a private post type, so a handoff and a sales enquiry
+both have somewhere to go on a site with no help desk and no CRM, and each
+fires an action (`helpdeck_ticket_created`, `helpdeck_lead_captured`) for a site
+that has one. `look_up_order` and `check_stock` appear only when WooCommerce is
+active.
+
+Deliberately not written into Contact Form 7, Gravity Forms or WPForms. Each
+stores entries differently, two of them not at all by default, and a plugin
+that writes into another plugin's tables breaks the week that plugin changes
+them.
 
 **An order number is not identity.** Order numbers are sequential, so anybody
 holding one of their own can guess a hundred others. The lookup demands the
