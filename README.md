@@ -288,6 +288,25 @@ Worth knowing what is already handled:
   including "please disregard my last message" and three angry customers, are
   refused zero times at the default policy and again at maximum sensitivity.
 
+Every number here is one we measured, which means it is one you should be able
+to change:
+
+```ts
+createChatHandler({
+  index,
+  // Measured against one corpus and one embedding model. Both change.
+  retrieval: { vectorFloor: 0.5, keywordFloor: 0.35, coverageFrom: 4 },
+  classifier: {
+    categories: [{ name: 'injection', action: 'refuse', sensitivity: 'high' }],
+    // The shipped phrase lists are English. Add your own without losing them.
+    rules: [phraseRule('override-es', 'injection', [
+      { pattern: /\bignora\s+(todas\s+)?las\s+instrucciones\b/i, score: 0.95 },
+    ])],
+    passageThreshold: 0.8,
+  },
+})
+```
+
 ## Where the conversations go
 
 `memoryStore` for development, `fileStore` for a single instance, and Postgres

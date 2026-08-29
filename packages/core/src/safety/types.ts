@@ -7,6 +7,8 @@
  * detectors are code.
  */
 
+import type { Rule } from './rules.js'
+
 /** What a detector found. One message can produce several. */
 export interface Signal {
   /** The category name, matched against the configured policy. */
@@ -67,6 +69,24 @@ export interface ClassifierPolicy {
    * model tier, or an existing moderation service, plugs in.
    */
   classify?: (text: string, context: ClassifyContext) => Promise<Signal[]> | Signal[]
+  /**
+   * Detectors of your own, run alongside the built-in ones rather than
+   * instead of them.
+   *
+   * The shipped phrase lists are English. A business answering in another
+   * language inherits detection that does not cover it, and replacing the
+   * whole rule set to add one list would throw away the ones that are not
+   * language-specific at all. Append instead.
+   */
+  rules?: Rule[]
+  /**
+   * How sure the rules must be that a *retrieved passage* is carrying
+   * instructions before it is kept out of the prompt. 0.8 by default.
+   *
+   * Lower it if you would rather lose a page than risk one, raise it if a
+   * legitimate page keeps being dropped. `1` disables the screen.
+   */
+  passageThreshold?: number
   /** Called for every decision, including the ones that allowed. For metrics. */
   onDecision?: (decision: Decision) => void
 }

@@ -102,11 +102,16 @@ export function createClassifier(policy: ClassifierPolicy = {}): Classifier {
     return decision
   }
 
+  // Appended, not substituted. Someone adding a phrase list in their own
+  // language should not lose the invisible-character stripper to get it.
+  const inputRules = policy.rules ? [...INPUT_RULES, ...policy.rules] : INPUT_RULES
+  const outputRules = policy.rules ? [...OUTPUT_RULES, ...policy.rules] : OUTPUT_RULES
+
   return {
     checksOutput: policy.output === true || policy.output === 'buffer',
     buffers: policy.output === 'buffer',
-    check: (text, context = {}) => decide(text, INPUT_RULES, { stage: 'input', ...context }),
-    checkOutput: (text, context = {}) => decide(text, OUTPUT_RULES, { stage: 'output', ...context }),
+    check: (text, context = {}) => decide(text, inputRules, { stage: 'input', ...context }),
+    checkOutput: (text, context = {}) => decide(text, outputRules, { stage: 'output', ...context }),
   }
 }
 

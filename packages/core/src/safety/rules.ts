@@ -242,7 +242,25 @@ const CRISIS_PHRASES: Array<{ pattern: RegExp; score: number }> = [
   { pattern: /\bno\s+(?:reason|point)\s+(?:to|in)\s+(?:living|going on)\b/i, score: 0.75 },
 ]
 
-function phraseRule(
+/**
+ * Builds a detector from a list of patterns.
+ *
+ * Exported because the shipped lists are English, and a business answering in
+ * another language needs to add its own rather than go without. Patterns are
+ * matched against a copy of the text with every invisible character removed,
+ * so a phrase split with zero-width joiners is still caught.
+ *
+ * ```ts
+ * classifier: {
+ *   rules: [
+ *     phraseRule('override-es', 'injection', [
+ *       { pattern: /\bignora\s+(todas\s+)?las\s+instrucciones\b/i, score: 0.95 },
+ *     ]),
+ *   ],
+ * }
+ * ```
+ */
+export function phraseRule(
   name: string,
   category: string,
   phrases: Array<{ pattern: RegExp; score: number; why?: string }>,

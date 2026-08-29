@@ -7,7 +7,7 @@ import { renderProcedures, unlockedBy, usableProcedures } from './procedures/ind
 import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
 import { parseIndex } from './knowledge/serialize.js'
-import { createRetriever } from './retrieve/retriever.js'
+import { createRetriever, type RetrieverOptions } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
 import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
 import { blocks, createClassifier } from './safety/classify.js'
@@ -30,6 +30,15 @@ export interface AgentOptions {
   persona?: PersonaOptions
   /** Passages given to the model per question. */
   topK?: number
+  /**
+   * The thresholds retrieval decides relevance by.
+   *
+   * The defaults were measured against one corpus and one embedding model, and
+   * both of those change. `vectorFloor` in particular is calibrated to a scale
+   * that is model-specific: swap the embedder and measure your own separation
+   * rather than inheriting ours.
+   */
+  retrieval?: Pick<RetrieverOptions, 'keywordFloor' | 'vectorFloor' | 'coverageFrom' | 'maxPerDocument'>
   /** `false` forces keyword-only retrieval. */
   embedder?: Embedder | false
   /**
@@ -124,6 +133,14 @@ export interface Answer {
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 
 /**
+ * How sure the rules must be that a retrieved passage is an attack.
+ *
+ * High, because a false positive removes a real help page from an answer and
+ * nobody sees why.
+ */
+const DEFAULT_PASSAGE_THRESHOLD = 0.8
+
+/**
  * The agent with no transport attached.
  *
  * Everything else in this package is a wrapper over this: the HTTP handler adds
@@ -146,8 +163,10 @@ export function createAgent(options: AgentOptions) {
       ? undefined
       : (options.embedder ?? createEmbedder({ model: index.vectors.model.replace(/^(gateway|endpoint|provider):/, '') }))
 
-  const retriever = createRetriever({ index, embedder, topK: options.topK })
+  const retriever = createRetriever({ index, embedder, topK: options.topK, ...options.retrieval })
   const classifier = options.classifier === false ? null : createClassifier(options.classifier ?? {})
+  const passageThreshold =
+    options.classifier === false ? 1 : (options.classifier?.passageThreshold ?? DEFAULT_PASSAGE_THRESHOLD)
   const actions = options.actions ?? []
   const maxSteps = options.maxSteps ?? 6
 
@@ -225,7 +244,7 @@ export function createAgent(options: AgentOptions) {
     // authority and never passes through the input screen at all. Anything in
     // a retrieved passage that reads as an instruction to the agent is not
     // content, whatever page it came from.
-    const matches = classifier ? withoutPoisoned(found) : found
+    const matches = classifier ? withoutPoisoned(found, passageThreshold) : found
     onMatches(matches)
 
     // Only the newest message's files. Older ones were already read into an
@@ -573,12 +592,12 @@ function lastBoundary(text: string): number {
 /**
  * Drops retrieved passages that carry instructions rather than information.
  *
- * The bar is high (0.8) because a false positive here silently removes a real
- * help page from the answer, which is its own kind of failure. What clears
- * that bar is unambiguous: text telling the reader to ignore its instructions,
- * adopt a new role, or emit a marker.
+ * The bar is high by default because a false positive here silently removes a
+ * real help page from the answer, which is its own kind of failure. What
+ * clears it is unambiguous: text telling the reader to ignore its
+ * instructions, adopt a new role, or emit a marker.
  */
-function withoutPoisoned(matches: Match[]): Match[] {
+function withoutPoisoned(matches: Match[], threshold: number): Match[] {
   const kept: Match[] = []
 
   for (const match of matches) {
@@ -587,7 +606,7 @@ function withoutPoisoned(matches: Match[]): Match[] {
       .filter((signal) => signal.category === 'injection')
       .reduce((highest, signal) => Math.max(highest, signal.score), 0)
 
-    if (worst >= 0.8) {
+    if (worst >= threshold) {
       // Loud on purpose. A poisoned knowledge base is something the business
       // has to go and fix; quietly dropping the page hides an intrusion.
       console.warn(

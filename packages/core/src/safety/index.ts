@@ -19,7 +19,7 @@
  */
 
 export { createClassifier, blocks, type Classifier } from './classify.js'
-export { INPUT_RULES, OUTPUT_RULES, runRules, type Rule } from './rules.js'
+export { INPUT_RULES, OUTPUT_RULES, phraseRule, runRules, type Rule } from './rules.js'
 export {
   DEFAULT_CATEGORIES,
   THRESHOLDS,

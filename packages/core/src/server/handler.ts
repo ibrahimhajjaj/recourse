@@ -6,7 +6,7 @@ import type { Procedure } from '../procedures/types.js'
 import { validateAttachments, type AttachmentPolicy } from '../attachments.js'
 import type { PrepareOptions } from '../attachments-prepare.js'
 import type { ClassifierPolicy } from '../safety/types.js'
-import { createAgent } from '../agent.js'
+import { createAgent, type AgentOptions } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
 import { callerKey, createRateLimiter, type RateLimitOptions } from './ratelimit.js'
@@ -23,6 +23,11 @@ export interface ChatHandlerOptions {
   persona?: PersonaOptions
   /** Chunks handed to the model per turn. */
   topK?: number
+  /**
+   * The thresholds retrieval decides relevance by. The defaults were measured
+   * against one corpus and one embedding model; measure your own.
+   */
+  retrieval?: AgentOptions['retrieval']
   /**
    * Set `false` to force keyword-only retrieval. Defaults to matching whatever
    * the index was built with.
@@ -99,6 +104,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     persona: options.persona,
     topK: options.topK,
     embedder: options.embedder,
+    ...(options.retrieval ? { retrieval: options.retrieval } : {}),
     store: options.store,
     actions: options.actions,
     maxSteps: options.maxSteps,

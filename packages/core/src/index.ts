@@ -285,6 +285,7 @@ export { prepareAttachments, type PrepareOptions, type PreparedAttachments } fro
 export {
   createClassifier,
   blocks,
+  phraseRule,
   DEFAULT_CATEGORIES,
   THRESHOLDS,
   // Renamed at the top level: `Decision` is already a procedure's branch
