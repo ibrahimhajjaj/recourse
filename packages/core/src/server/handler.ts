@@ -9,7 +9,7 @@ import type { ClassifierPolicy } from '../safety/types.js'
 import { createAgent, type AgentOptions } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
-import { callerKey, createRateLimiter, type RateLimitOptions } from './ratelimit.js'
+import { callerKey, createRateLimiter, type RateLimiter, type RateLimitOptions } from './ratelimit.js'
 import { resolveIdentity, type IdentityClaim, type IdentityOptions } from '../identity.js'
 
 export interface ChatHandlerOptions {
@@ -37,6 +37,14 @@ export interface ChatHandlerOptions {
   embedder?: Embedder | false
   cors?: CorsOptions
   rateLimit?: RateLimitOptions
+  /**
+   * A limiter several instances share, instead of the per-instance default.
+   *
+   * `rateLimit` only bounds one process. On serverless that means N instances
+   * hand out N budgets and every cold start resets them, which is fine as a
+   * guard against a script and useless as a spending control.
+   */
+  rateLimiter?: RateLimiter
   /** Longest single message accepted, in characters. */
   maxMessageLength?: number
   /** Turns of history kept. Older ones are dropped from the model call. */
@@ -96,7 +104,10 @@ const DEFAULT_MAX_HISTORY = 10
 export function createChatHandler(options: ChatHandlerOptions) {
   const maxMessageLength = options.maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH
   const maxHistory = options.maxHistory ?? DEFAULT_MAX_HISTORY
-  const limiter = createRateLimiter(options.rateLimit)
+  // A shared limiter wins when one is given; otherwise the per-instance
+  // counter, so nothing changes for anyone who configured nothing.
+  const inMemory = createRateLimiter(options.rateLimit)
+  const limiter: RateLimiter = options.rateLimiter ?? { check: inMemory }
 
   // All the retrieval and generation lives in the agent. This function only
   // adds what HTTP needs: method checks, CORS, rate limiting and framing.
@@ -126,7 +137,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
       return json({ error: 'method not allowed' }, 405, cors)
     }
 
-    const gate = limiter(callerKey(request))
+    const gate = await limiter.check(callerKey(request))
     if (!gate.ok) {
       return json({ error: 'too many requests' }, 429, { ...cors, 'Retry-After': String(gate.retryAfter) })
     }

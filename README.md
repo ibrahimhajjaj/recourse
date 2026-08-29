@@ -345,6 +345,25 @@ Worth knowing what is already handled:
   cannot be replayed with a fresh timestamp.
 - Outbound campaigns refuse to contact anyone without explicit consent, drop
   duplicates, and stop early when too much is failing.
+- Rate limiting is per-instance by default, which stops a script and is not a
+  budget control: N serverless instances hand out N budgets. `rateLimiter`
+  takes a shared one, and two ship in the box:
+
+  ```ts
+  createChatHandler({
+    index,
+    rateLimiter: upstashRateLimiter({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+      limit: 30,
+    }),
+  })
+  ```
+
+  Upstash is a sliding window over their REST API, so no client to install and
+  nothing to keep connected; `redisRateLimiter({ client })` takes any Redis you
+  already have. Both fail open, because a Redis outage turning every customer
+  away is a worse failure than a few minutes of unmetered traffic.
 - A message is screened before retrieval and before the model, with per-category
   sensitivity you set. Refused messages never reach a provider, which makes the
   hostile path faster than the ordinary one rather than slower: 0.23s against

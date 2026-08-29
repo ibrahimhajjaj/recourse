@@ -306,3 +306,5 @@ export {
   type Signal,
 } from './safety/index.js'
 export { models, embedders, type OpenAICompatibleOptions } from './models.js'
+export { upstashRateLimiter, redisRateLimiter, type RedisLike } from './server/ratelimit-shared.js'
+export type { RateLimiter, RateLimitResult } from './server/ratelimit.js'
