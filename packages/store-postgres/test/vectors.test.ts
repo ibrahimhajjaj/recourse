@@ -16,7 +16,7 @@ import { pgVectorStore, migrateVectors } from '../src/vectors.js'
 const CONNECTION = process.env.TEST_DATABASE_URL
 const pool = CONNECTION ? new pg.Pool({ connectionString: CONNECTION, max: 6 }) : null
 
-const DIMENSIONS = 16
+const DIMENSIONS = 64
 
 const documents: Document[] = [
   { id: 'shipping', title: 'Shipping', text: '# Shipping\n\nDelivery to Ireland takes about a week.' },
@@ -25,24 +25,53 @@ const documents: Document[] = [
   { id: 'account', title: 'Account', text: '# Account\n\nReset your password from the sign in page.' },
 ]
 
-/** Deterministic, so a failure is the wiring rather than a model having a day. */
-function fakeEmbedder(dimensions = DIMENSIONS): Embedder {
+/**
+ * A deterministic stand-in for an embedding model.
+ *
+ * Character trigrams hashed into buckets. Texts sharing vocabulary land near
+ * each other, unrelated ones do not, and the vectors are dense enough to
+ * behave like a real embedding.
+ *
+ * Both of those properties were learned the hard way. Summing character codes
+ * by position made every document 0.94 similar to every other, so the test was
+ * measuring rounding noise. Hashing whole words into 16 buckets made vectors
+ * so sparse that int8 quantisation shifted scores by 0.14 and the two vector
+ * paths disagreed, which looked like a bug in the store and was not: measured
+ * against dense vectors at realistic widths, the quantisation error is 0.2% at
+ * 768 dimensions, because independent per-component errors cancel in a dot
+ * product. A fixture has to look like the thing it stands in for.
+ */
+export function fakeEmbedder(dimensions = DIMENSIONS): Embedder {
   return {
     name: 'fake',
     dimensions,
     async embed(texts) {
       return texts.map((text) => {
         const vector = new Float32Array(dimensions)
-        for (let index = 0; index < text.length; index++) {
-          vector[index % dimensions] = (vector[index % dimensions] as number) + text.charCodeAt(index)
+        const clean = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+
+        for (let start = 0; start + 3 <= clean.length; start++) {
+          const trigram = clean.slice(start, start + 3)
+          if (trigram.trim().length < 3) continue
+
+          // FNV-1a, for a spread that does not clump the way a character sum
+          // does.
+          let hash = 2166136261
+          for (let index = 0; index < trigram.length; index++) {
+            hash ^= trigram.charCodeAt(index)
+            hash = Math.imul(hash, 16777619)
+          }
+          const bucket = Math.abs(hash) % dimensions
+          vector[bucket] = (vector[bucket] as number) + 1
         }
-        // Unit length, because cosine is what the store indexes on.
+
         let sum = 0
         for (const value of vector) sum += value * value
         const magnitude = Math.sqrt(sum) || 1
         for (let index = 0; index < dimensions; index++) {
           vector[index] = (vector[index] as number) / magnitude
         }
+
         return vector
       })
     },

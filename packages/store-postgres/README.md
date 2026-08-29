@@ -60,6 +60,35 @@ takes an advisory lock, so several instances starting at once is fine.
 - **`stats()` is one round trip.** Those numbers are read together on every
   dashboard load, and five queries would be five times the latency.
 
+## Vectors
+
+The index file carries int8 vectors and scans them all, which is honest to
+roughly twenty thousand chunks. Past that it is the file that hurts before the
+scan does. `pgVectorStore` moves that half into Postgres:
+
+```ts
+import { pgVectorStore } from '@helpdeck/store-postgres'
+
+const vectors = pgVectorStore({ pool, dimensions: 768 })
+
+createChatHandler({ index, embedder, vectorStore: vectors })
+```
+
+Needs `CREATE EXTENSION vector`. Neon, Supabase and RDS all ship pgvector; a
+plain Postgres needs it installed.
+
+Chunk text stays in the index file. Only the vectors move, so there is exactly
+one place the text lives and no rule about which copy wins.
+
+- An HNSW index with `vector_cosine_ops`, built on the empty table, so ingest
+  can fill it afterwards. IVFFlat would need a training pass over data that is
+  not there yet.
+- `<=>` returns cosine *distance*, so the store returns `1 - distance`. Getting
+  that backwards ranks everything upside down and still looks plausible.
+- The relevance floor is applied in SQL, not after, so a million-row table does
+  not ship rows back to be discarded.
+- A dimension mismatch throws rather than returning meaningless distances.
+
 ## Serverless, where this actually goes wrong
 
 The connection limit, not the query load, is what breaks a database behind
