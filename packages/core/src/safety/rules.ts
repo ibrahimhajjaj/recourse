@@ -319,6 +319,7 @@ export const INPUT_RULES: Rule[] = [
  */
 export const OUTPUT_RULES: Rule[] = [
   { name: 'ungrounded-numbers', run: (text, _matchable, context) => ({ text, signals: ungroundedNumbers(text, context) }) },
+  { name: 'ungrounded-contacts', run: (text, _matchable, context) => ({ text, signals: ungroundedContacts(text, context) }) },
   {
     name: 'leaked-credentials',
     run(text) {
@@ -384,14 +385,24 @@ function ungroundedNumbers(text: string, context?: RuleContext): Signal[] {
   const haystack = [...sources, ...(context.asked ?? [])].join(' ')
 
   // Citation markers are ours, not the model's claims about the world.
-  const withoutCitations = text.replace(/\[\d{1,2}\]/g, ' ')
+  // Telephone numbers go too: they belong to the contact check, and picking
+  // "44" out of a country code and calling it an invented figure is noise.
+  const withoutCitations = text
+    .replace(/\[\d{1,2}\]/g, ' ')
+    .replace(/\+?\d[\d\s().-]{7,17}\d/g, ' ')
 
   const stated = new Set<string>()
   for (const match of withoutCitations.matchAll(/\b\d+(?:[.,]\d+)?\b/g)) {
     const number = match[0] as string
+    const digits = number.replace(/[.,]/g, '')
     // Single digits are ordinals, list markers and "two or three days" written
     // as numerals. Too noisy to be worth a signal.
-    if (number.replace(/[.,]/g, '').length < 2) continue
+    if (digits.length < 2) continue
+    // Long runs are identifiers and telephone numbers, not quantities. They
+    // belong to the contact check, which knows how to compare them; treating
+    // them as figures here would flag a phone number twice and for the wrong
+    // reason.
+    if (digits.length > 6) continue
     stated.add(number)
   }
 
@@ -407,6 +418,83 @@ function ungroundedNumbers(text: string, context?: RuleContext): Signal[] {
       reason: `states ${invented.join(', ')}, which no source contains`,
     },
   ]
+}
+
+/**
+ * Personal details in an answer that came from nowhere it can cite.
+ *
+ * The failure this catches is an agent repeating one customer's email address
+ * or phone number to another, which is the kind of leak that ends a business
+ * rather than annoying it. Like the number check, it only asks whether the
+ * detail occurs in the passages retrieved or in what this customer already
+ * said: their own address quoted back is not a leak, and a support address
+ * printed on a help page is not either.
+ *
+ * Patterns are deliberately conservative. A false positive flags a real
+ * answer; a false negative is caught by nothing else.
+ *
+ * Telephone numbers are compared by their subscriber digits rather than as
+ * strings, so a country code on one side and a trunk zero on the other is not
+ * mistaken for two different numbers. See `samePhoneNumber`.
+ */
+function ungroundedContacts(text: string, context?: RuleContext): Signal[] {
+  const sources = context?.sources
+  if (!sources || sources.length === 0) return []
+
+  const grounded = [...sources, ...(context.asked ?? [])].join(' ')
+  const groundedLower = grounded.toLowerCase()
+  const groundedPhones = phoneNumbersIn(grounded)
+
+  const found: string[] = []
+
+  for (const match of text.matchAll(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g)) {
+    const address = (match[0] as string).trim()
+    if (groundedLower.includes(address.toLowerCase())) continue
+    found.push(`an email address (${address.slice(0, 40)})`)
+  }
+
+  for (const candidate of phoneNumbersIn(text)) {
+    if (groundedPhones.some((known) => samePhoneNumber(candidate, known))) continue
+    found.push(`a phone number (${candidate.slice(0, 24)})`)
+  }
+
+  if (found.length === 0) return []
+
+  return [
+    {
+      category: 'ungrounded-contact',
+      score: 0.9,
+      reason: `the answer gives ${found.join(', ')}, which appears in no source`,
+    },
+  ]
+}
+
+/** Digit runs long enough to be a telephone number rather than a quantity. */
+function phoneNumbersIn(text: string): string[] {
+  return [...text.matchAll(/\+?\d[\d\s().-]{7,17}\d/g)]
+    .map((match) => (match[0] as string).trim())
+    .filter((candidate) => candidate.replace(/\D/g, '').length >= 9)
+}
+
+/**
+ * Whether two written numbers are the same telephone number.
+ *
+ * They rarely match as strings. The same line is `+44 20 7946 0958` on a
+ * contact page and `020 7946 0958` in an answer, and a check that called those
+ * two different numbers would flag correct answers until people stopped
+ * reading its output.
+ *
+ * The rule that works without knowing any country's dialling plan: drop the
+ * separators, drop the leading trunk zero, and ask whether one is a suffix of
+ * the other. A country code is a prefix, so removing it is exactly what
+ * comparing from the right-hand end does. Nine digits of overlap is required,
+ * which is longer than any subscriber number worth confusing.
+ */
+function samePhoneNumber(a: string, b: string): boolean {
+  const left = a.replace(/\D/g, '').replace(/^0+/, '')
+  const right = b.replace(/\D/g, '').replace(/^0+/, '')
+  if (left.length < 9 || right.length < 9) return false
+  return left.endsWith(right) || right.endsWith(left)
 }
 
 /** Runs a set of rules in order, threading the possibly rewritten text. */

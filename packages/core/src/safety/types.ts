@@ -165,6 +165,16 @@ export const DEFAULT_CATEGORIES: CategoryPolicy[] = [
     action: 'flag',
     sensitivity: 'medium',
   },
+  {
+    // An email address or phone number the agent produced from nowhere is a
+    // different weight of problem: at worst it is one customer's details shown
+    // to another. Still `flag`, because this check runs after the answer has
+    // been sent, but it is the first category to promote once `output` gating
+    // is turned on.
+    name: 'ungrounded-contact',
+    action: 'flag',
+    sensitivity: 'high',
+  },
 ]
 
 export function thresholdFor(policy: CategoryPolicy): number {

@@ -469,6 +469,72 @@ describe('checking the answer, not just the question', () => {
     expect(scoreOf(many.signals, 'ungrounded')).toBeGreaterThan(scoreOf(one.signals, 'ungrounded'))
   })
 
+  it('flags an email address the sources never mentioned', () => {
+    // The failure here is one customer's details shown to another.
+    const { signals } = runRules('You can reach Sam on sam.okafor@example.com.', OUTPUT_RULES, {
+      sources: ['Write to hello@lumen.example and we answer within one working day.'],
+    })
+
+    expect(scoreOf(signals, 'ungrounded-contact')).toBe(0.9)
+    expect(signals[0]?.reason).toContain('sam.okafor@example.com')
+  })
+
+  it('accepts the support address that is on a help page', () => {
+    const { signals } = runRules('Write to hello@lumen.example and we will pick it up.', OUTPUT_RULES, {
+      sources: ['Write to hello@lumen.example and we answer within one working day.'],
+    })
+
+    expect(signals).toEqual([])
+  })
+
+  it('accepts the customer their own address back', () => {
+    const { signals } = runRules('I have sent confirmation to sam@example.com.', OUTPUT_RULES, {
+      sources: ['We email a confirmation once the order ships.'],
+      asked: ['my email is sam@example.com, where is my order?'],
+    })
+
+    expect(signals).toEqual([])
+  })
+
+  it('flags a phone number from nowhere', () => {
+    const { signals } = runRules('Call us on +44 20 7946 0958.', OUTPUT_RULES, {
+      sources: ['The roastery is open Monday to Friday.'],
+    })
+
+    expect(scoreOf(signals, 'ungrounded-contact')).toBe(0.9)
+  })
+
+  it('does not mind the same number written with different separators', () => {
+    // A source printing 020 7946 0958 and an answer printing 02079460958 are
+    // the same number, and flagging that would train people to ignore this.
+    const { signals } = runRules('Call 02079460958.', OUTPUT_RULES, {
+      sources: ['Our number is 020 7946 0958.'],
+    })
+
+    expect(signals).toEqual([])
+  })
+
+  it('knows a country code and a trunk zero are the same number', () => {
+    // +44 20 7946 0958 on a contact page and 020 7946 0958 in an answer are
+    // one telephone number. Compared from the right-hand end, which is where
+    // the subscriber digits are, they match.
+    for (const written of ['+442079460958', '+44 20 7946 0958', '(020) 7946 0958']) {
+      const { signals } = runRules(`Call ${written}.`, OUTPUT_RULES, {
+        sources: ['Our number is 020 7946 0958.'],
+      })
+      expect(signals, written).toEqual([])
+    }
+  })
+
+  it('still flags a genuinely different number', () => {
+    // The suffix rule must not collapse every number onto every other one.
+    const { signals } = runRules('Call +44 20 7946 1111.', OUTPUT_RULES, {
+      sources: ['Our number is 020 7946 0958.'],
+    })
+
+    expect(scoreOf(signals, 'ungrounded-contact')).toBe(0.9)
+  })
+
   it('leaves an ordinary answer alone', () => {
     const { signals } = runRules('Delivery to Ireland takes about a week [1].', OUTPUT_RULES)
     expect(signals).toEqual([])
