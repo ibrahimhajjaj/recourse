@@ -490,6 +490,19 @@ Reads `SLACK_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`,
 `TWILIO_AUTH_TOKEN`, `ELEVENLABS_API_KEY` and `FIRECRAWL_API_KEY`, and skips
 whatever is absent.
 
+## Setting it up with a coding agent
+
+```bash
+npx skills add ibrahimhajjaj/helpdeck
+```
+
+Installs a `SKILL.md` into whichever coding agent you use, Claude Code, Codex,
+Cursor, Antigravity, Zed and about seventy others. The agent then knows the
+setup path and, more usefully, the four mistakes that cost hours and announce
+themselves in no way at all: rebuilding the index with a different embedding
+model, putting a provider key in the browser bundle, leaving the in-memory
+store on a deployment that scales, and assuming a vision model can call tools.
+
 ## Running the example
 
 ```bash
