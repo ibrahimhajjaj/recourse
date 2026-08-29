@@ -1,6 +1,7 @@
 import { renderMarkdown } from './render.js'
 import { renderForm, renderUi, type UiContext } from './ui.js'
 import { streamChat } from './stream.js'
+import { createDictation, type Dictation } from './dictation.js'
 import { styles } from './styles.js'
 import type {
   ChatMessage,
@@ -30,6 +31,7 @@ const ICONS = {
   close: 'M6 6l12 12M18 6L6 18',
   send: 'M4 12l16-8-6 8 6 8z',
   clip: 'M21 11.5l-8.6 8.6a5 5 0 01-7-7l8.5-8.6a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.9-7.8',
+  mic: 'M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3',
 }
 
 /**
@@ -194,12 +196,68 @@ export function createWidget(options: WidgetOptions) {
   attach.setAttribute('aria-label', 'Attach a file')
   attach.appendChild(icon(ICONS.clip, false))
 
-  if (uploads) {
-    picker.accept = uploads.accept.join(',')
-    composer.append(attach, input, send)
-  } else {
-    composer.append(input, send)
+  // Only built when the host asked for it and the browser can do it. A mic
+  // that does nothing is worse than no mic.
+  const dictationSettings = options.dictation
+    ? typeof options.dictation === 'object'
+      ? options.dictation
+      : {}
+    : null
+
+  const mic = document.createElement('button')
+  mic.type = 'button'
+  mic.className = 'mic'
+  mic.setAttribute('aria-label', 'Dictate your question')
+  mic.appendChild(icon(ICONS.mic, false))
+
+  let dictation: Dictation | null = null
+
+  if (uploads) picker.accept = uploads.accept.join(',')
+  if (dictationSettings) {
+    dictation = createDictation({
+      ...dictationSettings,
+      onStateChange: (recording) => {
+        mic.dataset.recording = String(recording)
+        mic.setAttribute('aria-label', recording ? 'Stop dictating' : 'Dictate your question')
+        if (!recording) input.dataset.interim = ''
+      },
+      onInterim: (text) => {
+        // Shown after whatever is already typed, without committing it: an
+        // interim result is a guess the browser will revise.
+        input.value = `${input.dataset.beforeDictation ?? ''}${text}`
+      },
+      onFinal: (text) => {
+        const before = input.dataset.beforeDictation ?? ''
+        const joined = before && !before.endsWith(' ') ? `${before} ${text}` : `${before}${text}`
+        input.value = joined
+        input.dataset.beforeDictation = joined
+      },
+      onError: (message) => showError(message),
+    })
+
+    // Null means the browser has no speech recognition. Leave the button out
+    // rather than shipping a control that cannot work.
+    if (dictation) {
+      mic.addEventListener('click', () => {
+        if (!dictation) return
+        if (!dictation.recording) input.dataset.beforeDictation = input.value
+        dictation.toggle()
+        input.focus()
+      })
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && dictation?.recording) {
+          event.preventDefault()
+          // Escape discards the dictation and restores what was typed before.
+          input.value = input.dataset.beforeDictation ?? ''
+          dictation.cancel()
+        }
+      })
+    }
   }
+
+  const micButton = dictation ? [mic] : []
+  composer.append(...(uploads ? [attach] : []), input, ...micButton, send)
 
   panel.append(header, log, suggestions, errorBox, tray, composer)
   if (uploads) panel.appendChild(picker)
@@ -477,6 +535,11 @@ export function createWidget(options: WidgetOptions) {
     errorBox.hidden = true
     state.busy = true
     send.disabled = true
+
+    // A dictation still running would keep writing into a box the customer has
+    // already sent.
+    if (dictation?.recording) dictation.cancel()
+    input.dataset.beforeDictation = ''
 
     // Taken off the tray now, so a slow answer cannot let them be sent twice.
     const sending = state.staged

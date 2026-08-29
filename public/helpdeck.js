@@ -396,6 +396,106 @@
     handlers.onDone?.();
   }
 
+  // src/dictation.ts
+  function speechRecognition(scope = globalThis) {
+    const global = scope;
+    return global.SpeechRecognition ?? global.webkitSpeechRecognition ?? null;
+  }
+  var MESSAGES = {
+    "not-allowed": "I need permission to use the microphone. You can allow it in your browser settings.",
+    "service-not-allowed": "Your browser would not let me use speech recognition.",
+    "no-speech": "I did not hear anything. Try again?",
+    "audio-capture": "I could not find a microphone.",
+    network: "Speech recognition needs a connection and could not reach it.",
+    "language-not-supported": "Speech recognition is not available for this language on your device."
+  };
+  function createDictation(options = {}, scope = globalThis) {
+    const found = speechRecognition(scope);
+    if (!found) return null;
+    const Recognition = found;
+    let active = null;
+    let retriedWithoutLocal = false;
+    function build(processLocally) {
+      const recognition = new Recognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      const lang = options.lang ?? documentLang(scope);
+      if (lang) recognition.lang = lang;
+      if (processLocally) recognition.processLocally = true;
+      return recognition;
+    }
+    function attach(recognition) {
+      recognition.onstart = () => options.onStateChange?.(true);
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let index = event.resultIndex; index < event.results.length; index++) {
+          const result = event.results[index];
+          if (!result) continue;
+          const text2 = result[0]?.transcript ?? "";
+          if (result.isFinal) options.onFinal?.(text2);
+          else interim += text2;
+        }
+        if (interim) options.onInterim?.(interim);
+      };
+      recognition.onerror = (event) => {
+        const local = options.processLocally !== false;
+        const recoverable = event.error === "language-not-supported" || event.error === "service-not-allowed";
+        if (local && recoverable && options.allowCloudFallback && !retriedWithoutLocal) {
+          retriedWithoutLocal = true;
+          active = null;
+          startWith(false);
+          return;
+        }
+        if (event.error !== "aborted") {
+          options.onError?.(MESSAGES[event.error] ?? "Speech recognition stopped unexpectedly.");
+        }
+      };
+      recognition.onend = () => {
+        active = null;
+        options.onStateChange?.(false);
+      };
+    }
+    function startWith(processLocally) {
+      const recognition = build(processLocally);
+      attach(recognition);
+      active = recognition;
+      try {
+        recognition.start();
+      } catch {
+        active = null;
+        options.onStateChange?.(false);
+      }
+    }
+    return {
+      get recording() {
+        return active !== null;
+      },
+      start() {
+        if (active) return;
+        retriedWithoutLocal = false;
+        startWith(options.processLocally !== false);
+      },
+      stop() {
+        active?.stop();
+      },
+      cancel() {
+        const recognition = active;
+        active = null;
+        recognition?.abort();
+        options.onStateChange?.(false);
+      },
+      toggle() {
+        if (active) this.stop();
+        else this.start();
+      }
+    };
+  }
+  function documentLang(scope) {
+    const documentRef = scope.document;
+    return documentRef?.documentElement?.lang ?? "";
+  }
+
   // src/styles.ts
   var styles = `
 :host {
@@ -634,6 +734,33 @@
 }
 .composer button.attach:hover { background: var(--hd-subtle); color: var(--hd-text); }
 .composer button.attach svg { width: 17px; height: 17px; }
+.composer button.mic {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  align-self: flex-end;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--hd-muted);
+  cursor: pointer;
+}
+.composer button.mic:hover { background: var(--hd-subtle); color: var(--hd-text); }
+.composer button.mic svg { width: 17px; height: 17px; }
+.composer button.mic[data-recording="true"] {
+  color: #fff;
+  background: #d33;
+  animation: hd-pulse 1.4s ease-in-out infinite;
+}
+@keyframes hd-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(221, 51, 51, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(221, 51, 51, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer button.mic[data-recording="true"] { animation: none; }
+}
 .tray {
   display: flex;
   flex-wrap: wrap;
@@ -880,7 +1007,8 @@
     chat: "M12 3c5 0 9 3.4 9 7.6 0 4.2-4 7.6-9 7.6-.9 0-1.8-.1-2.6-.3L5 20l1-3.3C4.2 15.3 3 13.1 3 10.6 3 6.4 7 3 12 3z",
     close: "M6 6l12 12M18 6L6 18",
     send: "M4 12l16-8-6 8 6 8z",
-    clip: "M21 11.5l-8.6 8.6a5 5 0 01-7-7l8.5-8.6a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.9-7.8"
+    clip: "M21 11.5l-8.6 8.6a5 5 0 01-7-7l8.5-8.6a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.9-7.8",
+    mic: "M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3"
   };
   var ACCEPTED_TYPES = [
     "image/png",
@@ -999,12 +1127,51 @@
     attach.className = "attach";
     attach.setAttribute("aria-label", "Attach a file");
     attach.appendChild(icon(ICONS.clip, false));
-    if (uploads) {
-      picker.accept = uploads.accept.join(",");
-      composer.append(attach, input, send);
-    } else {
-      composer.append(input, send);
+    const dictationSettings = options.dictation ? typeof options.dictation === "object" ? options.dictation : {} : null;
+    const mic = document.createElement("button");
+    mic.type = "button";
+    mic.className = "mic";
+    mic.setAttribute("aria-label", "Dictate your question");
+    mic.appendChild(icon(ICONS.mic, false));
+    let dictation = null;
+    if (uploads) picker.accept = uploads.accept.join(",");
+    if (dictationSettings) {
+      dictation = createDictation({
+        ...dictationSettings,
+        onStateChange: (recording) => {
+          mic.dataset.recording = String(recording);
+          mic.setAttribute("aria-label", recording ? "Stop dictating" : "Dictate your question");
+          if (!recording) input.dataset.interim = "";
+        },
+        onInterim: (text2) => {
+          input.value = `${input.dataset.beforeDictation ?? ""}${text2}`;
+        },
+        onFinal: (text2) => {
+          const before = input.dataset.beforeDictation ?? "";
+          const joined = before && !before.endsWith(" ") ? `${before} ${text2}` : `${before}${text2}`;
+          input.value = joined;
+          input.dataset.beforeDictation = joined;
+        },
+        onError: (message) => showError(message)
+      });
+      if (dictation) {
+        mic.addEventListener("click", () => {
+          if (!dictation) return;
+          if (!dictation.recording) input.dataset.beforeDictation = input.value;
+          dictation.toggle();
+          input.focus();
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && dictation?.recording) {
+            event.preventDefault();
+            input.value = input.dataset.beforeDictation ?? "";
+            dictation.cancel();
+          }
+        });
+      }
     }
+    const micButton = dictation ? [mic] : [];
+    composer.append(...uploads ? [attach] : [], input, ...micButton, send);
     panel.append(header, log, suggestions, errorBox, tray, composer);
     if (uploads) panel.appendChild(picker);
     if (!inline) root.append(launcher, panel);
@@ -1213,6 +1380,8 @@
       errorBox.hidden = true;
       state.busy = true;
       send.disabled = true;
+      if (dictation?.recording) dictation.cancel();
+      input.dataset.beforeDictation = "";
       const sending = state.staged;
       state.staged = [];
       paintTray();
@@ -1571,6 +1740,15 @@
       // `data-attachments="true"` turns the paperclip on; a number caps the size
       // in megabytes, so `data-attachments="4"` is a 4MB limit.
       ...attachmentsFrom(data.attachments),
+      // `data-dictation="true"` adds the mic. `data-dictation-lang` overrides
+      // the page language; `data-dictation-cloud="true"` permits the browser's
+      // default when on-device recognition is unavailable.
+      ...data.dictation === "true" ? {
+        dictation: {
+          ...data.dictationLang ? { lang: data.dictationLang } : {},
+          ...data.dictationCloud === "true" ? { allowCloudFallback: true } : {}
+        }
+      } : {},
       ...window.helpdeckConfig,
       ...target ? { target } : {}
     };

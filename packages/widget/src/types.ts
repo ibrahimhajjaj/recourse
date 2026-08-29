@@ -49,6 +49,25 @@ export interface WidgetOptions {
    * they wait for it to upload. The server checks everything again.
    */
   attachments?: AttachmentOptions | boolean
+  /**
+   * Lets the visitor dictate instead of typing. Off unless set.
+   *
+   * Hidden entirely where the browser has no speech recognition, rather than
+   * shown as a button that does nothing.
+   */
+  dictation?: DictationSettings | boolean
+}
+
+export interface DictationSettings {
+  /** BCP-47 tag. Defaults to the page's `lang`. */
+  lang?: string
+  /**
+   * Requires the audio to stay on the device. On by default; see the widget
+   * README for what turning it off means.
+   */
+  processLocally?: boolean
+  /** Permits the browser's default when on-device recognition is unavailable. */
+  allowCloudFallback?: boolean
 }
 
 export interface AttachmentOptions {

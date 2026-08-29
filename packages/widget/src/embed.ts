@@ -44,6 +44,17 @@ function readConfig(): WidgetOptions | null {
     // `data-attachments="true"` turns the paperclip on; a number caps the size
     // in megabytes, so `data-attachments="4"` is a 4MB limit.
     ...attachmentsFrom(data.attachments),
+    // `data-dictation="true"` adds the mic. `data-dictation-lang` overrides
+    // the page language; `data-dictation-cloud="true"` permits the browser's
+    // default when on-device recognition is unavailable.
+    ...(data.dictation === 'true'
+      ? {
+          dictation: {
+            ...(data.dictationLang ? { lang: data.dictationLang } : {}),
+            ...(data.dictationCloud === 'true' ? { allowCloudFallback: true } : {}),
+          },
+        }
+      : {}),
     ...window.helpdeckConfig,
     ...(target ? { target } : {}),
   }

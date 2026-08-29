@@ -240,6 +240,33 @@ export const styles = `
 }
 .composer button.attach:hover { background: var(--hd-subtle); color: var(--hd-text); }
 .composer button.attach svg { width: 17px; height: 17px; }
+.composer button.mic {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  align-self: flex-end;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--hd-muted);
+  cursor: pointer;
+}
+.composer button.mic:hover { background: var(--hd-subtle); color: var(--hd-text); }
+.composer button.mic svg { width: 17px; height: 17px; }
+.composer button.mic[data-recording="true"] {
+  color: #fff;
+  background: #d33;
+  animation: hd-pulse 1.4s ease-in-out infinite;
+}
+@keyframes hd-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(221, 51, 51, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(221, 51, 51, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer button.mic[data-recording="true"] { animation: none; }
+}
 .tray {
   display: flex;
   flex-wrap: wrap;

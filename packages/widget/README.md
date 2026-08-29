@@ -63,6 +63,26 @@ Without that option the server refuses every file, and the widget's paperclip
 would be a button that never works. Images need a model that can see them;
 documents are read server-side and work with any model.
 
+## Dictation
+
+Off by default. `data-dictation="true"` adds a mic to the composer, or
+`dictation: { lang: 'ar-EG' }` from JavaScript.
+
+Press to start, press again or stay quiet to stop, Escape to discard. The live
+transcript appears in the box as you speak and appends to whatever was already
+typed.
+
+**The audio stays on the device.** The API now has `processLocally`, and this
+sets it, because a support widget records people saying their name, address and
+order number, and sending that to a browser vendor should be a decision rather
+than a default. If on-device recognition is unavailable, usually a missing
+language pack, dictation reports itself unavailable rather than quietly
+becoming the thing that setting was meant to prevent. `data-dictation-cloud="true"`
+permits the fallback if you would rather have it work.
+
+The button is hidden entirely where the browser has no speech recognition,
+which today means Firefox. A control that cannot work is worse than no control.
+
 ## Rendering safety
 
 Model output is rendered by building DOM nodes, never by assigning `innerHTML`.
