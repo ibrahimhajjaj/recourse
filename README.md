@@ -456,6 +456,40 @@ you want a real vector store. The `VectorStore` boundary is where that goes and
 it exists now, with the in-file scan as its default implementation; what does
 not exist yet is a database behind it.
 
+## Checking a deployment before a customer does
+
+Every credential here is passed as an option rather than read from a global,
+which is the right shape and has one cost: nothing validates it until a webhook
+arrives and fails. A wrong Slack signing secret looks exactly like silence.
+
+```bash
+npx helpdeck doctor
+```
+
+```
+  FAIL  embedding model  the index was built with "nomic-embed-text" but the
+                         environment says "mxbai-embed-large"
+                         rebuild the index, or point OPENAI_COMPATIBLE_EMBED_MODEL
+                         back at the model it was built with
+  ok    index            28 chunks from 6 documents, hybrid
+  ok    model            "qwen3:4b" is available
+  ok    firecrawl        no key, which is fine: scrape and search are keyless
+```
+
+It asks each provider the cheapest question that proves a credential works,
+reads nothing and changes nothing. Credentials come from the environment rather
+than flags, so nothing secret lands in a shell history. It exits non-zero on a
+failure and zero on a warning, so it belongs in a deploy step.
+
+The check worth having on its own is the embedding one above: a query vector
+from one model against stored vectors from another is not comparable, and the
+symptom is bad answers rather than an error.
+
+Reads `SLACK_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`,
+`WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, `ELEVENLABS_API_KEY` and `FIRECRAWL_API_KEY`, and skips
+whatever is absent.
+
 ## Running the example
 
 ```bash

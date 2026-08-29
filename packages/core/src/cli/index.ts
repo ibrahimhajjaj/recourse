@@ -9,6 +9,7 @@ import { canReachGateway, createEmbedder } from '../embed.js'
 import { buildInstructions } from '../server/prompt.js'
 import type { ProgressEvent } from '../types.js'
 import { list, num, parseArgs } from './args.js'
+import { checkCredentials, checkModel, exitCodeFor, formatChecks, type Check } from './doctor.js'
 
 const DEFAULT_OUT = 'helpdeck/knowledge.json'
 
@@ -20,6 +21,9 @@ Usage
   helpdeck ingest --path <dir>        Learn a folder of markdown instead
   helpdeck ask "<question>"           Ask the index a question from the terminal
   helpdeck stats                      Show what is in the index
+  helpdeck doctor                     Check the index, the model and any
+                                      credentials you pass, before a customer
+                                      finds the problem for you
 
 Options
   --index <file>    Path to the knowledge index        (default ${DEFAULT_OUT})
@@ -56,6 +60,8 @@ async function main(): Promise<number> {
       return runAsk(positionals.join(' '), flags)
     case 'stats':
       return runStats(flags)
+    case 'doctor':
+      return runDoctor(flags)
     default:
       process.stderr.write(`unknown command: ${command}\n${HELP}\n`)
       return 1
@@ -159,6 +165,83 @@ async function runAsk(question: string, flags: Record<string, string | boolean>)
   }
 
   return 0
+}
+
+/**
+ * Everything a deployment needs, checked in one go.
+ *
+ * Credentials are read from the environment here rather than from flags, so
+ * nothing secret ends up in a shell history or a CI log.
+ */
+async function runDoctor(flags: Record<string, string | boolean>): Promise<number> {
+  const checks: Check[] = []
+
+  // The index first: without it nothing else matters.
+  const path = indexPath(flags)
+  try {
+    const index = parseIndex(await readFile(path, 'utf8'))
+    checks.push({
+      name: 'index',
+      status: 'ok',
+      detail: `${index.stats.chunks} chunks from ${index.stats.documents} documents, ${index.vectors ? 'hybrid' : 'keyword only'}`,
+    })
+
+    if (index.vectors) {
+      const stored = index.vectors.model.replace(/^(gateway|endpoint|provider):/, '')
+      const configured = process.env.OPENAI_COMPATIBLE_EMBED_MODEL
+      if (configured && configured !== stored) {
+        // The failure this catches is silent: query vectors from one model
+        // against stored vectors from another are not comparable, and the
+        // symptom is bad answers rather than an error.
+        checks.push({
+          name: 'embedding model',
+          status: 'fail',
+          detail: `the index was built with "${stored}" but the environment says "${configured}"`,
+          fix: 'rebuild the index, or point OPENAI_COMPATIBLE_EMBED_MODEL back at the model it was built with',
+        })
+      }
+    }
+  } catch (error) {
+    checks.push({
+      name: 'index',
+      status: 'fail',
+      detail: (error as NodeJS.ErrnoException).code === 'ENOENT' ? `nothing at ${displayPath(path)}` : String(error),
+      fix: 'run `helpdeck ingest --url <site>` first',
+    })
+  }
+
+  checks.push(
+    ...(await checkModel({
+      ...(typeof flags['base-url'] === 'string' ? { baseURL: flags['base-url'] } : process.env.OPENAI_COMPATIBLE_BASE_URL ? { baseURL: process.env.OPENAI_COMPATIBLE_BASE_URL } : {}),
+      ...(process.env.OPENAI_COMPATIBLE_API_KEY ? { apiKey: process.env.OPENAI_COMPATIBLE_API_KEY } : {}),
+      ...(process.env.OPENAI_COMPATIBLE_MODEL ? { model: process.env.OPENAI_COMPATIBLE_MODEL } : {}),
+      ...(process.env.OPENAI_COMPATIBLE_EMBED_MODEL ? { embedModel: process.env.OPENAI_COMPATIBLE_EMBED_MODEL } : {}),
+    })),
+  )
+
+  checks.push(
+    ...(await checkCredentials({
+      ...(process.env.SLACK_BOT_TOKEN ? { slack: { botToken: process.env.SLACK_BOT_TOKEN } } : {}),
+      ...(process.env.TELEGRAM_BOT_TOKEN ? { telegram: { botToken: process.env.TELEGRAM_BOT_TOKEN } } : {}),
+      ...(process.env.DISCORD_BOT_TOKEN ? { discord: { botToken: process.env.DISCORD_BOT_TOKEN } } : {}),
+      ...(process.env.WHATSAPP_TOKEN
+        ? {
+            whatsapp: {
+              accessToken: process.env.WHATSAPP_TOKEN,
+              ...(process.env.WHATSAPP_PHONE_ID ? { phoneNumberId: process.env.WHATSAPP_PHONE_ID } : {}),
+            },
+          }
+        : {}),
+      ...(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+        ? { twilio: { accountSid: process.env.TWILIO_ACCOUNT_SID, authToken: process.env.TWILIO_AUTH_TOKEN } }
+        : {}),
+      ...(process.env.ELEVENLABS_API_KEY ? { elevenlabs: { apiKey: process.env.ELEVENLABS_API_KEY } } : {}),
+      firecrawl: process.env.FIRECRAWL_API_KEY ? { apiKey: process.env.FIRECRAWL_API_KEY } : {},
+    })),
+  )
+
+  process.stdout.write(`\n${formatChecks(checks)}\n\n`)
+  return exitCodeFor(checks)
 }
 
 async function runStats(flags: Record<string, string | boolean>): Promise<number> {
