@@ -10,6 +10,38 @@ export { twilioChannel, type TwilioOptions } from './sms.js'
 export { telegramChannel, type TelegramOptions } from './telegram.js'
 export { discordChannel, verifyDiscord, type DiscordOptions } from './discord.js'
 export { teamsChannel, stripMentions, type TeamsOptions, type TeamsReplyTarget } from './teams.js'
+export {
+  voiceChannel,
+  createVoiceSession,
+  buildTwiml,
+  buildHandoffTwiml,
+  type VoiceAnswerOptions,
+  type VoiceSessionOptions,
+  type VoiceCallState,
+  type InboundVoiceMessage,
+  type OutboundVoiceMessage,
+  type VoiceSetupMessage,
+  type VoicePromptMessage,
+  type VoiceInterruptMessage,
+  type VoiceDtmfMessage,
+} from './voice.js'
+export { toSpeech, createSentenceBuffer } from './voice-speech.js'
+export { gatherVoiceChannel, type GatherVoiceOptions } from './voice-gather.js'
+export {
+  createSpeechCache,
+  elevenLabsVoice,
+  openAiCompatibleVoice,
+  speechRoute,
+  type Voice,
+  type SpeechCache,
+  type ElevenLabsVoiceOptions,
+  type OpenAiVoiceOptions,
+} from './voice-tts.js'
+export {
+  elevenLabsToolRoute,
+  elevenLabsSystemPrompt,
+  type ElevenLabsToolOptions,
+} from './voice-elevenlabs.js'
 export { verifyJwt, fetchSigningKeys, clearKeyCache, type JwtClaims, type VerifyJwtOptions } from './jwt.js'
 export { emailChannel, parseCommonEmail, stripQuoted, type EmailOptions, type InboundEmail } from './email.js'
 export {

@@ -12,7 +12,7 @@ import type { SourceRecord, SourceStatus } from '../knowledge/records.js'
  * following up a lead, picking up a ticket a person has to finish.
  */
 
-export type Channel = 'web' | 'email' | 'whatsapp' | 'slack' | 'sms' | 'api' | (string & {})
+export type Channel = 'web' | 'email' | 'whatsapp' | 'slack' | 'sms' | 'phone' | 'api' | (string & {})
 
 export interface StoredMessage {
   id: string
