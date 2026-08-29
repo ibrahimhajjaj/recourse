@@ -63,3 +63,11 @@ export {
   type TranscribeOptions,
   type TranscriptionRouteOptions,
 } from './voice-stt.js'
+export {
+  listTemplates,
+  sendTemplate,
+  templateSender,
+  type MessageTemplate,
+  type TemplateVariable,
+  type SendTemplateOptions,
+} from './whatsapp-templates.js'
