@@ -94,6 +94,10 @@ export function searchKeyword(index: KeywordIndex, query: string, limit: number)
   // without touching the index.
   return [...scores.entries()]
     .map(([ord, score]) => ({ ord, score, matched: matched.get(ord) ?? 0 }))
-    .sort((a, b) => b.score - a.score)
+    // Ordinal breaks a tie. Equal scores are ordinary on short content, and
+    // without this the order falls out of the order terms happened to be
+    // scanned in, deterministic here, but not something a second
+    // implementation of this ranking could reproduce.
+    .sort((a, b) => (b.score === a.score ? a.ord - b.ord : b.score - a.score))
     .slice(0, limit)
 }
