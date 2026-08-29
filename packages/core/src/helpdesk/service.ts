@@ -6,6 +6,7 @@ import type { Channel } from '../store/types.js'
 import { assignTicket, loadOf, type AssignmentAlgorithm } from './assignment.js'
 import { routeTicket, type RoutingRule } from './routing.js'
 import { DEFAULT_STATUSES, defaultStatusFor, validateStatuses } from './statuses.js'
+import { detectAndTranslate, type TranslationOptions } from './translate.js'
 import type {
   StatusCategory,
   Team,
@@ -40,6 +41,15 @@ export interface HelpdeskOptions {
    * answers the widget, so a drafted reply cites the same documentation.
    */
   agent?: Agent
+  /**
+   * Translates inbound customer messages into the language the team reads.
+   *
+   * Customer messages only. Agent replies, internal notes and system events
+   * are left exactly as written, because a mistranslated promise sent over an
+   * agent's name is a worse problem than a ticket they have to paste into a
+   * translator themselves.
+   */
+  translation?: TranslationOptions
 }
 
 export interface OpenTicketInput {
@@ -137,6 +147,24 @@ export function createHelpdesk(options: HelpdeskOptions) {
       updatedAt: now,
     }
 
+    // The subject and the description are the first things an agent reads and
+    // the only ones that exist before any reply, so they are translated here
+    // rather than waiting for the customer's second message.
+    if (options.translation) {
+      const opening = await detectAndTranslate(`${input.subject}\n\n${input.description}`, options.translation)
+
+      if (!opening.skipped && opening.translation) {
+        draft.metadata = {
+          ...draft.metadata,
+          language: opening.language,
+          translation: opening.translation,
+          translatedInto: options.translation.target,
+        }
+      } else if (opening.language !== 'unknown') {
+        draft.metadata = { ...draft.metadata, language: opening.language }
+      }
+    }
+
     // Routing needs a ticket to look at, so decide on the draft and apply after.
     const provisional = { ...draft, ticketNumber: 0 } as Ticket
     const routed = input.teamId ? { teamId: input.teamId } : routeTicket(provisional, routing, teams)
@@ -223,6 +251,37 @@ export function createHelpdesk(options: HelpdeskOptions) {
     return updated
   }
 
+  /**
+   * The translation metadata for a message, when it earns one.
+   *
+   * The content itself is never touched. An agent reads the translation and
+   * can always fall back to what the customer actually typed, which matters
+   * the moment a translation looks wrong.
+   */
+  async function translationFor(
+    type: TicketMessage['type'],
+    sender: TicketMessageSender,
+    content: string,
+  ): Promise<{ metadata?: Record<string, unknown> }> {
+    if (!options.translation || type !== 'reply' || sender.type !== 'customer') return {}
+
+    const result = await detectAndTranslate(content, options.translation)
+
+    // The language is worth recording even when nothing was translated: it is
+    // what tells a drafted reply which language to come back in.
+    if (result.skipped) {
+      return result.language === 'unknown' ? {} : { metadata: { language: result.language } }
+    }
+
+    return {
+      metadata: {
+        language: result.language,
+        translation: result.translation,
+        translatedInto: options.translation.target,
+      },
+    }
+  }
+
   async function post(
     ticketNumber: number,
     type: TicketMessage['type'],
@@ -238,6 +297,7 @@ export function createHelpdesk(options: HelpdeskOptions) {
       sender,
       content,
       createdAt: new Date().toISOString(),
+      ...(await translationFor(type, sender, content)),
     })
 
     // A reply to the customer puts the ball in their court; an internal note
@@ -303,7 +363,17 @@ export function createHelpdesk(options: HelpdeskOptions) {
         .map((message) => `${message.sender.type === 'customer' ? 'Customer' : 'Agent'}: ${message.content}`)
         .join('\n')
 
-      const question = [`Subject: ${ticket.subject}`, ticket.description, conversation]
+      // The customer wrote in their own language, so the reply has to come
+      // back in it. The prompt already says to answer in the language the
+      // customer wrote in, and on a translated ticket the model is reading the
+      // translation, so it would answer in that instead.
+      const language = typeof ticket.metadata?.language === 'string' ? ticket.metadata.language : ''
+      const instruction =
+        language && language !== 'unknown' && language.split(/[-_]/)[0] !== 'en'
+          ? `Write the reply in the customer's own language (${language}), whatever language this thread appears in.`
+          : ''
+
+      const question = [`Subject: ${ticket.subject}`, ticket.description, conversation, instruction]
         .filter(Boolean)
         .join('\n\n')
 

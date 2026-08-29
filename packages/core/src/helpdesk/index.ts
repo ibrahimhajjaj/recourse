@@ -10,6 +10,12 @@ export {
   type FiredTrigger,
   type SavedView,
 } from './triggers.js'
+export {
+  detectAndTranslate,
+  looksEnglish,
+  type TranslationOptions,
+  type Translated,
+} from './translate.js'
 export { assignTicket, loadOf, type AssignmentAlgorithm, type Availability, type AssignOptions } from './assignment.js'
 export {
   STATUS_CATEGORIES,

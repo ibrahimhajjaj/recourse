@@ -142,6 +142,12 @@ export type {
   TicketFilter,
 } from './helpdesk/index.js'
 
+export {
+  detectAndTranslate,
+  looksEnglish,
+  type TranslationOptions,
+  type Translated,
+} from './helpdesk/translate.js'
 export { createApiHandler, type ApiOptions } from './api/index.js'
 export { createHelpPage, type HelpPageOptions } from './api/helppage.js'
 
