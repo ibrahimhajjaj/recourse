@@ -12,6 +12,7 @@ import { buildIndex, createAgent, createEmbedder, createRetriever, textSource, p
 import type { Document, KnowledgeIndex, LanguageModel } from './types.js'
 import { citationsIn, grade, isRefusal, type Observed } from './grade.js'
 import { parseSuite, type CaseResult, type EvalCase } from './case.js'
+import { testActions } from './actions.js'
 
 export interface RunOptions {
   /** Where the corpora and suites live. */
@@ -134,15 +135,19 @@ async function runCase(
     })
   }
 
+  // A fresh log per case: sharing one would let an earlier case's call satisfy
+  // a later case's assertion.
+  const log = testActions()
+
   const agent = createAgent({
     index,
     model: options.model,
     embedder: embedder ?? false,
     topK: options.topK ?? 6,
+    actions: log.actions,
     persona: { name: 'Nadia', business: 'Lumen Coffee Roasters', fallback: FALLBACK },
   })
 
-  const actions: string[] = []
   let answer = ''
   let error: string | undefined
 
@@ -168,7 +173,7 @@ async function runCase(
     // quietly turn an outage into a quality regression.
     answer: error ? `[error] ${error}` : answer,
     cited: citationsIn(answer),
-    actions,
+    actions: log.called,
     retrieved,
     refused: isRefusal(answer, REFUSALS),
     ms: Date.now() - started,

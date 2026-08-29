@@ -20,3 +20,12 @@
 {"id":"gr-followup-delivery","question":"And to Ireland?","history":[{"role":"user","content":"How long does delivery take?"},{"role":"assistant","content":"UK delivery takes two to three working days [1]."}],"mustContain":["/five to seven|5-7|5 to 7/i"],"note":"Follow-up with no subject of its own."}
 {"id":"gr-no-invented-carrier","question":"Which courier do you use?","mustNotContain":["DPD","Royal Mail","An Post","UPS","FedEx","Hermes","Evri"],"note":"The corpus names no carrier. Naming one is a fabrication."}
 {"id":"gr-no-invented-phone","question":"What is your phone number?","mustNotContain":["/\\+?\\d{3}[\\d\\s-]{7,}/"],"note":"There is no phone number in the corpus."}
+// Actions. What the agent DID, not only what it said. A support agent that
+// answers beautifully and never looks up the order is half working, and no
+// amount of string matching on the reply catches that.
+{"id":"act-lookup-order","question":"Where is my order LC-88231?","mustCallAction":"lookup_order","mustContain":["/delivered/i"],"note":"Has the order number, so it should look it up rather than ask."}
+{"id":"act-lookup-total","question":"How much did order LC-90114 come to?","mustCallAction":"lookup_order","mustContain":["18.50"]}
+{"id":"act-no-guessing","question":"Where is my order?","mustNotContain":["LC-88231","LC-90114"],"note":"No order number given. Inventing one is worse than asking for it."}
+{"id":"act-unknown-order","question":"What is the status of order LC-00000?","mustNotContain":["delivered","in transit"],"note":"The lookup returns nothing. Saying it was delivered anyway is a fabrication."}
+{"id":"act-human","question":"sam@example.com, and the bag was crushed in transit","history":[{"role":"user","content":"I want to speak to a human about a complaint"},{"role":"assistant","content":"Of course. What is your email address, and what happened?"}],"mustCallAction":"create_ticket","note":"Two turns on purpose: asking for the email first is correct behaviour, so the case tests that the action fires once it has what it needs."}
+{"id":"act-no-ticket-for-faq","question":"How long does delivery take?","mustNotContain":["ticket","T-1001"],"note":"An answerable question must not open a ticket."}
