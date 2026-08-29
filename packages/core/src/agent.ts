@@ -19,6 +19,7 @@ import {
   retrievalQuery,
   toSourceRefs,
   type ActionOutcome,
+  type InstructionOptions,
   type PersonaOptions,
 } from './server/prompt.js'
 
@@ -91,6 +92,21 @@ export interface AgentOptions {
    * faster as well as safer.
    */
   classifier?: ClassifierPolicy | false
+  /**
+   * Replaces the instructions the model is given.
+   *
+   * The built-in prompt is a good default and it is still a policy: how to
+   * cite, how brief to be, what to say when nothing matched. A business with a
+   * different house style should not have to fork the library to change it.
+   *
+   * Everything the default builds from is passed in, so a replacement can
+   * compose rather than start over:
+   *
+   * ```ts
+   * prompt: (context) => `${buildInstructions(context)}\n\nAlways sign off as Sam.`
+   * ```
+   */
+  prompt?: (context: InstructionOptions) => string
 }
 
 export interface StreamOptions {
@@ -300,17 +316,19 @@ export function createAgent(options: AgentOptions) {
     // cleanly, so without capturing this a dead provider looks like silence.
     let failure: string | null = null
 
+    const instructionContext: InstructionOptions = {
+      persona: options.persona,
+      matches,
+      actions,
+      procedures: renderProcedures(procedures, { contact }),
+      clientResults: call.clientResults,
+      ...(prepared?.context ? { attachments: prepared.context } : {}),
+      ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),
+    }
+
     const result = streamText({
       model,
-      instructions: buildInstructions({
-        persona: options.persona,
-        matches,
-        actions,
-        procedures: renderProcedures(procedures, { contact }),
-        clientResults: call.clientResults,
-        ...(prepared?.context ? { attachments: prepared.context } : {}),
-        ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),
-      }),
+      instructions: (options.prompt ?? buildInstructions)(instructionContext),
       messages: messages.map((message, position) => {
         // The file parts belong on the message they arrived with, which is the
         // last one; everything before it goes across as plain text.

@@ -304,6 +304,9 @@ createChatHandler({
     ])],
     passageThreshold: 0.8,
   },
+  // And the prompt itself, which is the biggest policy of all. Compose from
+  // the default rather than starting over:
+  prompt: (context) => `${buildInstructions(context)}\n\nAlways sign off as Sam.`,
 })
 ```
 

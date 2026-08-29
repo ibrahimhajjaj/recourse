@@ -28,6 +28,8 @@ export interface ChatHandlerOptions {
    * against one corpus and one embedding model; measure your own.
    */
   retrieval?: AgentOptions['retrieval']
+  /** Replaces the instructions the model is given. Compose from `buildInstructions`. */
+  prompt?: AgentOptions['prompt']
   /**
    * Set `false` to force keyword-only retrieval. Defaults to matching whatever
    * the index was built with.
@@ -105,6 +107,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     topK: options.topK,
     embedder: options.embedder,
     ...(options.retrieval ? { retrieval: options.retrieval } : {}),
+    ...(options.prompt ? { prompt: options.prompt } : {}),
     store: options.store,
     actions: options.actions,
     maxSteps: options.maxSteps,
