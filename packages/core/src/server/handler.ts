@@ -5,6 +5,7 @@ import type { Action } from '../actions/types.js'
 import type { Procedure } from '../procedures/types.js'
 import { validateAttachments, type AttachmentPolicy } from '../attachments.js'
 import type { PrepareOptions } from '../attachments-prepare.js'
+import type { ClassifierPolicy } from '../safety/types.js'
 import { createAgent } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
@@ -60,6 +61,11 @@ export interface ChatHandlerOptions {
    * customer is told early, but a request can be made by anything.
    */
   attachments?: (AttachmentPolicy & PrepareOptions) | false
+  /**
+   * What to refuse, deflect or escalate, and how readily. On by default with a
+   * narrow policy; `false` turns it off entirely.
+   */
+  classifier?: ClassifierPolicy | false
 }
 
 export interface ConversationEvent {
@@ -100,6 +106,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     // The same option carries both halves: what is accepted, and how it is
     // read. Splitting them across two settings only invites them to disagree.
     ...(options.attachments ? { attachments: options.attachments } : {}),
+    ...(options.classifier !== undefined ? { classifier: options.classifier } : {}),
   })
 
   return async function handle(request: Request): Promise<Response> {

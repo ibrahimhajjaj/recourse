@@ -10,6 +10,8 @@ import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
 import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
+import { blocks, createClassifier } from './safety/classify.js'
+import type { ClassifierPolicy, Decision } from './safety/types.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -67,6 +69,18 @@ export interface AgentOptions {
    * whole request.
    */
   attachments?: PrepareOptions
+  /**
+   * What to refuse, deflect or escalate, and how readily.
+   *
+   * On by default with a narrow policy: instruction-override attempts and
+   * threats are refused, and a message that sounds like a crisis is handed to
+   * a person. Pass `false` to turn the whole layer off, or a policy of your
+   * own to change where the line sits.
+   *
+   * A refused message never reaches the model, so this makes the hostile path
+   * faster as well as safer.
+   */
+  classifier?: ClassifierPolicy | false
 }
 
 export interface StreamOptions {
@@ -132,6 +146,7 @@ export function createAgent(options: AgentOptions) {
       : (options.embedder ?? createEmbedder({ model: index.vectors.model.replace(/^(gateway|endpoint|provider):/, '') }))
 
   const retriever = createRetriever({ index, embedder, topK: options.topK })
+  const classifier = options.classifier === false ? null : createClassifier(options.classifier ?? {})
   const actions = options.actions ?? []
   const maxSteps = options.maxSteps ?? 6
 
@@ -177,16 +192,35 @@ export function createAgent(options: AgentOptions) {
     const contact = call.contact ?? options.contact
     const channel = call.channel ?? options.channel ?? 'web'
 
+    const last = messages[messages.length - 1]
+    const store = options.store
+
+    // Before retrieval and before the model, because a refused message should
+    // cost neither. This is the tier that makes the hostile path faster than
+    // the ordinary one rather than slower.
+    const screened = classifier ? await classifier.check(last?.content ?? '', { conversationId }) : null
+
+    // Detectors may rewrite as well as judge: smuggled invisible characters
+    // come out here, so everything downstream reads what the customer sees.
+    if (screened && last && screened.text !== last.content) {
+      messages = messages.map((message, position) =>
+        position === messages.length - 1 ? { ...message, content: screened.text } : message,
+      )
+    }
+
+    const question = messages[messages.length - 1]?.content ?? ''
+
+    if (screened && blocks(screened)) {
+      yield* refuse(screened, { conversationId, channel, contact, question })
+      return
+    }
+
     const matches = await search(messages, signal)
     onMatches(matches)
 
-    const last = messages[messages.length - 1]
-    const question = last?.content ?? ''
-    const store = options.store
-
     // Only the newest message's files. Older ones were already read into an
     // earlier answer, and re-sending an image every turn is billed every turn.
-    const attachments = last?.attachments ?? []
+    const attachments = messages[messages.length - 1]?.attachments ?? []
     const prepared = attachments.length > 0 ? await prepareAttachments(attachments, options.attachments) : null
 
     // A continuation is the second half of a turn the browser interrupted, not
@@ -275,11 +309,43 @@ export function createAgent(options: AgentOptions) {
     )
 
     let answered = ''
+    /** Set when an output check stopped the answer. */
+    let withheld: Decision | null = null
+    // How much of `answered` has already reached the customer. With buffering
+    // this stays at zero until the whole answer has been checked.
+    let released = 0
+    let checkedTo = 0
+
+    const checksOutput = classifier?.checksOutput === true
+    const buffering = classifier?.buffers === true
 
     for await (const part of result.fullStream) {
       if (part.type === 'text-delta') {
         answered += part.text
-        yield { type: 'delta', text: part.text }
+
+        if (!checksOutput) {
+          released = answered.length
+          yield { type: 'delta', text: part.text }
+        } else if (!buffering) {
+          // Checked on sentence boundaries, and released only as far as it has
+          // been checked. Sending the unchecked tail and inspecting it later
+          // would mean the customer reads the leak before we notice it, which
+          // is the entire failure this mode exists to prevent. The cost is
+          // that the answer arrives a sentence at a time rather than a word.
+          const boundary = lastBoundary(answered)
+          if (boundary > checkedTo) {
+            const verdict = await classifier.checkOutput(answered.slice(0, boundary), { conversationId })
+            if (blocks(verdict)) {
+              withheld = verdict
+              break
+            }
+            checkedTo = boundary
+          }
+          if (checkedTo > released) {
+            yield { type: 'delta', text: answered.slice(released, checkedTo) }
+            released = checkedTo
+          }
+        }
       } else if (part.type === 'tool-result') {
         ran.push({ name: part.toolName, input: part.input, output: part.output })
       }
@@ -301,6 +367,40 @@ export function createAgent(options: AgentOptions) {
     }
 
     while (pending.length > 0) yield pending.shift() as StreamFrame
+
+    if (checksOutput && !withheld && answered.length > released) {
+      // The tail after the last sentence boundary, and the whole answer when
+      // buffering. Either way this is the last chance to look at it.
+      const verdict = await classifier.checkOutput(answered, { conversationId })
+      if (blocks(verdict)) withheld = verdict
+      else {
+        yield { type: 'delta', text: answered.slice(released) }
+        released = answered.length
+      }
+    }
+
+    if (withheld) {
+      const replacement =
+        withheld.message ?? 'Sorry, I could not give you a reliable answer to that. Let me get a person to help.'
+
+      // Said whichever way the answer was being delivered. When buffering the
+      // customer has seen nothing, so this is the entire reply; when streaming
+      // they have seen the sentences before the one that failed.
+      if (released === 0) {
+        // Nothing reached the customer, so the replacement is the whole reply.
+        yield { type: 'delta', text: replacement }
+        answered = replacement
+      } else {
+        // Some sentences were already read. All that is left is to stop and
+        // say so; pretending they were never sent would be a lie.
+        yield { type: 'notice', message: replacement }
+        answered = answered.slice(0, released)
+      }
+
+      console.warn(
+        `[helpdeck] answer withheld: ${withheld.matched?.reason ?? withheld.action}`,
+      )
+    }
 
     // The paused half of a client-action turn says nothing; recording it would
     // put a blank reply in the transcript above the real one.
@@ -332,6 +432,61 @@ export function createAgent(options: AgentOptions) {
 
     if (failure) yield { type: 'error', message: explain(failure, prepared !== null) }
     else yield { type: 'done' }
+  }
+
+  /**
+   * The turn a refused message gets instead.
+   *
+   * Still a complete turn: the transcript records what was asked and what was
+   * said, the webhooks fire, and the customer gets a sentence rather than
+   * silence. A refusal nobody can audit is not a safety feature.
+   */
+  async function* refuse(
+    decision: Decision,
+    turn: { conversationId: string; channel: Channel; contact?: Contact; question: string },
+  ): AsyncGenerator<StreamFrame> {
+    const message =
+      decision.message ??
+      (decision.action === 'handoff'
+        ? 'Let me put you through to someone who can help.'
+        : 'I can only help with questions about our products and your orders.')
+
+    yield { type: 'sources', sources: [] }
+
+    if (decision.action === 'handoff') {
+      yield { type: 'handoff', message }
+    } else {
+      yield { type: 'delta', text: message }
+    }
+
+    if (options.store) {
+      const now = new Date().toISOString()
+      await options.store.appendMessage(
+        turn.conversationId,
+        { id: newId('m'), role: 'user', content: turn.question, createdAt: now },
+        { channel: turn.channel, contact: turn.contact },
+      )
+      await options.store.appendMessage(turn.conversationId, {
+        id: newId('m'),
+        role: 'assistant',
+        content: message,
+        createdAt: now,
+        // Not a content gap: the agent knew exactly what it was doing.
+        unanswered: false,
+      })
+    }
+
+    options.webhooks?.emit('conversation.answered', {
+      conversationId: turn.conversationId,
+      channel: turn.channel,
+      question: turn.question,
+      answer: message,
+      sources: [],
+      // So a reviewer can see why this turn looks the way it does.
+      blocked: { action: decision.action, category: decision.matched?.category, reason: decision.matched?.reason },
+    })
+
+    yield { type: 'done' }
   }
 
   /** Streams the answer as frames. Use this wherever a person is waiting. */
@@ -386,6 +541,23 @@ export function createAgent(options: AgentOptions) {
     stream,
     answer,
   }
+}
+
+/**
+ * The end of the last complete sentence.
+ *
+ * Checking a partial sentence is checking text the model has not finished
+ * writing, which produces verdicts on things that were never said.
+ */
+function lastBoundary(text: string): number {
+  for (let index = text.length - 1; index >= 0; index--) {
+    const character = text[index] as string
+    if (character !== '.' && character !== '!' && character !== '?') continue
+    // A stop only ends a sentence if something follows it, or nothing does.
+    const next = text[index + 1]
+    if (next === undefined || /\s/.test(next)) return index + 1
+  }
+  return 0
 }
 
 /** Reasons come from parsers that may or may not punctuate. One stop, not two. */

@@ -282,3 +282,17 @@ export {
   type AttachmentPolicy,
 } from './attachments.js'
 export { prepareAttachments, type PrepareOptions, type PreparedAttachments } from './attachments-prepare.js'
+export {
+  createClassifier,
+  blocks,
+  DEFAULT_CATEGORIES,
+  THRESHOLDS,
+  // Renamed at the top level: `Decision` is already a procedure's branch
+  // choice, and two of them in one namespace helps nobody.
+  type Action as SafetyAction,
+  type Decision as SafetyDecision,
+  type CategoryPolicy,
+  type ClassifierPolicy,
+  type Sensitivity,
+  type Signal,
+} from './safety/index.js'
