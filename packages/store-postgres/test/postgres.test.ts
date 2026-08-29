@@ -195,4 +195,31 @@ describe.skipIf(!CONNECTION)('postgres', () => {
   it('refuses to be built with neither a pool nor a connection string', () => {
     expect(() => postgresStore({})).toThrow(/pool or a connectionString/)
   })
+
+  it('warns when a second pool is opened for the same database', async () => {
+    // The mistake that actually exhausts a database is building a store per
+    // request. Nothing errors; the connection count just climbs until the
+    // database refuses, by which time the cause is hard to see.
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: unknown[]) => void warnings.push(args.join(' '))
+
+    try {
+      const first = postgresStore({ connectionString: CONNECTION, migrate: false })
+      const second = postgresStore({ connectionString: CONNECTION, migrate: false })
+      expect(first.name).toBe('postgres')
+      expect(second.name).toBe('postgres')
+    } finally {
+      console.warn = original
+    }
+
+    expect(warnings.join(' ')).toMatch(/second pool for the same database/)
+  })
+
+  it('opens connections that a process can exit on', async () => {
+    // Without allowExitOnIdle an idle connection holds the event loop open,
+    // so a script that finishes its work never exits.
+    const store = postgresStore({ connectionString: CONNECTION, migrate: false })
+    expect(store.name).toBe('postgres')
+  })
 })

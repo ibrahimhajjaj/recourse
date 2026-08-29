@@ -32,6 +32,20 @@ export interface PostgresStoreOptions {
   /** Built into a pool when no pool is given. */
   connectionString?: string
   /**
+   * Connections this pool may open. Ten by default.
+   *
+   * Do not set this to 1 to be safe on serverless. It does not reduce the
+   * total, because the total is instances times pool size and you cannot
+   * control the first number; it only removes concurrency inside each
+   * instance. Reach for a pooler in front of the database instead.
+   */
+  max?: number
+  /**
+   * How long an unused connection is kept, in milliseconds. Five seconds by
+   * default, short on purpose: see the note on suspension below.
+   */
+  idleTimeoutMillis?: number
+  /**
    * Creates the tables on first use.
    *
    * On by default because the alternative is a store that throws on its first
@@ -664,17 +678,63 @@ export async function migrate(pool: Pool): Promise<void> {
 /** An arbitrary constant. It only has to be the same in every instance. */
 const MIGRATION_LOCK = 8_273_461_902
 
+/**
+ * Pools built here, so the same mistake is not made in every application.
+ *
+ * The defaults are chosen for the deployment this package exists for: many
+ * short-lived instances sharing one database.
+ */
 function resolvePool(options: PostgresStoreOptions): Pool {
   if (options.pool) return options.pool
   if (!options.connectionString) {
     throw new Error('postgresStore needs a pool or a connectionString')
   }
 
+  warnOnRepeatedPool(options.connectionString)
+
   // Required lazily so importing this module does not pull in the driver for
   // anyone who only wanted the types.
   const require_ = createRequire(import.meta.url)
   const { Pool: PgPool } = require_('pg') as typeof import('pg')
-  return new PgPool({ connectionString: options.connectionString })
+
+  return new PgPool({
+    connectionString: options.connectionString,
+    max: options.max ?? 10,
+    // Short, because a suspended serverless instance does not run its idle
+    // timers: connections opened before a suspension stay open until the
+    // instance dies or the database gives up on them. A five second timeout
+    // means far fewer of them are idle when the suspension lands.
+    idleTimeoutMillis: options.idleTimeoutMillis ?? 5_000,
+    // Fail rather than hang. A request waiting forever on a connection is a
+    // request the customer has already given up on.
+    connectionTimeoutMillis: 10_000,
+    // Lets a script or a test process exit instead of being held open by an
+    // idle connection nobody is going to use.
+    allowExitOnIdle: true,
+  })
+}
+
+/**
+ * Catches the mistake that actually exhausts a database.
+ *
+ * It is not pool size, it is building a store per request: every call opens
+ * another pool, none of them are ever closed, and the connection count climbs
+ * until the database refuses. Warned once, because a warning on every request
+ * is just more noise in a log nobody can read.
+ */
+const pooledConnections = new Set<string>()
+let warned = false
+
+function warnOnRepeatedPool(connectionString: string): void {
+  if (pooledConnections.has(connectionString) && !warned) {
+    warned = true
+    console.warn(
+      '[helpdeck] postgresStore has opened a second pool for the same database in this process. ' +
+        'Create the store once at module scope and reuse it; one per request will exhaust the ' +
+        'connection limit. Pass an existing `pool` if you manage one yourself.',
+    )
+  }
+  pooledConnections.add(connectionString)
 }
 
 // ---- row mapping ------------------------------------------------------------

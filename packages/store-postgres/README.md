@@ -60,6 +60,52 @@ takes an advisory lock, so several instances starting at once is fine.
 - **`stats()` is one round trip.** Those numbers are read together on every
   dashboard load, and five queries would be five times the latency.
 
+## Serverless, where this actually goes wrong
+
+The connection limit, not the query load, is what breaks a database behind
+serverless functions. Total connections is instances times pool size, and you
+do not control the first number.
+
+**Create the store once, at module scope.** The mistake that exhausts a
+database is building one per request: every call opens another pool, none are
+closed, and the count climbs until Postgres refuses. The store warns once if it
+sees a second pool for the same database in one process.
+
+```ts
+// lib/store.ts, imported by every route, constructed once.
+export const store = postgresStore({ connectionString: process.env.DATABASE_URL })
+```
+
+**Do not set `max: 1`.** It is common advice and it is wrong: it does not
+reduce the total, because the total is instances times pool size, and it
+removes all concurrency inside each instance. Put a pooler in front instead.
+
+**Use your provider's pooled endpoint**, not the direct one. Neon and Supabase
+both run PgBouncer in transaction mode and give you a separate host or port for
+it; a direct connection string is for migrations and psql, not for an
+application that scales out.
+
+**Suspension leaks connections.** An idle serverless instance is suspended in
+memory, and a suspended instance does not run its idle timers, so connections
+opened before it went to sleep stay open until the instance dies or the
+database gives up on them. The defaults here use a five second idle timeout to
+shrink that window. On Vercel, close it properly:
+
+```ts
+import { attachDatabasePool } from '@vercel/functions'
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+attachDatabasePool(pool)
+
+export const store = postgresStore({ pool })
+```
+
+Defaults when this package builds the pool: `max: 10`,
+`idleTimeoutMillis: 5000`, `connectionTimeoutMillis: 10000`, and
+`allowExitOnIdle` so a script can exit rather than being held open by an idle
+connection. Override `max` and `idleTimeoutMillis` if you have measured
+something better.
+
 ## Running the tests
 
 ```sh
