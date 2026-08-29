@@ -16,7 +16,7 @@
 
 namespace Helpdeck;
 
-defined( 'ABSPATH' ) || defined( 'HELPDECK_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Splits text into the terms the index is built from.

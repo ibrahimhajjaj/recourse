@@ -58,4 +58,31 @@ if (!existsSync(join(root, 'vendor', 'bin', 'phpunit'))) {
   skip('no vendor directory; run `composer install` in packages/wordpress')
 }
 
-process.exit(run('php', ['vendor/bin/phpunit']))
+process.exit(runSuite(['vendor/bin/phpunit']))
+
+/**
+ * Runs PHPUnit and refuses to pass on a run that tested nothing.
+ *
+ * A class opening with `defined( 'ABSPATH' ) || exit;` loaded from the bootstrap
+ * does exactly that: the process ends during bootstrap, PHPUnit prints nothing,
+ * and the exit code is zero. Green, silent, and testing not one thing. The
+ * count is checked rather than trusted.
+ */
+function runSuite(command) {
+  const result = spawnSync('php', command, { cwd: root, encoding: 'utf8' })
+  process.stdout.write(result.stdout ?? '')
+  process.stderr.write(result.stderr ?? '')
+
+  if (result.status !== 0) return result.status ?? 1
+
+  if (!/\b(OK|Tests:)\b/.test(result.stdout ?? '')) {
+    console.error(
+      '\nPHPUnit exited cleanly without running anything. Something in the ' +
+        'bootstrap ended the process, which is almost always a file guarded ' +
+        'with `defined( \'ABSPATH\' ) || exit;`.',
+    )
+    return 1
+  }
+
+  return 0
+}

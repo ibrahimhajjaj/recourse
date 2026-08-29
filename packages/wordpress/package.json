@@ -8,6 +8,8 @@
     "fixtures": "node tools/generate-parity-fixtures.mjs",
     "test": "node tools/test.mjs",
     "test:php74": "node tools/test.mjs --php74",
-    "lint": "node tools/test.mjs --lint-only"
+    "lint": "node tools/test.mjs --lint-only",
+    "build": "node tools/build-assets.mjs",
+    "package": "node tools/build-assets.mjs && node tools/package.mjs"
   }
 }

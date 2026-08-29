@@ -12,7 +12,7 @@
 
 namespace Helpdeck;
 
-defined( 'ABSPATH' ) || defined( 'HELPDECK_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Turns documents into a searchable index, and back again.
@@ -118,7 +118,7 @@ class Index {
 	 *
 	 * The postings table is cast to an object first. PHP encodes an array as a
 	 * JSON array whenever its keys happen to be 0, 1, 2 and so on, which an
-	 * empty index always is, and a corpus of nothing but numbers could be , 
+	 * empty index always is, and a corpus of nothing but numbers could be,
 	 * and the format says that member is an object.
 	 *
 	 * @param array<string, mixed> $index Index.
@@ -129,6 +129,7 @@ class Index {
 			$index['keyword']['postings'] = (object) $index['keyword']['postings'];
 		}
 
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- the fallback is for the test suite, which runs without WordPress loaded.
 		$json = function_exists( 'wp_json_encode' ) ? wp_json_encode( $index ) : json_encode( $index );
 
 		return false === $json ? '' : $json;

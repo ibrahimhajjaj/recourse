@@ -1,0 +1,18 @@
+/*
+ * The status box and the buttons under it.
+ *
+ * The box itself is a core `notice`, so its background, border and colours come
+ * from WordPress and stay right when WordPress changes them. All that is left
+ * here is the layout core has no class for.
+ */
+
+.helpdeck-status-box ul {
+	list-style: disc;
+	margin: 0 0 0.5em 1.5em;
+}
+
+.helpdeck-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}

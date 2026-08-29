@@ -51,7 +51,7 @@ class ParityTest extends TestCase {
 				'Run `node tools/generate-parity-fixtures.mjs` first.'
 			);
 
-			self::$fixture = json_decode( file_get_contents( $path ), true );
+			self::$fixture = json_decode( file_get_contents( $path ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a fixture on disk, in a test that does not load WordPress.
 		}
 
 		return self::$fixture;
@@ -243,8 +243,8 @@ class ParityTest extends TestCase {
 			$this->assertSame(
 				array_column( $expected, 'id' ),
 				array_map(
-					function ( $match ) {
-						return $match['chunk']['id'];
+					function ( $found ) {
+						return $found['chunk']['id'];
 					},
 					$matches
 				),

@@ -17,7 +17,7 @@
 
 namespace Helpdeck;
 
-defined( 'ABSPATH' ) || defined( 'HELPDECK_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Keyword retrieval with the core's policy applied.
@@ -103,8 +103,8 @@ class Retriever {
 			}
 		}
 
-		$matches       = array();
-		$per_document  = array();
+		$matches      = array();
+		$per_document = array();
 
 		foreach ( $ranked as $rank => $ord ) {
 			if ( ! isset( $chunks[ $ord ] ) ) {

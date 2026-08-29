@@ -16,7 +16,7 @@
 
 namespace Helpdeck;
 
-defined( 'ABSPATH' ) || defined( 'HELPDECK_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Turns documents into chunks.
@@ -247,7 +247,7 @@ class Chunker {
 		$current = '';
 
 		foreach ( $paragraphs as $paragraph ) {
-			// A single paragraph over budget, a long table, or a code block , 
+			// A single paragraph over budget, a long table, or a code block,
 			// is split hard, because there is no better seam inside it.
 			if ( self::length( $paragraph ) > self::MAX_CHARS ) {
 				self::push( $out, $current );

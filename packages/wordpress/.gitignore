@@ -1,1 +1,11 @@
 vendor/
+
+# Built by tools/build-assets.mjs from packages/widget. Both files ship in the
+# plugin zip; neither belongs in the history twice.
+assets/helpdeck.js
+assets/helpdeck.min.js
+
+# wp-env's local WordPress.
+.wp-env.override.json
+.phpunit.result.cache
+dist/

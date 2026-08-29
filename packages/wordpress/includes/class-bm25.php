@@ -13,7 +13,7 @@
 
 namespace Helpdeck;
 
-defined( 'ABSPATH' ) || defined( 'HELPDECK_TESTING' ) || exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Builds and searches the keyword index.

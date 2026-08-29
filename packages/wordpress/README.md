@@ -3,10 +3,11 @@
 A support agent that learns a WordPress site's own content, installed from the
 admin screen rather than by pasting a script tag into a theme.
 
-**Status: the retrieval engine, and the tests that keep it honest.** The plugin
-itself, ingestion, settings, the REST route, is the next piece.
+**Status: the plugin works end to end and has not yet been submitted.**
+Ingestion, the index, the settings screen, the REST route and the widget are
+written; Plugin Check and a real install are the remaining gate.
 
-## Why any of this is in PHP
+## Two implementations, one measured contract
 
 The plugin's whole argument is that a shop on shared hosting needs no Node
 anywhere. That means chunking, tokenising, ranking and the index format all
@@ -38,7 +39,7 @@ every posting but not the BM25 constants, so a port using a different `k1`
 passed while producing an index the core would score differently. The constants
 are asserted now.
 
-## What is here
+## The files
 
 | File | What it is |
 | --- | --- |

@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<ruleset name="helpdeck">
+	<description>WordPress coding standards, plus the PHP 7.4 floor this plugin claims.</description>
+
+	<file>.</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/tests/fixtures/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<!-- Every rule the plugin directory's review team applies, and the docs
+	     rules on top: a plugin somebody else has to maintain is the point. -->
+	<rule ref="WordPress"/>
+	<rule ref="WordPress-Docs"/>
+
+	<config name="minimum_wp_version" value="6.0"/>
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="helpdeck"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="helpdeck"/>
+				<element value="Helpdeck"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- The test suite runs without WordPress on purpose, so its file naming
+	     is PHPUnit's rather than WordPress's, and it has no text domain. -->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+</ruleset>
