@@ -107,6 +107,11 @@ const OVERRIDE_PHRASES: Array<{ pattern: RegExp; score: number; why: string }> =
   { pattern: /\b(reveal|show|print|repeat|output|display|tell me|give me)\s+(me\s+)?your\s+(system\s+)?(prompt|instructions?|rules|configuration|guidelines)\b/i, score: 0.9, why: 'asked for its own instructions' },
   { pattern: /\b(reveal|show|print|repeat|output|display|tell me|give me)\s+(me\s+)?the\s+system\s+(prompt|instructions?|message|rules|configuration)\b/i, score: 0.9, why: 'asked for the system prompt' },
   { pattern: /\bthe\s+(instructions?|prompt|rules)\s+(you\s+(were\s+given|have|got|follow)|above)\b/i, score: 0.85, why: 'asked for the instructions it was given' },
+  // Enumerating the tools is reconnaissance: it turns "what can this thing do"
+  // into a list of names to attack. Asking what it can *help with* is a normal
+  // question and is deliberately not matched here.
+  { pattern: /\b(list|name|enumerate|show|tell me)\b.{0,30}\b(all|every|your|the)\b.{0,20}\b(tools?|functions?|actions?|capabilities)\b/i, score: 0.7, why: 'asked to enumerate its tools' },
+  { pattern: /\bwhat\s+(tools?|functions?)\s+(do\s+you\s+have|are\s+available|can\s+you\s+(call|use))\b/i, score: 0.7, why: 'asked which tools it has' },
   { pattern: /\byou\s+are\s+(now|no longer)\b/i, score: 0.7, why: 'told to take on a different role' },
   { pattern: /\b(developer|debug|god|admin|jailbreak|dan)\s+mode\b/i, score: 0.85, why: 'asked for a privileged mode' },
   { pattern: /\bpretend\s+(you|to be|that you)\b.{0,40}\b(no|without|unrestricted|free of)\b.{0,20}\b(rules?|restrictions?|limits?|filters?)\b/i, score: 0.85, why: 'asked to act without its rules' },
