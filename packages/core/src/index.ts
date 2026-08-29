@@ -305,3 +305,4 @@ export {
   type Sensitivity,
   type Signal,
 } from './safety/index.js'
+export { models, embedders, type OpenAICompatibleOptions } from './models.js'

@@ -97,6 +97,72 @@ passages it was given, and a figure that appears in none of them is recorded on
 the transcript. The most expensive thing a support agent can invent is a
 number, because a customer acts on it.
 
+## Choosing a model
+
+Every model below was run against the same 69-case suite in `packages/evals`,
+on the same machine, on 2026-08-29. Reproduce it with
+`pnpm --filter @helpdeck/evals eval --model <id> --embed`.
+
+| Model | Size | Total | Grounding | Injection | Retrieval | Wall clock |
+| --- | --- | --- | --- | --- | --- | --- |
+| `qwen3:4b` | 2.5 GB | **68/69** | 27/27 | 20/20 | 22/22 | 716s |
+| `granite4.1:8b` | 5.3 GB | 64/69 | 23/27 | 20/20 | 22/22 | **331s** |
+
+What that actually tells you:
+
+- **`qwen3:4b` is the floor, not a compromise.** It is the smallest thing here
+  and it is the most accurate. Everything in this repository was built against
+  it, so the defaults are tuned for a model of roughly that capability.
+- **`granite4.1:8b` is twice the size and 2.2x faster**, because qwen3 spends
+  its time on thinking tokens. It loses four grounding cases: it cites less
+  reliably, and it declines in its own words rather than the fallback you
+  configured.
+- **Both refuse every injection**, including the ones planted inside retrieved
+  documents. That is the layer doing the work, not the model: the same suite
+  against an earlier build had a complete compromise.
+
+For hosted models, anything in the `gpt-4o-mini` / `claude-haiku` class is the
+price-quality knee for support. A frontier model earns its cost only on the
+deployment carrying procedures, where a wrong refund is expensive.
+
+### Vision, tools, and the trap between them
+
+If you want attachments answered by a local model, it needs **both** tool
+support and vision, and most small models have one or the other:
+
+| Model | Size | Tools | Vision |
+| --- | --- | --- | --- |
+| `qwen3:4b` | 2.5 GB | yes | no |
+| `granite4.1:8b` | 5.3 GB | yes | no |
+| `moondream` | 1.7 GB | **no** | yes |
+| `qwen2.5vl:3b` | 3.2 GB | **no** | yes |
+| `gemma4:12b-it-qat` | 7.2 GB | yes | yes |
+
+A vision model without tools cannot run your actions, which usually matters
+more than reading the photo. Set `attachments: { vision: false }` on a
+text-only model and images are described to the agent rather than sent, so the
+provider does not reject the whole request.
+
+### Wiring it
+
+```ts
+import { models, embedders } from 'helpdeck'
+
+createChatHandler({
+  index,
+  model: models.local('qwen3:4b'),          // or models.gateway('openai/gpt-4o-mini')
+  embedder: embedders.local(),              // must match what the index was built with
+})
+```
+
+`models.fromEnvironment()` picks a local endpoint when
+`OPENAI_COMPATIBLE_BASE_URL` and `OPENAI_COMPATIBLE_MODEL` are both set, and a
+gateway id otherwise.
+
+**Two models, one deployment** is worth knowing about: nothing stops a cheap
+model answering chat while a better one drafts help desk replies, since they
+are separate `createAgent` calls over the same store.
+
 ## Retrieval, and what it costs you to skip embeddings
 
 An index built with no credentials is keyword-only. That is genuinely good at
