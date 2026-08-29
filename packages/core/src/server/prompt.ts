@@ -159,6 +159,13 @@ export function buildInstructions(options: InstructionOptions): string {
 
   if (persona.instructions) lines.push('', persona.instructions)
 
+  if (matches.length === 0) {
+    // A citation with nothing behind it is worse than none: it invites the
+    // reader to check something that does not exist. Models reach for [1] out
+    // of habit when the rest of the prompt has told them to cite.
+    lines.push('', 'There are no sources for this question. Do not write [1] or any other citation.')
+  }
+
   lines.push(
     '',
     matches.length > 0 ? `Sources:\n\n${context}` : 'Sources: nothing in the documentation matched this question.',

@@ -591,3 +591,23 @@ describe('client action results coming back from the browser', () => {
     expect(response.status).toBe(200)
   })
 })
+
+describe('citing when there is nothing to cite', () => {
+  it('tells the model not to cite when retrieval found nothing', () => {
+    // A citation with nothing behind it invites the reader to check something
+    // that does not exist. Models reach for [1] out of habit.
+    const instructions = buildInstructions({ matches: [] })
+
+    expect(instructions).toContain('Do not write [1]')
+    expect(instructions).toContain('nothing in the documentation matched')
+  })
+
+  it('says nothing of the sort when there are sources', async () => {
+    const built = await index()
+    const retriever = createRetriever({ index: built, topK: 3 })
+    const matches = await retriever.retrieve('how do refunds work?')
+
+    expect(matches.length).toBeGreaterThan(0)
+    expect(buildInstructions({ matches })).not.toContain('Do not write [1]')
+  })
+})
