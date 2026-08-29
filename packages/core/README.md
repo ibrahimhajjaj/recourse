@@ -33,6 +33,7 @@ Full documentation: https://github.com/ibrahimhajjaj/helpdeck
 | `helpdeck/outbound` | Campaigns, with consent enforced |
 | `helpdeck/tool` | `knowledgeTool` for AI SDK and eve agents |
 | `helpdeck/ingest` | `ingest` and `writeIndex`, for build scripts |
+| `helpdeck/attachments` | Validating and reading files a visitor sends |
 
 ## CLI
 

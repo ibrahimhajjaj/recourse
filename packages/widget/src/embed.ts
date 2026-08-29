@@ -41,9 +41,23 @@ function readConfig(): WidgetOptions | null {
     theme: data.theme === 'dark' || data.theme === 'light' ? data.theme : 'auto',
     open: data.open === 'true',
     persist: data.persist !== 'false',
+    // `data-attachments="true"` turns the paperclip on; a number caps the size
+    // in megabytes, so `data-attachments="4"` is a 4MB limit.
+    ...attachmentsFrom(data.attachments),
     ...window.helpdeckConfig,
     ...(target ? { target } : {}),
   }
+}
+
+/** Off, on, or on with a megabyte cap. Anything else is treated as off. */
+function attachmentsFrom(value: string | undefined): Pick<WidgetOptions, 'attachments'> {
+  if (!value || value === 'false') return {}
+  if (value === 'true') return { attachments: true }
+
+  const megabytes = Number(value)
+  return Number.isFinite(megabytes) && megabytes > 0
+    ? { attachments: { maxBytes: Math.round(megabytes * 1024 * 1024) } }
+    : {}
 }
 
 const config = readConfig()

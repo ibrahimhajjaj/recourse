@@ -25,6 +25,11 @@ const handler = createChatHandler({
   embedder: resolveEmbedder(),
   store,
 
+  // A photo of a damaged bag or a PDF invoice answers a question that three
+  // rounds of typing would not. Images need a model that can see; documents
+  // are extracted to text and work with any model at all.
+  attachments: { maxBytes: 8 * 1024 * 1024, maxCount: 3 },
+
   persona: {
     name: 'Nadia',
     business: 'Lumen Coffee Roasters',

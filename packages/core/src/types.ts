@@ -4,6 +4,8 @@
  * crawler, the chunker or the store and the rest of the pipeline never notices.
  */
 
+import type { Attachment } from './attachments.js'
+
 /** A page, file or blob of text before it has been split up. */
 export interface Document {
   /** Stable identity. A URL for web pages, a path for files. */
@@ -126,6 +128,12 @@ export interface Retriever {
 export interface Message {
   role: 'user' | 'assistant'
   content: string
+  /**
+   * Files sent with this message. Only ever read from the newest user message:
+   * re-sending every image in a long conversation would repay their cost on
+   * every turn, and providers charge for each one.
+   */
+  attachments?: Attachment[]
 }
 
 /** What the chat endpoint streams back, one JSON object per SSE frame. */
@@ -157,6 +165,11 @@ export type StreamFrame =
   | { type: 'captured'; kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }
   /** The conversation was handed to a person. */
   | { type: 'handoff'; ticketId?: string; message: string }
+  /**
+   * Something the customer should know that is not part of the answer, such as
+   * a file that was refused. Separate from `error` because the turn continues.
+   */
+  | { type: 'notice'; message: string }
 
 export interface SourceRef {
   title: string

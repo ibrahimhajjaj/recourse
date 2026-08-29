@@ -27,6 +27,12 @@ export interface StoredMessage {
   feedback?: 'positive' | 'negative' | null
   /** True when retrieval found nothing, which marks a documentation gap. */
   unanswered?: boolean
+  /**
+   * What the customer attached, without the bytes. A transcript is read months
+   * later and by people who should not be handed a customer's uploaded ID; the
+   * names and sizes are enough to understand the conversation.
+   */
+  attachments?: Array<{ name: string; mimeType: string; bytes?: number }>
 }
 
 export interface Conversation {

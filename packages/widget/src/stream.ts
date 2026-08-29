@@ -1,4 +1,4 @@
-import type { ChatMessage, StreamFrame } from './types.js'
+import type { ChatMessage, OutgoingAttachment, StreamFrame } from './types.js'
 
 export interface StreamHandlers {
   onSources?: (sources: NonNullable<ChatMessage['sources']>) => void
@@ -17,6 +17,8 @@ export interface StreamRequest {
   contact?: Record<string, string | number | boolean>
   /** Results of client actions from the previous, paused turn. */
   actionResults?: Array<{ name: string; input?: unknown; output: unknown }>
+  /** Files sent with the message being asked now. */
+  attachments?: OutgoingAttachment[]
 }
 
 /**
@@ -38,6 +40,9 @@ export async function streamChat(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...request,
+        // History travels as text. The files ride at the top level and belong
+        // to the message being asked now, so an image is uploaded once rather
+        // than on every turn that follows it.
         messages: request.messages.map((message) => ({ role: message.role, content: message.content })),
       }),
       signal,

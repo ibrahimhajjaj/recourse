@@ -40,6 +40,24 @@ export interface WidgetOptions {
   invite?: string
   /** Milliseconds before the invite appears. Immediately is ignored as noise. */
   inviteDelay?: number
+  /**
+   * Lets the visitor attach files. Off unless set, since a widget that offers
+   * an upload button against a server that refuses them is worse than no
+   * button at all.
+   *
+   * These caps are a courtesy, so someone learns their file is too big before
+   * they wait for it to upload. The server checks everything again.
+   */
+  attachments?: AttachmentOptions | boolean
+}
+
+export interface AttachmentOptions {
+  /** Largest single file, in bytes. 10MB by default. */
+  maxBytes?: number
+  /** Most files on one message. Four by default. */
+  maxCount?: number
+  /** Media types offered in the picker, and checked before sending. */
+  accept?: string[]
 }
 
 export type ClientActionHandler = (input: Record<string, unknown>) => unknown | Promise<unknown>
@@ -87,9 +105,19 @@ export type StreamFrame =
   | { type: 'suggestions'; items: string[] }
   | { type: 'captured'; kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }
   | { type: 'handoff'; ticketId?: string; message: string }
+  | { type: 'notice'; message: string }
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   sources?: SourceRef[]
+  /** Files sent with this message. Kept for the chips under the bubble. */
+  attachments?: OutgoingAttachment[]
+}
+
+export interface OutgoingAttachment {
+  name: string
+  mimeType: string
+  dataUrl: string
+  bytes: number
 }

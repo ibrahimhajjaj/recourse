@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   ClientActionHandler,
   EventName,
+  OutgoingAttachment,
   SourceRef,
   StreamFrame,
   WidgetEvents,
@@ -28,7 +29,24 @@ const ICONS = {
   chat: 'M12 3c5 0 9 3.4 9 7.6 0 4.2-4 7.6-9 7.6-.9 0-1.8-.1-2.6-.3L5 20l1-3.3C4.2 15.3 3 13.1 3 10.6 3 6.4 7 3 12 3z',
   close: 'M6 6l12 12M18 6L6 18',
   send: 'M4 12l16-8-6 8 6 8z',
+  clip: 'M21 11.5l-8.6 8.6a5 5 0 01-7-7l8.5-8.6a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.9-7.8',
 }
+
+/**
+ * What the picker offers by default. Kept in step with the server's own
+ * allowlist: offering a type the server refuses only wastes an upload.
+ */
+const ACCEPTED_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
 
 /** Mounts the widget. Returns handles so the host page can drive it. */
 export function createWidget(options: WidgetOptions) {
@@ -59,6 +77,8 @@ export function createWidget(options: WidgetOptions) {
     controller: AbortController | null
     conversationId: string
     suggestions: string[]
+    /** Files picked but not yet sent. Cleared the moment they go. */
+    staged: OutgoingAttachment[]
   } = {
     messages: options.persist === false ? [] : restore(options.endpoint),
     busy: false,
@@ -66,6 +86,7 @@ export function createWidget(options: WidgetOptions) {
     // Groups this tab's turns into one thread in the transcript log.
     conversationId: `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
     suggestions: options.suggestions ?? [],
+    staged: [],
   }
 
   /** Handlers the agent can ask the page to run, by action name. */
@@ -146,14 +167,79 @@ export function createWidget(options: WidgetOptions) {
   send.type = 'submit'
   send.setAttribute('aria-label', 'Send')
   send.appendChild(icon(ICONS.send, true))
-  composer.append(input, send)
 
-  panel.append(header, log, suggestions, errorBox, composer)
+  // Off unless the host turns it on: an upload button in front of a server
+  // that refuses files is worse than no button.
+  const uploads = options.attachments
+    ? {
+        maxBytes: (typeof options.attachments === 'object' ? options.attachments.maxBytes : undefined) ?? 10 * 1024 * 1024,
+        maxCount: (typeof options.attachments === 'object' ? options.attachments.maxCount : undefined) ?? 4,
+        accept: (typeof options.attachments === 'object' ? options.attachments.accept : undefined) ?? ACCEPTED_TYPES,
+      }
+    : null
+
+  const tray = document.createElement('div')
+  tray.className = 'tray'
+  tray.hidden = true
+
+  const picker = document.createElement('input')
+  picker.type = 'file'
+  picker.multiple = true
+  picker.hidden = true
+  picker.tabIndex = -1
+
+  const attach = document.createElement('button')
+  attach.type = 'button'
+  attach.className = 'attach'
+  attach.setAttribute('aria-label', 'Attach a file')
+  attach.appendChild(icon(ICONS.clip, false))
+
+  if (uploads) {
+    picker.accept = uploads.accept.join(',')
+    composer.append(attach, input, send)
+  } else {
+    composer.append(input, send)
+  }
+
+  panel.append(header, log, suggestions, errorBox, tray, composer)
+  if (uploads) panel.appendChild(picker)
   if (!inline) root.append(launcher, panel)
   else root.append(panel)
   ;(options.target ?? document.body).appendChild(host)
 
   // ---- behaviour -----------------------------------------------------------
+
+  if (uploads) {
+    attach.addEventListener('click', () => picker.click())
+    picker.addEventListener('change', () => {
+      if (picker.files) void stage(picker.files)
+      // Reset, so picking the same file twice in a row still fires a change.
+      picker.value = ''
+    })
+
+    // Dropping a file on the panel and pasting a screenshot are both things
+    // people try without being told they can.
+    panel.addEventListener('dragover', (event) => {
+      if (!event.dataTransfer?.types.includes('Files')) return
+      event.preventDefault()
+      panel.dataset.dropping = 'true'
+    })
+    panel.addEventListener('dragleave', () => {
+      delete panel.dataset.dropping
+    })
+    panel.addEventListener('drop', (event) => {
+      if (!event.dataTransfer?.files.length) return
+      event.preventDefault()
+      delete panel.dataset.dropping
+      void stage(event.dataTransfer.files)
+    })
+    input.addEventListener('paste', (event) => {
+      const files = Array.from(event.clipboardData?.files ?? [])
+      if (files.length === 0) return
+      event.preventDefault()
+      void stage(files)
+    })
+  }
 
   function setOpen(open: boolean) {
     emit(open ? 'open' : 'close', {})
@@ -169,6 +255,75 @@ export function createWidget(options: WidgetOptions) {
   function showError(message: string) {
     errorBox.textContent = message
     errorBox.hidden = false
+  }
+
+  /**
+   * Reads what the visitor picked.
+   *
+   * Every check here is repeated on the server. This copy exists so somebody
+   * learns their 40MB scan is too big before they wait for it to upload, not
+   * after.
+   */
+  async function stage(files: FileList | File[]) {
+    if (!uploads) return
+    errorBox.hidden = true
+
+    for (const file of Array.from(files)) {
+      if (state.staged.length >= uploads.maxCount) {
+        showError(`You can attach ${uploads.maxCount} files at a time.`)
+        break
+      }
+      const mimeType = (file.type || '').split(';')[0]?.trim().toLowerCase() ?? ''
+      if (!uploads.accept.includes(mimeType)) {
+        showError(`${file.name} is not a file type we can read.`)
+        continue
+      }
+      if (file.size > uploads.maxBytes) {
+        showError(`${file.name} is larger than ${Math.round(uploads.maxBytes / 1024 / 1024)}MB.`)
+        continue
+      }
+
+      let dataUrl: string
+      try {
+        dataUrl = await readAsDataUrl(file)
+      } catch {
+        showError(`${file.name} could not be read.`)
+        continue
+      }
+
+      state.staged.push({ name: file.name, mimeType, dataUrl, bytes: file.size })
+    }
+
+    paintTray()
+  }
+
+  /** Chips above the composer, each removable before anything is sent. */
+  function paintTray() {
+    tray.replaceChildren()
+    tray.hidden = state.staged.length === 0
+
+    for (const [position, file] of state.staged.entries()) {
+      const chip = document.createElement('span')
+      chip.className = 'chip'
+
+      const label = document.createElement('span')
+      // textContent, never innerHTML: a filename is somebody else's string.
+      label.textContent = file.name
+      chip.appendChild(label)
+
+      const drop = document.createElement('button')
+      drop.type = 'button'
+      drop.setAttribute('aria-label', `Remove ${file.name}`)
+      drop.appendChild(icon(ICONS.close, false))
+      drop.addEventListener('click', () => {
+        state.staged.splice(position, 1)
+        paintTray()
+        input.focus()
+      })
+      chip.appendChild(drop)
+
+      tray.appendChild(chip)
+    }
   }
 
   function scrollToEnd() {
@@ -236,7 +391,12 @@ export function createWidget(options: WidgetOptions) {
     if (message.role === 'user') bubble.textContent = message.content
     else bubble.appendChild(renderMarkdown(message.content))
 
-    wrapper.appendChild(bubble)
+    // An empty bubble looks broken, so a file-only message shows its files
+    // instead of an empty grey rectangle.
+    if (message.role === 'user' && !message.content && message.attachments?.length) bubble.remove()
+    else wrapper.appendChild(bubble)
+
+    if (message.attachments?.length) paintAttached(wrapper, message.attachments)
     if (message.sources) paintSources(wrapper, message.sources)
     log.appendChild(wrapper)
     scrollToEnd()
@@ -310,13 +470,21 @@ export function createWidget(options: WidgetOptions) {
 
   async function ask(question: string) {
     const text = question.trim()
-    if (!text || state.busy) return
+    // A photo on its own is a perfectly good question; the server fills in the
+    // words. Anything else empty is not worth a round trip.
+    if ((!text && state.staged.length === 0) || state.busy) return
 
     errorBox.hidden = true
     state.busy = true
     send.disabled = true
 
+    // Taken off the tray now, so a slow answer cannot let them be sent twice.
+    const sending = state.staged
+    state.staged = []
+    paintTray()
+
     const outgoing: ChatMessage = { role: 'user', content: text }
+    if (sending.length > 0) outgoing.attachments = sending
     state.messages.push(outgoing)
     paintMessage(outgoing)
     emit('message', { text })
@@ -326,7 +494,7 @@ export function createWidget(options: WidgetOptions) {
     paintSuggestions()
 
     state.controller = new AbortController()
-    await runTurn()
+    await runTurn(undefined, sending)
 
     state.busy = false
     send.disabled = false
@@ -342,7 +510,10 @@ export function createWidget(options: WidgetOptions) {
    * give yet. The browser runs the handler and asks again with the result, and
    * only that second pass produces the reply the customer reads.
    */
-  async function runTurn(actionResults?: Array<{ name: string; input?: unknown; output: unknown }>) {
+  async function runTurn(
+    actionResults?: Array<{ name: string; input?: unknown; output: unknown }>,
+    sending?: OutgoingAttachment[],
+  ) {
     const { bubble, wrapper } = paintMessage({ role: 'assistant', content: '' })
     const typing = document.createElement('span')
     typing.className = 'typing'
@@ -367,6 +538,9 @@ export function createWidget(options: WidgetOptions) {
         userHash: options.userHash,
         contact: options.contact,
         actionResults,
+        // Only on the first pass. The second half of a paused turn resumes a
+        // question the server has already read the files for.
+        ...(sending && sending.length > 0 ? { attachments: sending } : {}),
       },
       {
         onSources: (refs) => {
@@ -447,6 +621,8 @@ export function createWidget(options: WidgetOptions) {
       emit('action', { name: frame.name, status: frame.status })
     } else if (frame.type === 'captured') {
       emit('captured', { kind: frame.kind, name: frame.name, values: frame.values })
+    } else if (frame.type === 'notice') {
+      paintNotice(frame.message)
     } else if (frame.type === 'handoff') {
       emit('handoff', { ticketId: frame.ticketId, message: frame.message })
       paintNotice(frame.message)
@@ -515,6 +691,28 @@ export function createWidget(options: WidgetOptions) {
         }
       }),
     )
+  }
+
+  /** What the visitor sent, under their own message. */
+  function paintAttached(wrapper: HTMLElement, files: OutgoingAttachment[]) {
+    const row = document.createElement('div')
+    row.className = 'attached'
+
+    for (const file of files) {
+      if (file.mimeType.startsWith('image/')) {
+        const thumb = document.createElement('img')
+        thumb.src = file.dataUrl
+        thumb.alt = file.name
+        row.appendChild(thumb)
+        continue
+      }
+      const chip = document.createElement('span')
+      chip.className = 'chip'
+      chip.textContent = file.name
+      row.appendChild(chip)
+    }
+
+    wrapper.appendChild(row)
   }
 
   /** A small centred line for things that happened rather than were said. */
@@ -699,4 +897,20 @@ function persist(endpoint: string, messages: ChatMessage[], enabled: boolean) {
   } catch {
     /* ignore */
   }
+}
+
+
+/**
+ * A file as a data URI.
+ *
+ * FileReader rather than arrayBuffer plus btoa: a 10MB file put through
+ * String.fromCharCode in a loop is enough to lock up a phone browser.
+ */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('unreadable'))
+    reader.readAsDataURL(file)
+  })
 }

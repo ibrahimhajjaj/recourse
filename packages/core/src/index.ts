@@ -271,3 +271,14 @@ export {
   type CorsOptions,
   type RateLimitOptions,
 } from './server/index.js'
+export {
+  validateAttachments,
+  sanitiseName,
+  decodedSize,
+  isImage,
+  DEFAULT_ALLOWED_TYPES,
+  DEFAULT_MAX_BYTES,
+  type Attachment,
+  type AttachmentPolicy,
+} from './attachments.js'
+export { prepareAttachments, type PrepareOptions, type PreparedAttachments } from './attachments-prepare.js'

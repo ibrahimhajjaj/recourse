@@ -28,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           data-suggestions="How long does delivery take?|Can I get a refund?|How do I pause my subscription?|What's in my basket?"
           data-invite="Question about an order? Ask me."
           data-invite-delay="2000"
+          data-attachments="true"
         />
 
         {/*

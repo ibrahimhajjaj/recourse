@@ -58,6 +58,10 @@
       "types": "./dist/agent.d.ts",
       "import": "./dist/agent.js"
     },
+    "./attachments": {
+      "types": "./dist/attachments.d.ts",
+      "import": "./dist/attachments.js"
+    },
     "./actions": {
       "types": "./dist/actions/index.d.ts",
       "import": "./dist/actions/index.js"
@@ -108,6 +112,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "pdfjs-dist": "^6.2.108",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

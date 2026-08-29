@@ -3,6 +3,7 @@ import type { Embedder, KnowledgeIndex, Match, Message, StreamFrame } from '../t
 import type { Store } from '../store/types.js'
 import type { Action } from '../actions/types.js'
 import type { Procedure } from '../procedures/types.js'
+import { validateAttachments, type AttachmentPolicy } from '../attachments.js'
 import { createAgent } from '../agent.js'
 import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
@@ -50,6 +51,14 @@ export interface ChatHandlerOptions {
   maxSteps?: number
   /** Standard operating procedures the agent follows on matching conversations. */
   procedures?: Procedure[]
+  /**
+   * What files a visitor may attach. `false` refuses them outright, which is
+   * the right setting for a public FAQ that has no use for one.
+   *
+   * The limits here are the real ones. The widget applies the same caps so a
+   * customer is told early, but a request can be made by anything.
+   */
+  attachments?: AttachmentPolicy | false
 }
 
 export interface ConversationEvent {
@@ -116,12 +125,31 @@ export function createChatHandler(options: ChatHandlerOptions) {
       return recordFeedback(feedback, options.store, cors)
     }
 
+    // Files ride on the request body and apply to the message just sent. Every
+    // limit is re-checked here; the widget's copy of them is a courtesy.
+    const attachmentPolicy = options.attachments
+    const submitted = (body as { attachments?: unknown }).attachments
+    const files =
+      attachmentPolicy === false
+        ? {
+            accepted: [],
+            rejected: (Array.isArray(submitted) ? submitted : []).map((item) => ({
+              name: typeof (item as { name?: unknown })?.name === 'string' ? String((item as { name: string }).name) : 'file',
+              reason: 'files are not accepted here',
+            })),
+          }
+        : validateAttachments(submitted, attachmentPolicy)
+
+
     let messages: Message[]
     try {
-      messages = parseMessages(body, maxMessageLength)
+      messages = parseMessages(body, maxMessageLength, files.accepted.length > 0)
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'bad request' }, 400, cors)
     }
+
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage && files.accepted.length > 0) lastMessage.attachments = files.accepted
 
     const claim = body as {
       userId?: string
@@ -156,6 +184,12 @@ export function createChatHandler(options: ChatHandlerOptions) {
 
         let answer = ''
         let matches: Match[] = []
+
+        // Said before the answer, so a refused file never looks like something
+        // the agent silently ignored.
+        for (const refusal of files.rejected) {
+          send({ type: 'notice', message: `${refusal.name} was not attached: ${refusal.reason}.` })
+        }
 
         try {
           const streamed = agent.stream(recent, [], {
@@ -257,7 +291,7 @@ function messageIndexToReply(index: number, stored: Array<{ role: string }>): nu
 }
 
 /** Accepts either a full transcript or a single message with optional history. */
-function parseMessages(body: unknown, maxLength: number): Message[] {
+function parseMessages(body: unknown, maxLength: number, hasAttachments = false): Message[] {
   const payload = body as { messages?: unknown; message?: unknown; history?: unknown }
   const raw = Array.isArray(payload?.messages)
     ? payload.messages
@@ -271,6 +305,13 @@ function parseMessages(body: unknown, maxLength: number): Message[] {
     const content = entry.content.trim()
     if (content.length === 0) continue
     messages.push({ role: entry.role, content: content.slice(0, maxLength) })
+  }
+
+  // Sending a photo and nothing else is a normal thing to do, and a model needs
+  // something in the text slot to answer it.
+  const lastIsUser = messages[messages.length - 1]?.role === 'user'
+  if (hasAttachments && !lastIsUser) {
+    messages.push({ role: 'user', content: 'Please look at the attached file.' })
   }
 
   if (messages.length === 0) throw new Error('no messages provided')

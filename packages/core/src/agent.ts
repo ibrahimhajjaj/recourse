@@ -9,6 +9,7 @@ import type { Procedure } from './procedures/types.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
+import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -56,6 +57,16 @@ export interface AgentOptions {
   procedures?: Procedure[]
   /** Notifies other systems as things happen. */
   webhooks?: Webhooks
+  /**
+   * How files the customer sends are handled. Images reach the model as
+   * content parts, which needs a model that can see; documents are extracted
+   * to text here and work with any model at all.
+   *
+   * Set `vision: false` when the configured model is text-only, so an attached
+   * photo is described rather than sent and the provider does not reject the
+   * whole request.
+   */
+  attachments?: PrepareOptions
 }
 
 export interface StreamOptions {
@@ -87,6 +98,12 @@ export interface Answer {
   unanswered: boolean
   /** Set when the model provider failed. `text` will be empty. */
   error?: string
+  /**
+   * Things the customer should be told that are not part of the answer, such
+   * as a file that could not be read. A channel with no UI for them should
+   * send them as their own message rather than drop them.
+   */
+  notices: string[]
 }
 
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
@@ -163,23 +180,42 @@ export function createAgent(options: AgentOptions) {
     const matches = await search(messages, signal)
     onMatches(matches)
 
-    const question = messages[messages.length - 1]?.content ?? ''
+    const last = messages[messages.length - 1]
+    const question = last?.content ?? ''
     const store = options.store
+
+    // Only the newest message's files. Older ones were already read into an
+    // earlier answer, and re-sending an image every turn is billed every turn.
+    const attachments = last?.attachments ?? []
+    const prepared = attachments.length > 0 ? await prepareAttachments(attachments, options.attachments) : null
 
     // A continuation is the second half of a turn the browser interrupted, not
     // a new question, so the customer's message is already in the transcript.
     const isContinuation = (call.clientResults?.length ?? 0) > 0
 
     if (store && !isContinuation) {
-      await store.appendMessage(
-        conversationId,
-        { id: newId('m'), role: 'user', content: question, createdAt: new Date().toISOString() },
-        { channel, contact },
-      )
+      const record: StoredMessage = {
+        id: newId('m'),
+        role: 'user',
+        content: question,
+        createdAt: new Date().toISOString(),
+      }
+      // Metadata only. The bytes stay in the turn that carried them.
+      if (attachments.length > 0) {
+        record.attachments = attachments.map(({ name, mimeType, bytes }) => ({ name, mimeType, bytes }))
+      }
+      await store.appendMessage(conversationId, record, { channel, contact })
     }
 
     // Sources first, so a UI can render citations while text is still arriving.
     yield { type: 'sources', sources: toSourceRefs(matches) }
+
+    // A file that could not be read is also in the instructions, so the agent
+    // can answer around it. This frame is the guarantee: the prompt is advice a
+    // small model may ignore, and an unread file must never pass in silence.
+    for (const failure of prepared?.failures ?? []) {
+      yield { type: 'notice', message: `${failure.name} could not be read: ${trimStop(failure.reason)}.` }
+    }
 
     // Actions run inside the model's tool loop and have things to tell the
     // client while they do. They cannot yield from here, so they push frames
@@ -209,8 +245,21 @@ export function createAgent(options: AgentOptions) {
         actions,
         procedures: renderProcedures(procedures, { contact }),
         clientResults: call.clientResults,
+        ...(prepared?.context ? { attachments: prepared.context } : {}),
+        ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),
       }),
-      messages: messages.map((message) => ({ role: message.role, content: message.content })),
+      messages: messages.map((message, position) => {
+        // The file parts belong on the message they arrived with, which is the
+        // last one; everything before it goes across as plain text.
+        const parts = position === messages.length - 1 ? (prepared?.parts ?? []) : []
+        if (message.role !== 'user' || parts.length === 0) {
+          return { role: message.role, content: message.content }
+        }
+        return {
+          role: 'user' as const,
+          content: [{ type: 'text' as const, text: message.content }, ...parts],
+        }
+      }),
       abortSignal: signal,
       tools: actionsToTools(actions, { context, unlocked }),
       // Without this the turn ends the moment a tool is called, and the
@@ -281,7 +330,7 @@ export function createAgent(options: AgentOptions) {
       })
     }
 
-    if (failure) yield { type: 'error', message: failure }
+    if (failure) yield { type: 'error', message: explain(failure, prepared !== null) }
     else yield { type: 'done' }
   }
 
@@ -307,6 +356,7 @@ export function createAgent(options: AgentOptions) {
     let error: string | undefined
     let sources: SourceRef[] = []
     let matches: Match[] = []
+    const notices: string[] = []
 
     for await (const frame of run(toMessages(question, history), call, (found) => {
       matches = found
@@ -314,6 +364,7 @@ export function createAgent(options: AgentOptions) {
       if (frame.type === 'delta') text += frame.text
       else if (frame.type === 'sources') sources = frame.sources
       else if (frame.type === 'error') error = frame.message
+      else if (frame.type === 'notice') notices.push(frame.message)
     }
 
     return {
@@ -322,6 +373,7 @@ export function createAgent(options: AgentOptions) {
       matches,
       unanswered: matches.length === 0,
       error,
+      notices,
     }
   }
 
@@ -334,6 +386,25 @@ export function createAgent(options: AgentOptions) {
     stream,
     answer,
   }
+}
+
+/** Reasons come from parsers that may or may not punctuate. One stop, not two. */
+function trimStop(reason: string): string {
+  return reason.replace(/[.\s]+$/, '')
+}
+
+/**
+ * Turns a provider's complaint into something worth showing a customer.
+ *
+ * A model that cannot see is a configuration mistake by the business, not
+ * something the visitor did wrong, and they should not be reading a provider's
+ * JSON to find that out.
+ */
+function explain(failure: string, hadAttachments: boolean): string {
+  if (hadAttachments && /multimodal|image|vision|not support/i.test(failure)) {
+    return 'I could not open the file you sent. Please describe the problem instead, or try again later.'
+  }
+  return failure
 }
 
 /**

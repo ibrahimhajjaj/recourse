@@ -225,6 +225,83 @@ export const styles = `
   flex: none;
 }
 .composer button[type="submit"]:disabled { opacity: 0.45; cursor: default; }
+.composer button.attach {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  align-self: flex-end;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--hd-muted);
+  cursor: pointer;
+}
+.composer button.attach:hover { background: var(--hd-subtle); color: var(--hd-text); }
+.composer button.attach svg { width: 17px; height: 17px; }
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 0;
+}
+.tray .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 180px;
+  padding: 4px 4px 4px 9px;
+  border: 1px solid var(--hd-border);
+  border-radius: 999px;
+  background: var(--hd-subtle);
+  font-size: 12px;
+  color: var(--hd-text);
+}
+.tray .chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tray .chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hd-muted);
+  cursor: pointer;
+}
+.tray .chip button:hover { background: var(--hd-border); color: var(--hd-text); }
+.tray .chip svg { width: 11px; height: 11px; }
+.attached {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.attached img {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: 10px;
+  border: 1px solid var(--hd-border);
+}
+.attached .chip {
+  padding: 4px 9px;
+  border: 1px solid var(--hd-border);
+  border-radius: 999px;
+  background: var(--hd-subtle);
+  font-size: 12px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel[data-dropping="true"] { outline: 2px dashed var(--hd-accent); outline-offset: -4px; }
 .composer button svg { width: 18px; height: 18px; }
 
 .typing { display: inline-flex; gap: 4px; padding: 3px 0; }
