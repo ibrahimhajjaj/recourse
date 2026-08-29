@@ -106,6 +106,21 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@22.20.1)(happy-dom@20.11.13)(jsdom@30.0.1)(tsx@4.23.12)
 
+  packages/store-d1:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      helpdeck:
+        specifier: workspace:*
+        version: link:../core
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@20.11.13)(jsdom@30.0.1)(tsx@4.23.12)
+
   packages/store-postgres:
     devDependencies:
       '@types/node':

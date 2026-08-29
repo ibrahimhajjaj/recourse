@@ -416,8 +416,9 @@ instance under load, and with a file store the transcripts, tickets and sources
 scatter across instances that cannot see each other. Nothing errors; the data is
 just quietly in the wrong place.
 
-All three implementations pass the same behaviour suite, so swapping one is a
-configuration change rather than a rewrite.
+All four implementations, memory, file, Postgres and D1, pass the same
+behaviour suite, so swapping one is a configuration change rather than a
+rewrite.
 
 ## Measured, not asserted
 
@@ -502,6 +503,11 @@ Worker bundle: 117.9 KB, no Node built-ins, no nodejs_compat needed.
 That is asserted in CI rather than claimed. `examples/worker` has the whole
 setup and a bundle guard that fails the build if a Node built-in reaches the
 serving path.
+
+`@helpdeck/store-d1` puts the conversations in D1, reached through a binding , 
+no connection pool, no credential, nothing to exhaust. It passes the same
+behaviour suite as the memory, file and Postgres stores. Watch the free tier's
+**50 queries per invocation**, which is per request rather than per day.
 
 Two things differ from Node. Import the subpaths (`helpdeck/server`,
 `helpdeck/models`, ...) rather than the root, which re-exports `ingest` and so
