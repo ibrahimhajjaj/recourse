@@ -31,6 +31,15 @@ if (process.argv.includes('--watch')) {
   console.log('watching')
 } else {
   await Promise.all(builds.map((options) => build(options)))
-  const { statSync } = await import('node:fs')
+  const { copyFileSync, existsSync, statSync } = await import('node:fs')
+
+  // The demo and the landing page serve the bundle from their own public
+  // folders. Copying here rather than by hand is the only way they stay in
+  // step: a stale copy shows visitors a widget that is months old.
+  for (const destination of ['../../public/helpdeck.js', '../../examples/nextjs/public/helpdeck.js']) {
+    const folder = destination.slice(0, destination.lastIndexOf('/'))
+    if (existsSync(folder)) copyFileSync('dist/helpdeck.js', destination)
+  }
+
   console.log(`helpdeck.min.js  ${(statSync('dist/helpdeck.min.js').size / 1024).toFixed(1)} KB`)
 }
