@@ -144,7 +144,7 @@ export const styles = `
 
 .bubble p { margin: 0 0 8px; }
 .bubble p:last-child { margin-bottom: 0; }
-.bubble ul, .bubble ol { margin: 0 0 8px; padding-left: 20px; }
+.bubble ul, .bubble ol { margin: 0 0 8px; padding-inline-start: 20px; }
 .bubble li { margin: 2px 0; }
 .bubble code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -396,14 +396,14 @@ export const styles = `
 
 .ui-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--hd-line); border-radius: 10px; }
 .ui-table { border-collapse: collapse; font-size: 13px; width: 100%; }
-.ui-table th, .ui-table td { text-align: left; padding: 7px 10px; white-space: nowrap; }
+.ui-table th, .ui-table td { text-align: start; padding: 7px 10px; white-space: nowrap; }
 .ui-table th { color: var(--hd-muted); font-weight: 560; border-bottom: 1px solid var(--hd-line); }
 .ui-table tbody tr + tr td { border-top: 1px solid var(--hd-line); }
 
 .ui-list { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
 .ui-list-item {
   font: inherit;
-  text-align: left;
+  text-align: start;
   display: flex;
   flex-direction: column;
   gap: 2px;

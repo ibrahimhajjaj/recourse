@@ -164,6 +164,9 @@ export function createWidget(options: WidgetOptions) {
   // Polite so a screen reader finishes the current sentence before the answer.
   log.setAttribute('aria-live', 'polite')
   log.setAttribute('aria-relevant', 'additions text')
+  // Polite so a screen reader finishes the current sentence before the answer.
+  log.setAttribute('aria-live', 'polite')
+  log.setAttribute('aria-relevant', 'additions text')
 
   const suggestions = document.createElement('div')
   suggestions.className = 'suggestions'
@@ -176,6 +179,7 @@ export function createWidget(options: WidgetOptions) {
   const composer = document.createElement('form')
   composer.className = 'composer'
   const input = document.createElement('textarea')
+  input.setAttribute('dir', 'auto')
   input.rows = 1
   input.placeholder = strings.placeholder
   input.setAttribute('aria-label', strings.inputLabel)
@@ -460,6 +464,12 @@ export function createWidget(options: WidgetOptions) {
 
     const bubble = document.createElement('div')
     bubble.className = 'bubble'
+    // The agent replies in whatever language it was written to, so one
+    // conversation can hold both directions at once. `auto` lets the browser
+    // decide per message from its first strong character, which is the only
+    // thing that gets an Arabic answer and an English one right on the same
+    // page without asking the host to declare anything.
+    bubble.setAttribute('dir', 'auto')
     if (message.role === 'user') bubble.textContent = message.content
     else bubble.appendChild(renderMarkdown(message.content))
 
@@ -678,6 +688,11 @@ export function createWidget(options: WidgetOptions) {
     sending?: OutgoingAttachment[],
   ) {
     const { bubble, wrapper } = paintMessage({ role: 'assistant', content: '' })
+    // The answer is rebuilt from scratch on every delta, so without this a two
+    // sentence reply is announced dozens of times over. Marking the region busy
+    // tells assistive technology to wait and read it once, when it is finished.
+    log.setAttribute('aria-busy', 'true')
+
     const typing = document.createElement('span')
     typing.className = 'typing'
     typing.append(document.createElement('i'), document.createElement('i'), document.createElement('i'))
@@ -724,9 +739,14 @@ export function createWidget(options: WidgetOptions) {
       },
       state.controller?.signal,
       strings,
-    )
-
-    typing.remove()
+    ).finally(() => {
+      // A dropped connection or an abort rejects out of `streamChat`, and a
+      // region left busy is one a screen reader never reads again: every later
+      // answer in the session would arrive in silence. The flag comes off
+      // however the turn ended.
+      typing.remove()
+      log.setAttribute('aria-busy', 'false')
+    })
 
     // A paused turn produced no reply worth keeping; run what it asked for and
     // let the next pass render the real answer in its place.
