@@ -5,16 +5,33 @@
   "description": "Cloudflare D1 implementation of the helpdeck Store. Runs on Workers.",
   "license": "MIT",
   "author": "Ibrahim Hajjaj",
-  "files": ["dist", "README.md"],
+  "homepage": "https://github.com/ibrahimhajjaj/helpdeck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ibrahimhajjaj/helpdeck.git",
+    "directory": "packages/store-d1"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
-  "peerDependencies": { "helpdeck": "workspace:*" },
+  "peerDependencies": {
+    "helpdeck": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "helpdeck": "workspace:*",
