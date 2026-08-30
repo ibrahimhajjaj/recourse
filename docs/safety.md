@@ -212,7 +212,14 @@ customers, are refused zero times at the default policy and again at maximum
 sensitivity. Since answers are screened too, thirty ordinary answers are
 measured the same way, several of them deliberately shaped like the thing the
 rules look for: a key mentioned rather than printed, the agent describing its
-own job, "word for word". None are refused. The injection suite in
+own job, "word for word". None are refused.
+
+Those thirty are written to be awkward, which makes them a poor guide to the
+ordinary case. So the conduct suite was run end to end against a local model
+with screening on, its shipped default: thirty-one real conversations,
+greetings and complaints and refund arguments among them, and not one answer
+was withheld. The two it fails are a French and an Arabic reply, both known and
+neither a refusal. The injection suite in
 [`packages/evals`](../packages/evals/README.md) is where those numbers come
 from.
 
