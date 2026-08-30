@@ -53,6 +53,8 @@ export {
   signTwilio,
   safeEqual,
 } from './verify.js'
+export { defaultDisclosure } from './shared.js'
+export type { Citations } from './shared.js'
 export type { ChannelBase, InboundMessage } from './shared.js'
 export {
   elevenLabsTranscriber,
@@ -71,3 +73,4 @@ export {
   type TemplateVariable,
   type SendTemplateOptions,
 } from './whatsapp-templates.js'
+export { sunshineChannel, type SunshineOptions } from './sunshine.js'
