@@ -314,7 +314,21 @@ export function postgresStore(options: PostgresStoreOptions): Store {
                        LAG(m.role)    OVER (PARTITION BY m.conversation_id ORDER BY m.seq) AS previous_role
                 FROM messages m
                 JOIN scoped s ON s.id = m.conversation_id
-              )
+              ),
+              people AS (
+                SELECT t.created_at AS at,
+                       -- Identity where there is one, the conversation
+                       -- otherwise: an anonymous visitor is a person.
+                       coalesce(
+                         nullif(s.contact->>'id', ''),
+                         nullif(s.contact->>'email', ''),
+                         s.id
+                       ) AS who
+                FROM threads t
+                JOIN scoped s ON s.id = t.conversation_id
+                WHERE t.role = 'user'
+              ),
+              newest AS (SELECT max(at) AS newest FROM people)
          SELECT
            (SELECT count(*) FROM scoped)::int AS conversations,
            (SELECT count(*) FROM threads)::int AS messages,
@@ -343,7 +357,36 @@ export function postgresStore(options: PostgresStoreOptions): Store {
                 ORDER BY count(*) DESC
                 LIMIT 20
               ) AS gaps
-           ) AS top_gaps`,
+           ) AS top_gaps,
+           -- A day is a day in UTC, the same slice the shared implementation
+           -- takes off the front of the timestamp, so the two never disagree
+           -- about which side of midnight something fell.
+           (SELECT coalesce(
+                     jsonb_agg(jsonb_build_object('date', d, 'conversations', c, 'messages', m) ORDER BY d),
+                     '[]'::jsonb)
+              FROM (
+                SELECT d, sum(c)::int AS c, sum(m)::int AS m
+                FROM (
+                  SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS d, 1 AS c, 0 AS m FROM scoped
+                  UNION ALL
+                  SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD'), 0, 1 FROM threads
+                ) AS rows
+                GROUP BY d
+              ) AS perday
+           ) AS daily,
+           (SELECT coalesce(jsonb_object_agg(name, total), '{}'::jsonb)
+              FROM (
+                SELECT act->>'name' AS name, count(*)::int AS total
+                FROM threads, jsonb_array_elements(coalesce(actions, '[]'::jsonb)) AS act
+                GROUP BY 1 ORDER BY 2 DESC
+              ) AS acts
+           ) AS by_action,
+           -- Both windows end at the newest user turn rather than at now(), so
+           -- the same rows always give the same answer.
+           (SELECT count(DISTINCT who)::int FROM people
+             WHERE at > (SELECT newest FROM newest) - interval '1 day') AS active_daily,
+           (SELECT count(DISTINCT who)::int FROM people
+             WHERE at > (SELECT newest FROM newest) - interval '7 days') AS active_weekly`,
         values,
       )
 
@@ -836,6 +879,10 @@ interface StatsRow {
   leads: number
   by_channel: Record<string, number>
   top_gaps: Array<{ question: string; count: number }>
+  daily: Array<{ date: string; conversations: number; messages: number }>
+  by_action: Record<string, number>
+  active_daily: number
+  active_weekly: number
 }
 
 function toConversation(row: ConversationRow): Conversation {
@@ -933,6 +980,18 @@ function toStats(row: StatsRow | undefined): Stats {
     thumbsDown: row?.thumbs_down ?? 0,
     byChannel: row?.by_channel ?? {},
     topGaps: row?.top_gaps ?? [],
+    daily: row?.daily ?? [],
+    // Re-sorted here because a jsonb object does not keep the order it was
+    // built in, and the contract is most used first.
+    byAction: Object.fromEntries(
+      Object.entries(row?.by_action ?? {}).sort(([, a], [, b]) => b - a),
+    ),
+    activeUsers: {
+      daily: row?.active_daily ?? 0,
+      weekly: row?.active_weekly ?? 0,
+      stickiness:
+        !row?.active_weekly ? 0 : Math.round(((row.active_daily ?? 0) / row.active_weekly) * 100) / 100,
+    },
   }
 }
 

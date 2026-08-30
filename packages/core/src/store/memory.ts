@@ -284,16 +284,41 @@ export function computeStats(
     thumbsDown: 0,
     byChannel: {},
     topGaps: [],
+    daily: [],
+    activeUsers: { daily: 0, weekly: 0, stickiness: 0 },
+    byAction: {},
   }
 
   const gaps = new Map<string, number>()
+  const days = new Map<string, { conversations: number; messages: number }>()
+  const seen: Array<{ at: number; who: string }> = []
+
+  const day = (at: string): string => at.slice(0, 10)
+  const on = (date: string) => {
+    let found = days.get(date)
+    if (!found) days.set(date, (found = { conversations: 0, messages: 0 }))
+    return found
+  }
 
   for (const conversation of conversations) {
     stats.byChannel[conversation.channel] = (stats.byChannel[conversation.channel] ?? 0) + 1
+    on(day(conversation.createdAt)).conversations++
+
     const thread = messages.get(conversation.id) ?? []
     stats.messages += thread.length
 
+    // Identity where there is one. Two conversations from the same signed-in
+    // customer are one person; two anonymous ones cannot be told apart.
+    const who = conversation.contact?.id ?? conversation.contact?.email ?? conversation.id
+
     for (const [position, message] of thread.entries()) {
+      on(day(message.createdAt)).messages++
+      if (message.role === 'user') seen.push({ at: Date.parse(message.createdAt), who })
+
+      for (const action of message.actions ?? []) {
+        stats.byAction[action.name] = (stats.byAction[action.name] ?? 0) + 1
+      }
+
       if (message.feedback === 'positive') stats.thumbsUp++
       if (message.feedback === 'negative') stats.thumbsDown++
       if (!message.unanswered) continue
@@ -312,6 +337,33 @@ export function computeStats(
     .map(([question, count]) => ({ question, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 20)
+
+  stats.daily = [...days.entries()]
+    .map(([date, counts]) => ({ date, ...counts }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  stats.byAction = Object.fromEntries(
+    Object.entries(stats.byAction).sort(([, a], [, b]) => b - a),
+  )
+
+  if (seen.length > 0) {
+    // Anchored to the newest thing in the data. Anchoring to the clock makes
+    // the same rows give different answers as the day passes, which is the
+    // wrong property for a number somebody is comparing week on week.
+    const newest = Math.max(...seen.map((one) => one.at))
+    const DAY = 86_400_000
+
+    const within = (span: number): number =>
+      new Set(seen.filter((one) => newest - one.at < span).map((one) => one.who)).size
+
+    const daily = within(DAY)
+    const weekly = within(7 * DAY)
+    stats.activeUsers = {
+      daily,
+      weekly,
+      stickiness: weekly === 0 ? 0 : Math.round((daily / weekly) * 100) / 100,
+    }
+  }
 
   return stats
 }

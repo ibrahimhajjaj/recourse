@@ -148,4 +148,26 @@ export interface Stats {
   byChannel: Record<string, number>
   /** The questions that went unanswered most often. */
   topGaps: Array<{ question: string; count: number }>
+  /**
+   * One row per day that saw anything, oldest first.
+   *
+   * Days with no activity are absent rather than zero, because the gap is
+   * information: a chart drawing them as zero and a chart leaving them out
+   * tell you the same thing, and inventing rows costs a decision about which
+   * timezone the day starts in for every reader.
+   */
+  daily: Array<{ date: string; conversations: number; messages: number }>
+  /**
+   * How many distinct people, and how many of the week's came back on the day.
+   *
+   * A person is their contact id or email where one is known, and the
+   * conversation otherwise: an anonymous visitor is a person, but the same one
+   * returning tomorrow without identifying themselves is counted twice, and no
+   * store can tell the difference. Both windows end at the newest activity in
+   * the data rather than at the wall clock, so the same data always gives the
+   * same answer.
+   */
+  activeUsers: { daily: number; weekly: number; stickiness: number }
+  /** How often each action ran, most used first when read as entries. */
+  byAction: Record<string, number>
 }

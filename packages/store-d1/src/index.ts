@@ -331,6 +331,62 @@ export function d1Store(options: D1StoreOptions): Store {
         values,
       )
 
+      // A day is the first ten characters of the timestamp, which is the same
+      // slice the shared implementation takes, so the two cannot disagree
+      // about which side of midnight something fell on.
+      const daily = await all<{ date: string; conversations: number; messages: number }>(
+        `SELECT date,
+                sum(c) AS conversations,
+                sum(m) AS messages
+         FROM (
+           SELECT substr(c.created_at, 1, 10) AS date, 1 AS c, 0 AS m FROM conversations c ${filter}
+           UNION ALL
+           SELECT substr(m.created_at, 1, 10), 0, 1
+           FROM messages m JOIN conversations c ON c.id = m.conversation_id ${filter}
+         )
+         GROUP BY date
+         ORDER BY date`,
+        [...values, ...values],
+      )
+
+      // SQLite has no json_each until the JSON1 extension, which D1 ships, so
+      // the actions column is unpacked the same way the rows were written.
+      const actions = await all<{ name: string; total: number }>(
+        `SELECT json_extract(action.value, '$.name') AS name, count(*) AS total
+         FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         JOIN json_each(coalesce(m.actions, '[]')) AS action
+         ${filter}
+         GROUP BY name
+         ORDER BY total DESC`,
+        values,
+      )
+
+      // Identity where there is one, the conversation otherwise, and both
+      // windows end at the newest user turn rather than at the clock.
+      const people = await first<{ daily: number; weekly: number }>(
+        `WITH people AS (
+           SELECT m.created_at AS at,
+                  coalesce(
+                    nullif(json_extract(c.contact, '$.id'), ''),
+                    nullif(json_extract(c.contact, '$.email'), ''),
+                    c.id
+                  ) AS who
+           FROM messages m
+           JOIN conversations c ON c.id = m.conversation_id
+           ${filter ? `${filter} AND` : 'WHERE'} m.role = 'user'
+         ),
+         newest AS (SELECT max(at) AS at FROM people)
+         SELECT
+           (SELECT count(DISTINCT who) FROM people
+             WHERE at > datetime((SELECT at FROM newest), '-1 day')) AS daily,
+           (SELECT count(DISTINCT who) FROM people
+             WHERE at > datetime((SELECT at FROM newest), '-7 days')) AS weekly`,
+        values,
+      )
+
+      const weekly = people?.weekly ?? 0
+
       return {
         conversations: totals?.conversations ?? 0,
         messages: totals?.messages ?? 0,
@@ -340,6 +396,17 @@ export function d1Store(options: D1StoreOptions): Store {
         thumbsDown: totals?.down ?? 0,
         byChannel: Object.fromEntries(channels.map((row) => [row.channel, row.total])),
         topGaps: gaps.map((row) => ({ question: row.question, count: row.total })),
+        daily: daily.map((row) => ({
+          date: row.date,
+          conversations: row.conversations,
+          messages: row.messages,
+        })),
+        byAction: Object.fromEntries(actions.map((row) => [row.name, row.total])),
+        activeUsers: {
+          daily: people?.daily ?? 0,
+          weekly,
+          stickiness: weekly === 0 ? 0 : Math.round(((people?.daily ?? 0) / weekly) * 100) / 100,
+        },
       } satisfies Stats
     },
 

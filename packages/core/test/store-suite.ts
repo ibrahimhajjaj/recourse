@@ -162,5 +162,49 @@ export function storeBehaviour(name: string, make: () => Promise<Store> | Store)
       // The same missing answer asked twice is the top gap to go and write.
       expect(stats.topGaps[0]).toEqual({ question: 'do you sell tea', count: 2 })
     })
+
+    it('counts how often each action ran', async () => {
+      const store = await make()
+      const ran = (name: string) => ({ name, input: {}, output: {} })
+
+      await store.appendMessage('c1', message({ role: 'assistant', actions: [ran('escalate'), ran('lead')] }))
+      await store.appendMessage('c2', message({ role: 'assistant', actions: [ran('escalate')] }))
+
+      const stats = await store.stats()
+      expect(stats.byAction).toEqual({ escalate: 2, lead: 1 })
+      // Most used first, because the question is always which ones earn their
+      // place and which are never called.
+      expect(Object.keys(stats.byAction)[0]).toBe('escalate')
+    })
+
+    it('reports a day at a time, oldest first, skipping days with nothing', async () => {
+      const store = await make()
+      const at = (day: string) => `2026-03-${day}T10:00:00.000Z`
+
+      await store.appendMessage('c1', message({ createdAt: at('01') }), { createdAt: at('01') })
+      await store.appendMessage('c1', message({ createdAt: at('01'), role: 'assistant' }), {})
+      await store.appendMessage('c2', message({ createdAt: at('03') }), { createdAt: at('03') })
+
+      const stats = await store.stats()
+      expect(stats.daily.map((one) => one.date)).toEqual(['2026-03-01', '2026-03-03'])
+      expect(stats.daily[0]).toEqual({ date: '2026-03-01', conversations: 1, messages: 2 })
+    })
+
+    it('counts the people behind the conversations, not the conversations', async () => {
+      const store = await make()
+      const now = Date.now()
+      const at = (agoDays: number) => new Date(now - agoDays * 86_400_000).toISOString()
+      const sam = { id: 'u_sam', email: 'sam@example.com' }
+
+      // The same person, twice today, plus somebody else four days ago.
+      await store.appendMessage('c1', message({ createdAt: at(0) }), { contact: sam })
+      await store.appendMessage('c2', message({ createdAt: at(0) }), { contact: sam })
+      await store.appendMessage('c3', message({ createdAt: at(4) }), { contact: { id: 'u_ada' } })
+
+      const stats = await store.stats()
+      expect(stats.activeUsers.daily).toBe(1)
+      expect(stats.activeUsers.weekly).toBe(2)
+      expect(stats.activeUsers.stickiness).toBe(0.5)
+    })
   })
 }
