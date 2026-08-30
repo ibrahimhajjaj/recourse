@@ -1,10 +1,11 @@
 # Channels, and what has actually been proved
 
-Eleven adapters ship. Seven have been through real traffic from real accounts on a
-real phone. One more is wired and blocked on a commercial gate rather than on
-anything technical. The rest are verified against each platform's documented
-signature examples and mocked send paths, which is a weaker claim, and this
-file exists so the difference is never blurred in a README.
+Eleven adapters ship. Seven have been through real traffic from real accounts on
+a real phone, and an eighth through a real mail server run locally. One more is
+wired and blocked on a commercial gate rather than on anything technical. The
+rest are verified against each platform's documented signature examples and
+mocked send paths, which is a weaker claim, and this file exists so the
+difference is never blurred in a README.
 
 The seven cover every signature scheme in the set, which is the reason to stop
 where it stops rather than a reason to be sorry about the rest: an HMAC over the payload
@@ -26,8 +27,16 @@ reproduced byte for byte offline.
 | Voice (Twilio) | no | fixture | mocked | fixture | not yet |
 | Voice (ElevenLabs) | n/a | yes | yes | yes | 2026-08-30 |
 | Teams | n/a | yes | yes | yes | 2026-08-30, via Bot Connector |
-| Email | no | fixture | mocked | fixture | not yet |
+| Email | no | yes | yes | yes | 2026-08-30, against a local mail server |
 | Sunshine | n/a | fixture | mocked | fixture | not yet |
+
+Email is the one that needed no account. A mail server is a thing you can run,
+and the adapter's two seams are a function that reads the provider's body and a
+function that sends the reply, so both were pointed at a local one:
+`packages/evals/src/live-email.mts` posts a real message over SMTP, builds the
+webhook from what actually arrived rather than from the documentation, and
+reads the answer back off the server. What that cannot prove is any particular
+provider's field names, so the Postmark, SendGrid and Mailgun fixtures stay.
 
 "fixture" means the platform's own documented payload shape drives the test,
 and it is stronger than the word suggests. `packages/evals/src/channel-harness.mts`
