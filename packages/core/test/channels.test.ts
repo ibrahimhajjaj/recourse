@@ -459,6 +459,98 @@ describe('Slack', () => {
     expect(sent).toEqual([])
   })
 
+  it('answers a direct message without being told to listen to everything', async () => {
+    const sent: unknown[] = []
+    const { agent } = await agentFor()
+    const pending = collector()
+    const quiet = slackChannel({ agent, ...base, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+
+    // Same event type as the channel chatter above. What separates them is
+    // channel_type, and a person in a private conversation with the bot has
+    // already made it as clear as it gets who they are talking to.
+    await quiet(
+      await post(
+        JSON.stringify({
+          type: 'event_callback',
+          event: { type: 'message', channel_type: 'im', text: 'do you ship to Ireland?', user: 'U9', channel: 'D1', ts: '1' },
+        }),
+      ),
+    )
+    await pending.settled()
+    expect(sent).toEqual([1])
+  })
+
+  it('keeps a whole direct message exchange as one conversation', async () => {
+    const { agent, store } = await agentFor()
+    const pending = collector()
+    const handle = slackChannel({ agent, ...base, waitUntil: pending.waitUntil, send: async () => {} })
+
+    const dm = (ts: string, text: string) =>
+      JSON.stringify({
+        type: 'event_callback',
+        event: { type: 'message', channel_type: 'im', text, user: 'U9', channel: 'D1', ts },
+      })
+
+    // Two messages typed one after the other. Each carries its own ts, so
+    // keying on it would have made the second question a stranger.
+    await handle(await post(dm('1', 'do you ship to Ireland?')))
+    await pending.settled()
+    await handle(await post(dm('2', 'and how long does it take?')))
+    await pending.settled()
+
+    const found = await store.getConversation('slack:D1')
+    expect(found?.messages.filter((message) => message.role === 'user').map((message) => message.content)).toEqual([
+      'do you ship to Ireland?',
+      'and how long does it take?',
+    ])
+  })
+
+  it('answers in the direct message itself, not folded into a thread', async () => {
+    const sent: Array<string | undefined> = []
+    const { agent } = await agentFor()
+    const pending = collector()
+    const handle = slackChannel({
+      agent,
+      ...base,
+      waitUntil: pending.waitUntil,
+      send: async (_channel, _text, threadTs) => void sent.push(threadTs),
+    })
+
+    await handle(
+      await post(
+        JSON.stringify({
+          type: 'event_callback',
+          event: { type: 'message', channel_type: 'im', text: 'hello?', user: 'U9', channel: 'D1', ts: '1' },
+        }),
+      ),
+    )
+    await pending.settled()
+    expect(sent).toEqual([undefined])
+  })
+
+  it('still answers inside a thread when the question was asked in one', async () => {
+    const sent: Array<string | undefined> = []
+    const { agent } = await agentFor()
+    const pending = collector()
+    const handle = slackChannel({
+      agent,
+      ...base,
+      waitUntil: pending.waitUntil,
+      send: async (_channel, _text, threadTs) => void sent.push(threadTs),
+    })
+
+    await handle(
+      await post(
+        JSON.stringify({
+          type: 'event_callback',
+          event: { type: 'message', channel_type: 'im', text: 'following up', user: 'U9', channel: 'D1', ts: '2', thread_ts: '1' },
+        }),
+      ),
+    )
+    await pending.settled()
+    expect(sent).toEqual(['1'])
+  })
+
   it('strips the bot handle so the model does not read it as the question', async () => {
     const { agent, store } = await agentFor()
     const pending = collector()
@@ -476,6 +568,116 @@ describe('Slack', () => {
 
     const found = await store.getConversation('slack:C1:2')
     expect(found?.messages[0]?.content).toBe('refunds please')
+  })
+})
+
+describe('what Twilio says when a send fails', () => {
+  async function sendFailing(code: number, message: string) {
+    const { agent } = await agentFor()
+    const pending = collector()
+    const errors: unknown[] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ code, message }), { status: 400 }),
+    )
+
+    const handle = twilioChannel({
+      agent,
+      authToken: 'auth-token',
+      from: '+15551112222',
+      accountSid: 'AC1',
+      publicUrl: 'https://shop.example/webhooks/sms',
+      waitUntil: pending.waitUntil,
+      onError: (error) => void errors.push(error),
+    })
+
+    const body = new URLSearchParams({ From: '+15559998888', Body: 'do you do refunds?' }).toString()
+    await handle(
+      new Request('https://shop.example/webhooks/sms', {
+        method: 'POST',
+        headers: {
+          'x-twilio-signature': await signTwilio('https://shop.example/webhooks/sms', { From: '+15559998888', Body: 'do you do refunds?' }, 'auth-token'),
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body,
+      }),
+    )
+    await pending.settled()
+
+    fetchSpy.mockRestore()
+    spy.mockRestore()
+    return String((errors[0] as Error)?.message ?? '')
+  }
+
+  // The one that reads as a bug and is not. Retrying an opt-out is wrong, and
+  // in several countries unlawful, so the message has to say so rather than
+  // leave a number in a log.
+  it('says a STOP is an opt-out, not a failure to retry', async () => {
+    const said = await sendFailing(21610, 'The message From/To pair violates a blacklist rule.')
+    expect(said).toContain('texted STOP')
+    expect(said).toContain('Do not retry')
+    expect(said).toContain('START')
+  })
+
+  // What a trial account really returns, taken from a live send rather than
+  // from the error list, which describes a different code for this case and
+  // does not mention this one at all.
+  it('explains the trial error Twilio actually sends', async () => {
+    const said = await sendFailing(
+      572002,
+      "No Twilio trial phone number is assigned for messaging to this destination number. Please add the 'to' number as a verified recipient.",
+    )
+    expect(said).toContain('verified recipients')
+    expect(said).toContain('needs a trial phone number of its own')
+    // Twilio's message ends in a full stop and ours continues the sentence.
+    expect(said).not.toContain('..')
+  })
+
+  it('says where to verify a number on a trial account', async () => {
+    const said = await sendFailing(21608, 'The number is unverified.')
+    expect(said).toContain('Verified Caller IDs')
+  })
+
+  it('names geo permissions rather than leaving a bare code', async () => {
+    const said = await sendFailing(21408, 'Permission to send an SMS has not been enabled.')
+    expect(said).toContain('Geo permissions')
+  })
+
+  it('still reports a code it has nothing to add to', async () => {
+    const said = await sendFailing(30007, 'Message filtered.')
+    expect(said).toContain('Message filtered')
+  })
+})
+
+describe('an answer too long for one SMS', () => {
+  const long = 'Delivery to the United Kingdom takes one to two working days. '.repeat(40)
+
+  it('is sent as several messages rather than cut short', () => {
+    const parts = split(long)
+    expect(parts.length).toBeGreaterThan(1)
+    expect(parts.every((part) => part.length <= 1600)).toBe(true)
+  })
+
+  it('loses not one word of the answer', () => {
+    const normalise = (text: string) => text.replace(/\s+/g, ' ').trim()
+    expect(normalise(split(long).join(' '))).toBe(normalise(long))
+  })
+
+  it('breaks between sentences, not through a word', () => {
+    expect(split(long).every((part) => part.endsWith('.'))).toBe(true)
+  })
+
+  it('leaves a short answer as one message', () => {
+    expect(split('Yes, we ship to Ireland.')).toEqual(['Yes, we ship to Ireland.'])
+  })
+
+  it('still sends something when there is no break to be found', () => {
+    // No spaces at all, so every candidate boundary is missing. The answer
+    // still has to arrive, even if the seam lands mid-word.
+    const parts = split('x'.repeat(4000))
+    expect(parts.join('')).toBe('x'.repeat(4000))
+    expect(parts.every((part) => part.length <= 1600)).toBe(true)
   })
 })
 
