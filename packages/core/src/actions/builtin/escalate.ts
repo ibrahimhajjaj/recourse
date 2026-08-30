@@ -72,6 +72,34 @@ const BASE_FIELDS: ActionField[] = [
   },
 ]
 
+
+/** How much of the conversation goes on the ticket. */
+const CARRIED = 20
+
+/**
+ * What was actually said, for the person picking the ticket up.
+ *
+ * The agent writes the body from what it understood, which is the thing most
+ * worth double checking when it has just given up. Without this an agent reads
+ * a summary of a conversation it cannot see and asks the customer to explain
+ * it a third time.
+ */
+async function transcriptOf(ctx: ActionContext): Promise<string | undefined> {
+  if (!ctx.store || !ctx.conversationId) return undefined
+
+  try {
+    const thread = await ctx.store.getConversation(ctx.conversationId)
+    const said = (thread?.messages ?? [])
+      .slice(-CARRIED)
+      .map((message) => `${message.role === 'user' ? 'Customer' : 'Agent'}: ${message.content}`)
+
+    return said.length > 0 ? said.join('\n') : undefined
+  } catch {
+    // A store that cannot be read costs the transcript, not the ticket.
+    return undefined
+  }
+}
+
 /**
  * Hands the conversation to a person.
  *
@@ -104,6 +132,7 @@ export function escalate(options: EscalateOptions): Action {
         email: input.email ? String(input.email) : ctx.contact?.email,
         name: input.name ? String(input.name) : ctx.contact?.name,
         conversationId: ctx.conversationId,
+        transcript: await transcriptOf(ctx),
       }
 
       let id: string | undefined

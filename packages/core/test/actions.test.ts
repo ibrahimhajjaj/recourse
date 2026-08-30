@@ -13,6 +13,7 @@ import {
   suggestedMessages,
   webSearch,
 } from '../src/actions/index.js'
+import { memoryStore } from '../src/store/memory.js'
 import type { ActionContext } from '../src/actions/types.js'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
@@ -167,6 +168,38 @@ describe('escalation', () => {
     expect(tickets[0]?.priority).toBe('normal')
   })
 
+  it('puts what was actually said on the ticket', async () => {
+    // The body is the agent's own summary, written at the moment it gave up.
+    // The person picking the ticket up needs the conversation itself, or they
+    // ask the customer to explain it for the third time.
+    const tickets: Array<{ transcript?: string }> = []
+    const store = memoryStore()
+
+    const said = (role: 'user' | 'assistant', content: string) => ({
+      id: `m_${role}_${content.length}`,
+      role,
+      content,
+      createdAt: new Date().toISOString(),
+    })
+
+    await store.appendMessage('c_esc', said('user', 'my grinder arrived broken'))
+    await store.appendMessage('c_esc', said('assistant', 'I am sorry to hear that.'))
+
+    const action = escalate({ createTicket: (ticket) => void tickets.push(ticket) })
+    await action.execute?.({ subject: 's', body: 'b' }, { ...ctx(), store, conversationId: 'c_esc' })
+
+    expect(tickets[0]?.transcript).toContain('Customer: my grinder arrived broken')
+    expect(tickets[0]?.transcript).toContain('Agent: I am sorry to hear that.')
+  })
+
+  it('leaves the transcript off when there is no store to read', async () => {
+    const tickets: Array<{ transcript?: string }> = []
+    const action = escalate({ createTicket: (ticket) => void tickets.push(ticket) })
+    await action.execute?.({ subject: 's', body: 'b' }, ctx())
+
+    expect(tickets[0]?.transcript).toBeUndefined()
+  })
+
   it('uses the known contact when the model did not collect an email', async () => {
     const tickets: Array<{ email?: string }> = []
     const action = escalate({ createTicket: (ticket) => void tickets.push(ticket) })
@@ -206,6 +239,35 @@ describe('http action', () => {
         'https://api.example/orders/A%201%2F2',
       )
       expect(result).toMatchObject({ status: 'shipped' })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  // The value between the braces comes from the customer, through a model that
+  // will repeat whatever they say. The host in the template is the only thing
+  // standing between that and a request to somewhere else entirely.
+  it.each([
+    ['../../admin', 'https://api.example/orders/..%2F..%2Fadmin'],
+    ['https://evil.example/steal', 'https://api.example/orders/https%3A%2F%2Fevil.example%2Fsteal'],
+    ['1?admin=true', 'https://api.example/orders/1%3Fadmin%3Dtrue'],
+    ['1#fragment', 'https://api.example/orders/1%23fragment'],
+    ['@evil.example', 'https://api.example/orders/%40evil.example'],
+  ])('cannot be talked out of its own host with %j', async (orderId, expected) => {
+    const fetchSpy = mockFetch({ status: 'shipped' })
+    globalThis.fetch = fetchSpy
+    try {
+      const action = httpAction({
+        name: 'order_status',
+        whenToUse: 'x',
+        collect: [{ name: 'orderId', type: 'string', description: 'x' }],
+        url: 'https://api.example/orders/{{orderId}}',
+      })
+      await action.execute?.({ orderId }, ctx())
+
+      const called = (fetchSpy as unknown as { mock: { calls: string[][] } }).mock.calls[0]?.[0] as string
+      expect(called).toBe(expected)
+      expect(new URL(called).host).toBe('api.example')
     } finally {
       globalThis.fetch = originalFetch
     }
