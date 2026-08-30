@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createApiHandler } from '../src/api/index.js'
 import { createHelpdesk } from '../src/helpdesk/index.js'
 import { memoryStore } from '../src/store/index.js'
@@ -95,7 +95,51 @@ describe('authentication', () => {
   })
 
   it('is open when no tokens are configured', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect((await setup().handle(get('/health'))).status).toBe(200)
+    warn.mockRestore()
+  })
+
+  // Open is a legitimate choice behind a private network and a catastrophe
+  // anywhere else, and the difference is invisible from inside the process.
+  it('says so out loud when it is mounted with no tokens', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setup()
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    const said = String(warn.mock.calls[0]?.[0])
+    expect(said).toContain('no tokens')
+    expect(said).toContain('every conversation, lead and ticket')
+    warn.mockRestore()
+  })
+
+  it('stays quiet when tokens are configured', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setup({ tokens: ['secret'] })
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('accepts any of several, so a token can be rotated without an outage', async () => {
+    const { handle } = setup({ tokens: ['old', 'new'] })
+    expect((await handle(get('/health', 'old'))).status).toBe(200)
+    expect((await handle(get('/health', 'new'))).status).toBe(200)
+  })
+
+  // Length is the one thing a constant-time compare is allowed to leak, and
+  // these are the shapes that a `startsWith` or an early return would let in.
+  it('refuses a token that is only a prefix of a real one', async () => {
+    const { handle } = setup({ tokens: ['secret'] })
+    expect((await handle(get('/health', 'sec'))).status).toBe(401)
+    expect((await handle(get('/health', 'secretly'))).status).toBe(401)
+  })
+
+  it('refuses an empty bearer', async () => {
+    const { handle } = setup({ tokens: ['secret'] })
+    const response = await handle(
+      new Request('https://api.example/health', { headers: { authorization: 'Bearer ' } }),
+    )
+    expect(response.status).toBe(401)
   })
 })
 

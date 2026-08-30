@@ -6,6 +6,7 @@ import { corsHeaders, type CorsOptions } from '../server/cors.js'
 import { createRouter } from './router.js'
 import { badRequest, fail, json, notFound, ok, pageParams, readJson } from './http.js'
 import { ADMIN_PAGE } from './admin.js'
+import { safeEqual } from '../util/compare.js'
 
 export interface ApiOptions {
   store: Store
@@ -44,6 +45,18 @@ export function createApiHandler(options: ApiOptions) {
   const { store } = options
   const router = createRouter()
   const base = (options.basePath ?? '').replace(/\/+$/, '')
+
+  // Said once, at mount, because the alternative is finding out from somebody
+  // else. This serves whole conversations, captured leads and tickets, and
+  // without a token it serves them to anybody who guesses the path. Behind a
+  // private network that is a reasonable thing to want, which is why this is a
+  // warning rather than a refusal.
+  if (!options.tokens?.length) {
+    console.warn(
+      '[helpdeck] the management API is mounted with no tokens, so anything that can reach it can ' +
+        'read every conversation, lead and ticket. Pass `tokens` unless it is on a network only you can reach.',
+    )
+  }
 
   router.get('/health', async () => ok({ status: 'ok', store: store.name }))
 
@@ -400,7 +413,15 @@ export function createApiHandler(options: ApiOptions) {
 
     if (options.tokens?.length) {
       const presented = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
-      if (!presented || !options.tokens.includes(presented)) {
+
+      // Compared the same way every signature in this library is, rather than
+      // with `includes`, which stops at the first wrong character and so takes
+      // longer the more of the token is right. This endpoint hands back
+      // conversations, leads and tickets, so it is the last place to use a
+      // weaker comparison than the webhooks do.
+      const allowed = presented ? options.tokens.some((token) => safeEqual(token, presented)) : false
+
+      if (!allowed) {
         return withCors(fail('unauthorized', 'a valid bearer token is required', 401), cors)
       }
     }
