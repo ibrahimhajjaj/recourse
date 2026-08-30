@@ -404,7 +404,12 @@ export function createAgent(options: AgentOptions) {
     const outputContext = {
       conversationId,
       sources: matches.map((match) => match.chunk.text),
-      asked: messages.map((message) => message.content),
+      // The customer's own words only. The agent's previous turns are in here
+      // too now that channels carry history, and counting those as grounding
+      // means a price it invented an hour ago is evidence for repeating it:
+      // the check would go quiet exactly where a hallucination has had time to
+      // settle in.
+      asked: messages.filter((message) => message.role === 'user').map((message) => message.content),
     }
 
     for await (const part of result.fullStream) {
