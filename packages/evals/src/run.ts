@@ -152,6 +152,13 @@ async function runCase(
     model: options.model,
     embedder: embedder ?? false,
     topK: options.topK ?? 6,
+    // A suite that samples cannot detect a regression. At the provider's
+    // default temperature an intermittent failure is recorded as a pass or a
+    // fail at random, and two such runs compared against each other produce a
+    // conclusion neither supports. This measured 2 in 6 on one injection case,
+    // which is the difference between a green suite and a red one on the same
+    // build.
+    temperature: 0,
     actions: log.actions,
     persona: { name: 'Nadia', business: 'Lumen Coffee Roasters', fallback: FALLBACK },
   })

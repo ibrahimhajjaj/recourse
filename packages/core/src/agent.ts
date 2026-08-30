@@ -29,6 +29,19 @@ export interface AgentOptions {
   /** A Gateway model id, or any provider instance. */
   model?: LanguageModel
   persona?: PersonaOptions
+  /**
+   * How much the model is allowed to vary between identical questions.
+   *
+   * Left to the provider by default, which is what a support agent wants: a
+   * little variety stops every refusal reading like the same recording.
+   *
+   * Set it to 0 to measure. A suite that samples a model at its default
+   * temperature cannot tell a regression from a coin flip, and this library's
+   * own classifier pins temperature for exactly that reason. An intermittent
+   * failure recorded once shows as a pass or a fail at random, and comparing
+   * two such runs invites a conclusion neither of them supports.
+   */
+  temperature?: number
   /** Passages given to the model per question. */
   topK?: number
   /**
@@ -342,6 +355,7 @@ export function createAgent(options: AgentOptions) {
 
     const result = streamText({
       model,
+      ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
       instructions: (options.prompt ?? buildInstructions)(instructionContext),
       messages: messages.map((message, position) => {
         // The file parts belong on the message they arrived with, which is the
