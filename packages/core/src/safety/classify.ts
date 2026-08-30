@@ -110,9 +110,15 @@ export function createClassifier(policy: ClassifierPolicy = {}): Classifier {
   const inputRules = policy.rules ? [...INPUT_RULES, ...policy.rules] : INPUT_RULES
   const outputRules = policy.rules ? [...OUTPUT_RULES, ...policy.rules] : OUTPUT_RULES
 
+  // On unless it is turned off. The detectors that catch a leaked key or the
+  // agent reciting its own instructions can only record when this is off, and
+  // a defence that ships inert is worse than one that is absent, because it
+  // reads as cover. Screening a sentence at a time keeps the answer streaming.
+  const screens = policy.output ?? true
+
   return {
-    checksOutput: policy.output === true || policy.output === 'buffer',
-    buffers: policy.output === 'buffer',
+    checksOutput: screens === true || screens === 'buffer',
+    buffers: screens === 'buffer',
     check: (text, context = {}) => decide(text, inputRules, { stage: 'input', ...context }),
     checkOutput: (text, context = {}) => decide(text, outputRules, { stage: 'output', ...context }),
   }

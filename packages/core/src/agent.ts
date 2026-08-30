@@ -246,6 +246,11 @@ export function createAgent(options: AgentOptions) {
     messages: Message[],
     call: StreamOptions,
     onMatches: (matches: Match[]) => void,
+    // `answer()` collects the frames and hands back one string, so nothing has
+    // reached anybody when a withhold fires partway. The streaming case has to
+    // leave the sentences it already sent alone; this one does not, and
+    // truncating there would deliver most of a bad answer with no explanation.
+    buffered = false,
   ): AsyncGenerator<StreamFrame> {
     const signal = call.signal
     const conversationId = call.conversationId ?? options.conversationId ?? newId('c')
@@ -396,11 +401,19 @@ export function createAgent(options: AgentOptions) {
     // is how a business finds out its agent invented a price, so that happens
     // whenever a classifier exists.
     const checksOutput = classifier?.checksOutput === true
-    const buffering = classifier?.buffers === true
+    // Releasing a sentence at a time only pays off for a reader watching it
+    // arrive. `answer()` collects every frame and returns one string, so there
+    // nothing is on screen to keep warm, and holding the answer back until it
+    // has been screened whole is both cheaper and the only way a withhold can
+    // replace it rather than truncate it.
+    const buffering = classifier?.buffers === true || buffered
 
     // What the answer is allowed to have got its facts from: the passages it
     // was given, and what the customer already told us. A number outside both
     // came from somewhere the agent cannot cite.
+    // Kept from the screening passes so the transcript records them too.
+    let noticed: Signal[] = []
+
     const outputContext = {
       conversationId,
       sources: matches.map((match) => match.chunk.text),
@@ -428,6 +441,7 @@ export function createAgent(options: AgentOptions) {
           const boundary = lastBoundary(answered)
           if (boundary > checkedTo) {
             const verdict = await classifier.checkOutput(answered.slice(0, boundary), outputContext)
+            noticed = verdict.signals
             if (blocks(verdict)) {
               withheld = verdict
               break
@@ -465,6 +479,7 @@ export function createAgent(options: AgentOptions) {
       // The tail after the last sentence boundary, and the whole answer when
       // buffering. Either way this is the last chance to look at it.
       const verdict = await classifier.checkOutput(answered, outputContext)
+      noticed = verdict.signals
       if (blocks(verdict)) withheld = verdict
       else {
         yield { type: 'delta', text: answered.slice(released) }
@@ -495,10 +510,13 @@ export function createAgent(options: AgentOptions) {
       )
     }
 
-    // The answer nobody gated, looked at once it is finished. Blocking actions
-    // are ignored here: the customer has already read it, and pretending
-    // otherwise would be a lie. What this produces is a record.
-    let flagged: Signal[] = []
+    // Whatever the screening noticed reaches the transcript either way. When
+    // gating is off the answer is looked at here instead, once it is finished:
+    // blocking actions are ignored at that point, because the customer has
+    // already read it and pretending otherwise would be a lie. What is left is
+    // the record, and a category set to `flag` rather than `refuse` produces
+    // nothing else, so losing it would leave the business nothing to read.
+    let flagged: Signal[] = noticed
     if (classifier && !checksOutput && answered.trim()) {
       const verdict = await classifier.checkOutput(answered, outputContext)
       flagged = verdict.signals
@@ -620,9 +638,14 @@ export function createAgent(options: AgentOptions) {
     let matches: Match[] = []
     const notices: string[] = []
 
-    for await (const frame of run(toMessages(question, history), call, (found) => {
-      matches = found
-    })) {
+    for await (const frame of run(
+      toMessages(question, history),
+      call,
+      (found) => {
+        matches = found
+      },
+      true,
+    )) {
       if (frame.type === 'delta') text += frame.text
       else if (frame.type === 'sources') sources = frame.sources
       else if (frame.type === 'error') error = frame.message
@@ -642,6 +665,11 @@ export function createAgent(options: AgentOptions) {
   // Returned as plain functions, not object methods, so destructuring one of
   // them off the agent keeps working.
   return {
+    /** Retrieval on its own, when you want the passages rather than an answer. */
+    search: (question: string, history: Message[] = [], signal?: AbortSignal) =>
+      search(toMessages(question, history), signal),
+    stream,
+    answer,
     /**
      * The store it was built with, if any.
      *
@@ -651,11 +679,6 @@ export function createAgent(options: AgentOptions) {
      * transcript holds.
      */
     store: options.store,
-    /** Retrieval on its own, when you want the passages rather than an answer. */
-    search: (question: string, history: Message[] = [], signal?: AbortSignal) =>
-      search(toMessages(question, history), signal),
-    stream,
-    answer,
   }
 }
 
@@ -665,10 +688,28 @@ export function createAgent(options: AgentOptions) {
  * Checking a partial sentence is checking text the model has not finished
  * writing, which produces verdicts on things that were never said.
  */
+/**
+ * Stops in the scripts this agent is told to reply in, plus the ideographic
+ * and Arabic ones that carry no trailing space. Latin stops need a space or
+ * the end of the text after them, or every decimal point and "e.g." would end
+ * a sentence; the others are unambiguous on their own.
+ */
+const STOPS = '.!?'
+const STOPS_ALONE = '。！？؟۔।॥…'
+
 function lastBoundary(text: string): number {
   for (let index = text.length - 1; index >= 0; index--) {
     const character = text[index] as string
-    if (character !== '.' && character !== '!' && character !== '?') continue
+
+    if (STOPS_ALONE.includes(character)) return index + 1
+
+    // A line that has ended is a complete thought too, and it is the only
+    // boundary a list, a table or a fenced code block ever offers. Without it
+    // an answer made of bullets is screened as one block at the very end,
+    // which turns streaming off for that answer and says nothing.
+    if (character === '\n') return index + 1
+
+    if (!STOPS.includes(character)) continue
     // A stop only ends a sentence if something follows it, or nothing does.
     const next = text[index + 1]
     if (next === undefined || /\s/.test(next)) return index + 1

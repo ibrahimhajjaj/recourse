@@ -57,6 +57,27 @@ function countingModel(text = 'Delivery to Ireland takes about a week [1].') {
   return { model, calls: () => calls }
 }
 
+/** A model whose chunk boundaries the test chooses, rather than spaces. */
+function chunkedModel(chunks: string[]) {
+  return new MockLanguageModelV4({
+    doStream: async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: 'text-start' as const, id: '0' },
+          ...chunks.map((delta) => ({ type: 'text-delta' as const, id: '0', delta })),
+          { type: 'text-end' as const, id: '0' },
+          {
+            type: 'finish' as const,
+            finishReason: { unified: 'stop', raw: 'stop' } as const,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          },
+        ],
+        chunkDelayInMs: 0,
+      }),
+    }),
+  })
+}
+
 /** Captures what the SDK was handed, for asserting on what reached the prompt. */
 function recordingModel(text = 'Orders ship within two business days [1].') {
   const calls: Array<{ prompt: unknown }> = []
@@ -422,7 +443,7 @@ describe('screening an answer', () => {
     expect(result.text).toBe('Delivery to Ireland takes about a week [1].')
   })
 
-  it('looks at the finished answer by default, but never withholds it', async () => {
+  it('screens the answer by default, and will not hand over a key', async () => {
     const checked: string[] = []
     const { model } = countingModel('Your key is sk-abcdefghijklmnopqrstuvwxyz012345.')
     const agent = createAgent({
@@ -434,12 +455,66 @@ describe('screening an answer', () => {
 
     const result = await agent.answer('how long is delivery?')
 
-    // Both stages run: looking at the answer costs microseconds and is how a
-    // business learns its agent is guessing.
-    expect(checked).toEqual(['input', 'output'])
-    // But nothing is gated without `output`, so the answer arrives whole and
-    // streaming stays word-by-word. The leak getting through is the cost of
-    // that default, stated here so it cannot change unnoticed.
+    expect(checked[0]).toBe('input')
+    expect(checked).toContain('output')
+    // The whole point of the default. A detector that fires and lets the
+    // answer through anyway is cover, not a defence.
+    expect(result.text).not.toContain('sk-abcdefghij')
+  })
+
+  it('replaces the whole answer when the leak is in a later sentence', async () => {
+    // Two sentences, and only the second one leaks. Streaming would already
+    // have sent the first, but `answer()` hands back one string that nobody
+    // has seen yet, so the customer must not receive most of a bad answer with
+    // the interesting half quietly missing and nothing to say why.
+    const { model } = countingModel(
+      'Delivery takes about a week. Your key is sk-abcdefghijklmnopqrstuvwxyz012345.',
+    )
+    const agent = createAgent({ index: await index(), model, embedder: false })
+
+    const result = await agent.answer('how long is delivery?')
+
+    expect(result.text).not.toContain('sk-abcdefghij')
+    expect(result.text).not.toContain('Delivery takes about a week')
+    expect(result.text.length).toBeGreaterThan(0)
+  })
+
+  it('keeps streaming an answer that has no full stop in it', async () => {
+    // Screening releases up to the last boundary, so a script whose stop is
+    // not one of the three ASCII ones, or an answer made of bullets, used to
+    // find no boundary at all and arrive in one piece at the very end. That
+    // turns streaming off for the languages the agent is told to reply in,
+    // and reports nothing while doing it.
+    const answers = [
+      ['配送は', '3〜5営業日', 'かかります。', 'ほかに', 'ご質問は', 'ありますか。'],
+      ['- one\n', '- two\n', '- three\n'],
+    ]
+
+    for (const chunks of answers) {
+      const agent = createAgent({ index: await index(), model: chunkedModel(chunks), embedder: false })
+
+      let deltas = 0
+      for await (const frame of agent.stream('how long is delivery?')) {
+        if (frame.type === 'delta') deltas += 1
+      }
+
+      expect(deltas, chunks.join('')).toBeGreaterThan(1)
+    }
+  })
+
+  it('can be told not to gate, and then only records', async () => {
+    const { model } = countingModel('Your key is sk-abcdefghijklmnopqrstuvwxyz012345.')
+    const agent = createAgent({
+      index: await index(),
+      model,
+      embedder: false,
+      classifier: { output: false },
+    })
+
+    const result = await agent.answer('how long is delivery?')
+
+    // Opting out buys word-by-word streaming and costs exactly this: the
+    // answer is still looked at, but only after the customer has read it.
     expect(result.text).toContain('sk-abcdefghij')
   })
 
@@ -459,6 +534,27 @@ describe('screening an answer', () => {
     expect(answer?.flags?.[0]?.reason).toContain('45')
     // Recorded, not blocked: the customer still got the answer.
     expect(answer?.content).toContain('45 days')
+  })
+
+  it('does not treat its own earlier answer as grounding', async () => {
+    const store = memoryStore()
+    const { model } = countingModel('Delivery takes 45 days.')
+    const agent = createAgent({ index: await index(), model, embedder: false, store })
+
+    // The same invented figure, on a second turn, with the first one now in
+    // the history the channels carry. Grounding on its own previous answer
+    // would make the number look sourced and the flag would quietly stop.
+    const history = [
+      { role: 'user' as const, content: 'how long does delivery take?' },
+      { role: 'assistant' as const, content: 'Delivery takes 45 days.' },
+    ]
+
+    await agent.answer('are you sure about that?', history, { conversationId: 'c_again' })
+
+    const found = await store.getConversation('c_again')
+    const answer = found?.messages.find((m) => m.role === 'assistant')
+
+    expect(answer?.flags?.map((flag) => flag.category)).toContain('ungrounded')
   })
 })
 
