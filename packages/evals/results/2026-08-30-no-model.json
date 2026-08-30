@@ -1,0 +1,188 @@
+{
+  "model": "no-model",
+  "recordedAt": "2026-08-30T13:02:46.684Z",
+  "cases": [
+    {
+      "id": "ret-delivery-time",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-delivery-ireland",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-delivery-cost",
+      "suite": "retrieval",
+      "passed": false,
+      "known": "Needs vectors. The shipping page says 'delivery' and never 'postage'; only the returns page uses the word.",
+      "failures": [
+        "did not retrieve shipping (got returns)"
+      ],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-tracking",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-refund",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-refund-paraphrase",
+      "suite": "retrieval",
+      "passed": false,
+      "known": "Needs vectors. No keyword index can connect 'money back' to a page that only says 'refund'.",
+      "failures": [
+        "did not retrieve returns (got nothing)"
+      ],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-damaged",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-engraved",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-pause",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-pausing-stem",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-cancel",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-sub-discount",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-grind-french",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-ethiopia",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-freshness",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-signin",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-delete",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-address",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 1
+    },
+    {
+      "id": "ret-wholesale",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-wholesale-minimum",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-nothing",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-nothing-weather",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    }
+  ]
+}
