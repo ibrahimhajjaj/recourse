@@ -69,26 +69,44 @@ async function send(url: string, init: RequestInit, desk: string): Promise<any> 
 export interface ZendeskOptions {
   /** The bit before `.zendesk.com`. */
   subdomain: string
-  /** The agent email the API token belongs to. */
-  email: string
-  apiToken: string
+  /**
+   * An OAuth access token, which is the way Zendesk wants this done.
+   *
+   * Zendesk is retiring API tokens: existing ones stop working on 30 April
+   * 2027, and accounts created after the announcement have no button to make
+   * one, so this is the only route available on a new account.
+   */
+  accessToken?: string
+  /** The agent email the API token belongs to. Not needed with a token. */
+  email?: string
+  /** Deprecated by Zendesk rather than by us. Use `accessToken` on anything new. */
+  apiToken?: string
 }
 
 /**
  * Zendesk.
  *
- * Basic auth, and the username is `{email}/token` rather than the email. Get
- * that wrong and it answers 401 with nothing to say about why.
+ * Two ways in, because Zendesk changed its mind about the first one. With an
+ * OAuth access token it is a bearer header like everything else. With an API
+ * token it is basic auth, and the username is `{email}/token` rather than the
+ * email, which answers 401 with nothing to say about why when you get it
+ * wrong.
  */
 export function zendesk(options: ZendeskOptions): CreateTicket {
-  const auth = btoa(`${options.email}/token:${options.apiToken}`)
+  if (!options.accessToken && !(options.email && options.apiToken)) {
+    throw new Error('zendesk needs either an accessToken or both an email and an apiToken')
+  }
+
+  const authorization = options.accessToken
+    ? `Bearer ${options.accessToken}`
+    : `Basic ${btoa(`${options.email}/token:${options.apiToken}`)}`
 
   return async (ticket) => {
     const body = await send(
       `https://${options.subdomain}.zendesk.com/api/v2/tickets.json`,
       {
         method: 'POST',
-        headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: authorization, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticket: {
             subject: ticket.subject,

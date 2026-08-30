@@ -6,11 +6,13 @@
  * a field renamed since the docs were written passes every one of those tests
  * and fails the first real ticket. This opens a real one.
  *
- *   ZENDESK_SUBDOMAIN=acme ZENDESK_EMAIL=you@example.com \
- *     ZENDESK_API_TOKEN=... npx tsx src/live-zendesk.mts
+ *   ZENDESK_SUBDOMAIN=acme ZENDESK_ACCESS_TOKEN=... npx tsx src/live-zendesk.mts
  *
- * An API token comes from Admin Center, Apps and integrations, Zendesk API,
- * then Add API token. It is shown once.
+ * The token is an OAuth access token. Zendesk is retiring API tokens: the
+ * existing ones stop working on 30 April 2027 and an account created after
+ * that was announced has no button to make one, so the API tokens page offers
+ * nothing but the notice. An OAuth client is made under Admin Center, Apps and
+ * integrations, OAuth clients.
  *
  * Nothing here deletes the ticket it makes. A support queue with one test
  * ticket in it is a smaller problem than a script that can delete tickets, and
@@ -29,10 +31,9 @@ const need = (name: string): string => {
 
 async function main(): Promise<void> {
   const subdomain = need('ZENDESK_SUBDOMAIN')
-  const email = need('ZENDESK_EMAIL')
-  const apiToken = need('ZENDESK_API_TOKEN')
+  const accessToken = need('ZENDESK_ACCESS_TOKEN')
 
-  const createTicket = zendesk({ subdomain, email, apiToken })
+  const createTicket = zendesk({ subdomain, accessToken })
   const marker = `helpdeck live check ${new Date().toISOString()}`
 
   // Through the action rather than the connector alone, because the action is
@@ -57,9 +58,8 @@ async function main(): Promise<void> {
   // Read back rather than trusted. A 201 with an id proves the request was
   // shaped right; only fetching it proves the fields arrived where they were
   // meant to go.
-  const auth = btoa(`${email}/token:${apiToken}`)
   const response = await fetch(`https://${subdomain}.zendesk.com/api/v2/tickets/${result.ticketId}.json`, {
-    headers: { Authorization: `Basic ${auth}` },
+    headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!response.ok) throw new Error(`could not read the ticket back: ${response.status}`)
 

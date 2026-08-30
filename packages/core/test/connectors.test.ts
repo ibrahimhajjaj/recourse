@@ -244,6 +244,40 @@ describe('every connector', () => {
     }
   })
 
+  it('authenticates with a bearer token when given one', async () => {
+    // The way Zendesk wants it done. API tokens stop working on 30 April 2027
+    // and a new account has no button to create one, so basic auth is not a
+    // route anybody can still take.
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ticket: { id: 7 } }), { status: 201 }),
+    )
+
+    await zendesk({ subdomain: 'l', accessToken: 'oauth-abc' })(ticket, ctx)
+
+    const sent = spy.mock.calls[0]?.[1] as RequestInit
+    expect((sent.headers as Record<string, string>).Authorization).toBe('Bearer oauth-abc')
+    spy.mockRestore()
+  })
+
+  it('still takes the older email and api token pair', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ticket: { id: 8 } }), { status: 201 }),
+    )
+
+    await zendesk({ subdomain: 'l', email: 'a@b.co', apiToken: 't' })(ticket, ctx)
+
+    const sent = spy.mock.calls[0]?.[1] as RequestInit
+    expect((sent.headers as Record<string, string>).Authorization).toBe(`Basic ${btoa('a@b.co/token:t')}`)
+    spy.mockRestore()
+  })
+
+  it('refuses to be built with neither', () => {
+    // Half-configured, it would send an Authorization header of the word
+    // "Basic" and a base64 "undefined/token:undefined", and the 401 would be
+    // read as bad credentials rather than as missing ones.
+    expect(() => zendesk({ subdomain: 'l' })).toThrow(/accessToken|apiToken/)
+  })
+
   it('logs why a desk refused, and tells the model only the status', async () => {
     // The body is the only thing that explains a 422, so an operator needs it.
     // The thrown message is different: it becomes the tool result, the model is
