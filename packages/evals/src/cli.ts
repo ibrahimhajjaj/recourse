@@ -8,6 +8,7 @@
  */
 
 import { mkdir, readdir, writeFile } from 'node:fs/promises'
+import { readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
@@ -16,6 +17,21 @@ import { headroom, tooTightToRun, unload } from './machine.js'
 import type { LanguageModel } from './types.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * The suites that exist, read rather than listed.
+ *
+ * Written out by hand this went stale the moment a suite was added, and help
+ * text that names three of four is worse than none: it is read as the complete
+ * list and the fourth is never run.
+ */
+function suiteNames(): string {
+  return readdirSync(join(ROOT, 'suites'))
+    .filter((file) => file.endsWith('.jsonl'))
+    .map((file) => file.replace(/\.jsonl$/, ''))
+    .sort()
+    .join(' | ')
+}
 
 const HELP = `
 helpdeck evals
@@ -31,7 +47,7 @@ Options
   --base-url <url>   An OpenAI-compatible endpoint (default a local Ollama on
                      http://localhost:11434/v1).
   --api-key <key>    For that endpoint. Ollama ignores it.
-  --suite <name>     grounding | injection | retrieval | all   (default all)
+  --suite <name>     ${suiteNames()} | all   (default all)
   --top-k <n>        Passages retrieved per question (default 6).
   --timeout <ms>     Per case (default 120000).
   --embed            Add vector search, using --base-url with
@@ -44,7 +60,7 @@ Options
   --force            Start even when memory is tight.
   --keep-loaded      Leave the model in memory afterwards. By default it is
                      unloaded, because the next thing you do needs the RAM.
-  --save             Write results/<date>-<model>.json.
+  --no-save          Skip writing results/<date>-<model>.json. Saved by default.
   --compare <file>   Compare against a recorded run and fail on a regression.
   --verbose          Print every case, not only the failures.
 `
@@ -134,7 +150,11 @@ async function main(): Promise<number> {
 
   report(runs, modelName, Date.now() - started)
 
-  if (flags.save) {
+  // On by default. A pass rate on its own is a number that cannot be argued
+  // with or learned from: the answers are where the next defect is, and the
+  // one that mattered most on this suite was found by reading a reply rather
+  // than a score. `--no-save` is there for a throwaway run.
+  if (!flags['no-save']) {
     const path = await save(runs, modelName)
     process.stdout.write(`\nWritten to ${path}\n`)
   }

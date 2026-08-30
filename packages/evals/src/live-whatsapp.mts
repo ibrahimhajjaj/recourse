@@ -107,13 +107,33 @@ if (mode === '--serve') {
     ],
   })
 
+  // The transcript is read back out of the store rather than logged on the way
+  // through, so what gets printed is what the library actually recorded. A
+  // reply is written after the response has already gone back to Meta, which
+  // is why this polls rather than printing inside the request.
+  const store = memoryStore()
+  const seen = new Set<string>()
+
+  setInterval(async () => {
+    const { items } = await store.listConversations({ limit: 20 })
+
+    for (const conversation of items) {
+      const thread = await store.getConversation(conversation.id)
+      for (const message of thread?.messages ?? []) {
+        if (seen.has(message.id)) continue
+        seen.add(message.id)
+        console.log(`  ${message.role === 'user' ? '<-' : '->'} ${message.content.replace(/\s+/g, ' ').slice(0, 300)}`)
+      }
+    }
+  }, 2000).unref()
+
   const handle = whatsappChannel({
     agent: createAgent({
       index,
       embedder: false,
-      store: memoryStore(),
+      store,
       model: models.fromEnvironment(env as Record<string, string | undefined>),
-      persona: { name: 'Ada', business: 'Lumen Coffee Roasters' },
+      persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.HELPDECK_TONE as 'plain') ?? 'warm' },
     }),
     appSecret: need('META_APP_SECRET'),
     verifyToken: need('META_VERIFY_TOKEN'),

@@ -12,7 +12,14 @@
     "test": "vitest run",
     "eval": "tsx src/cli.ts",
     "channels": "tsx src/channel-harness.mts",
-    "whatsapp": "tsx src/live-whatsapp.mts"
+    "whatsapp": "tsx src/live-whatsapp.mts",
+    "telegram": "tsx src/live-telegram.mts",
+    "discord": "tsx src/live-discord.mts",
+    "meta": "tsx src/live-meta.mts",
+    "slack": "tsx src/live-slack.mts",
+    "elevenlabs": "tsx src/live-elevenlabs.mts",
+    "twilio": "tsx src/live-twilio.mts",
+    "teams": "tsx src/live-teams.mts"
   },
   "dependencies": {
     "helpdeck": "workspace:*"
