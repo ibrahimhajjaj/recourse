@@ -1,3 +1,4 @@
+import { safeEqual } from '../util/compare.js'
 import { verifyMeta } from './verify.js'
 import { acknowledge, answerInBackground, rejected, type ChannelBase, type InboundMessage } from './shared.js'
 import type { Channel } from '../store/types.js'
@@ -61,7 +62,7 @@ export function metaMessagingChannel(channel: Channel, options: MetaMessagingOpt
       const challenge = url.searchParams.get('hub.challenge')
       if (
         url.searchParams.get('hub.mode') === 'subscribe' &&
-        url.searchParams.get('hub.verify_token') === options.verifyToken &&
+        safeEqual(url.searchParams.get('hub.verify_token') ?? '', options.verifyToken) &&
         challenge
       ) {
         return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })

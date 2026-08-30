@@ -642,6 +642,15 @@ export function createAgent(options: AgentOptions) {
   // Returned as plain functions, not object methods, so destructuring one of
   // them off the agent keeps working.
   return {
+    /**
+     * The store it was built with, if any.
+     *
+     * Exposed for the channels, which need to know whether a conversation has
+     * been spoken to before. Article 50 asks for a disclosure at the first
+     * interaction and not at the eleventh, and "first" is a fact only the
+     * transcript holds.
+     */
+    store: options.store,
     /** Retrieval on its own, when you want the passages rather than an answer. */
     search: (question: string, history: Message[] = [], signal?: AbortSignal) =>
       search(toMessages(question, history), signal),

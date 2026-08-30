@@ -9,10 +9,13 @@ import {
   parseCommonEmail,
   slackChannel,
   stripQuoted,
+  teamsChannel,
   telegramChannel,
   twilioChannel,
   whatsappChannel,
+  defaultDisclosure,
 } from '../src/channels/index.js'
+import { split } from '../src/channels/sms.js'
 import { signMeta, signSlack, signTwilio } from '../src/channels/verify.js'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
@@ -61,6 +64,195 @@ function collector() {
 async function agentFor(store = memoryStore()) {
   return { agent: createAgent({ index: await index(), model: model(), store }), store }
 }
+
+// EU AI Act Article 50(5) wants the disclosure at or before the first
+// interaction, and the exception for cases where it is obvious does not cover a
+// support assistant. Answering honestly when asked is a different obligation
+// and does not satisfy this one.
+//
+// A messaging channel has no interface to put it in, so it has to be a message.
+describe('telling somebody they are talking to software', () => {
+  const base = { botToken: 'bot-token', secretToken: 'secret' }
+  const update = {
+    message: {
+      message_id: 1,
+      text: 'do you do refunds?',
+      chat: { id: 42, type: 'private' },
+      from: { id: 42, first_name: 'Sam', is_bot: false },
+    },
+  }
+
+  function post(body: unknown, secret = 'secret'): Request {
+    return new Request('https://api.example/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': secret },
+      body: JSON.stringify(body),
+    })
+  }
+
+  /**
+   * Answering happens after the webhook has been acknowledged, so a test that
+   * sleeps is a test that fails on a loaded machine. `waitUntil` is the seam
+   * the serverless platforms use for the same reason, and it hands back the
+   * promise this needs.
+   */
+  function collector() {
+    const pending: Array<Promise<unknown>> = []
+    return {
+      waitUntil: (promise: Promise<unknown>) => void pending.push(promise),
+      settle: () => Promise.all(pending),
+    }
+  }
+
+  it('says it once, before the first answer, and not again', async () => {
+    const { agent } = await agentFor()
+    const sent: string[] = []
+
+    const background = collector()
+    const handle = telegramChannel({
+      ...base,
+      agent,
+      disclosure: defaultDisclosure,
+      waitUntil: background.waitUntil,
+      send: async (_chatId, text) => {
+        sent.push(text)
+      },
+    })
+
+    await handle(post(update))
+    await background.settle()
+    await handle(post(update))
+    await background.settle()
+
+    expect(sent.filter((text) => text === defaultDisclosure)).toHaveLength(1)
+    // First out, so nobody reads an answer before knowing what wrote it.
+    expect(sent[0]).toBe(defaultDisclosure)
+  })
+
+  it('says nothing when no disclosure is configured', async () => {
+    const { agent } = await agentFor()
+    const sent: string[] = []
+
+    const background = collector()
+    const handle = telegramChannel({
+      ...base,
+      agent,
+      waitUntil: background.waitUntil,
+      send: async (_chatId, text) => {
+        sent.push(text)
+      },
+    })
+
+    await handle(post(update))
+    await background.settle()
+
+    expect(sent).not.toContain(defaultDisclosure)
+  })
+
+  // Without a transcript there is no way to know it has been said. Saying it
+  // twice is mildly annoying; never saying it is the thing the law is about.
+  it('repeats it rather than risk skipping it when there is no store', async () => {
+    const agent = createAgent({ index: await index(), model: model() })
+    const sent: string[] = []
+
+    const background = collector()
+    const handle = telegramChannel({
+      ...base,
+      agent,
+      disclosure: defaultDisclosure,
+      waitUntil: background.waitUntil,
+      send: async (_chatId, text) => {
+        sent.push(text)
+      },
+    })
+
+    await handle(post(update))
+    await background.settle()
+    await handle(post(update))
+    await background.settle()
+
+    expect(sent.filter((text) => text === defaultDisclosure)).toHaveLength(2)
+  })
+})
+
+// Live on Discord: "Delivery to Ireland takes 3-5 working days. [1]" and no
+// way to find out what [1] was. The prompt asks for the marker, the widget
+// renders the list beside the text, and a messaging channel was handed the
+// string on its own with the list thrown away.
+describe('the [1] in a message', () => {
+  const base = { botToken: 'bot-token', secretToken: 'secret' }
+  const update = {
+    message: {
+      message_id: 1,
+      text: 'do you do refunds?',
+      chat: { id: 77, type: 'private' },
+      from: { id: 77, first_name: 'Sam', is_bot: false },
+    },
+  }
+
+  function post(body: unknown): Request {
+    return new Request('https://api.example/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'secret' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  async function answered(citations?: 'list' | 'none') {
+    const pending: Array<Promise<unknown>> = []
+    const sent: string[] = []
+    const handle = telegramChannel({
+      ...base,
+      agent: createAgent({
+        index: await index(),
+        model: model('You have 30 days to request a refund [1].'),
+        store: memoryStore(),
+      }),
+      ...(citations ? { citations } : {}),
+      waitUntil: (promise) => void pending.push(promise),
+      send: async (_chatId, text) => {
+        sent.push(text)
+      },
+    })
+
+    await handle(post(update))
+    await Promise.all(pending)
+    return sent.join('\n')
+  }
+
+  it('names what the marker points at', async () => {
+    const reply = await answered()
+
+    expect(reply).toContain('[1]')
+    expect(reply).toContain('Refunds')
+  })
+
+  it('says nothing extra when the answer cited nothing', async () => {
+    const pending: Array<Promise<unknown>> = []
+    const sent: string[] = []
+    const handle = telegramChannel({
+      ...base,
+      agent: createAgent({
+        index: await index(),
+        model: model('Hello! How can I help?'),
+        store: memoryStore(),
+      }),
+      waitUntil: (promise) => void pending.push(promise),
+      send: async (_chatId, text) => {
+        sent.push(text)
+      },
+    })
+
+    await handle(post(update))
+    await Promise.all(pending)
+
+    expect(sent.join('\n')).toBe('Hello! How can I help?')
+  })
+
+  it('can be turned off for a channel where the links are noise', async () => {
+    expect(await answered('none')).not.toContain('Refunds')
+  })
+})
 
 describe('WhatsApp', () => {
   const appSecret = 'app-secret'
@@ -139,7 +331,13 @@ describe('WhatsApp', () => {
     expect(response.status).toBe(200)
 
     await pending.settled()
-    expect(sent).toEqual([{ to: '447700900000', text: 'We refund within 30 days [1].' }])
+    // The source list rides along, because a [1] with nothing behind it is a
+    // footnote marker with no footnote. The text source here has no URL, so
+    // its title is what there is to give.
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.to).toBe('447700900000')
+    expect(sent[0]?.text).toContain('We refund within 30 days [1].')
+    expect(sent[0]?.text).toContain('[1] Refunds')
 
     // The transcript is filed under the phone number, on the whatsapp channel.
     const found = await store.getConversation('whatsapp:447700900000')

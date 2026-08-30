@@ -1,3 +1,4 @@
+import { safeEqual } from '../util/compare.js'
 import { acknowledge, answerInBackground, rejected, type ChannelBase, type InboundMessage } from './shared.js'
 
 export interface TelegramOptions extends ChannelBase {
@@ -50,7 +51,10 @@ export function telegramChannel(options: TelegramOptions) {
   return async function handle(request: Request): Promise<Response> {
     if (request.method !== 'POST') return new Response('method not allowed', { status: 405 })
 
-    if (request.headers.get('x-telegram-bot-api-secret-token') !== options.secretToken) {
+    // Telegram signs nothing, so this comparison is the whole of the channel's
+    // security. Constant time matters more here than anywhere that also has a
+    // signature to fall back on.
+    if (!safeEqual(request.headers.get('x-telegram-bot-api-secret-token') ?? '', options.secretToken)) {
       return rejected('bad secret token')
     }
 

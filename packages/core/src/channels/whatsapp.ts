@@ -1,3 +1,4 @@
+import { safeEqual } from '../util/compare.js'
 import { verifyMeta } from './verify.js'
 import { acknowledge, answerInBackground, rejected, type ChannelBase, type InboundMessage } from './shared.js'
 
@@ -73,7 +74,7 @@ export function whatsappChannel(options: WhatsAppOptions) {
       const token = url.searchParams.get('hub.verify_token')
       const challenge = url.searchParams.get('hub.challenge')
 
-      if (mode === 'subscribe' && token === options.verifyToken && challenge) {
+      if (mode === 'subscribe' && safeEqual(token ?? '', options.verifyToken) && challenge) {
         return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
       }
       return rejected('verification failed')
