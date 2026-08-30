@@ -381,6 +381,13 @@ export function postgresStore(options: PostgresStoreOptions): Store {
                 GROUP BY 1 ORDER BY 2 DESC
               ) AS acts
            ) AS by_action,
+           (SELECT coalesce(jsonb_object_agg(country, total), '{}'::jsonb)
+              FROM (
+                SELECT meta->>'country' AS country, count(*)::int AS total
+                FROM scoped WHERE coalesce(meta->>'country', '') <> ''
+                GROUP BY 1
+              ) AS places
+           ) AS by_country,
            -- Both windows end at the newest user turn rather than at now(), so
            -- the same rows always give the same answer.
            (SELECT count(DISTINCT who)::int FROM people
@@ -883,6 +890,7 @@ interface StatsRow {
   by_action: Record<string, number>
   active_daily: number
   active_weekly: number
+  by_country: Record<string, number>
 }
 
 function toConversation(row: ConversationRow): Conversation {
@@ -986,6 +994,7 @@ function toStats(row: StatsRow | undefined): Stats {
     byAction: Object.fromEntries(
       Object.entries(row?.by_action ?? {}).sort(([, a], [, b]) => b - a),
     ),
+    byCountry: row?.by_country ?? {},
     activeUsers: {
       daily: row?.active_daily ?? 0,
       weekly: row?.active_weekly ?? 0,

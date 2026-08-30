@@ -287,6 +287,7 @@ export function computeStats(
     daily: [],
     activeUsers: { daily: 0, weekly: 0, stickiness: 0 },
     byAction: {},
+    byCountry: {},
   }
 
   const gaps = new Map<string, number>()
@@ -303,6 +304,11 @@ export function computeStats(
   for (const conversation of conversations) {
     stats.byChannel[conversation.channel] = (stats.byChannel[conversation.channel] ?? 0) + 1
     on(day(conversation.createdAt)).conversations++
+
+    const country = conversation.meta?.country
+    if (typeof country === 'string' && country) {
+      stats.byCountry[country] = (stats.byCountry[country] ?? 0) + 1
+    }
 
     const thread = messages.get(conversation.id) ?? []
     stats.messages += thread.length

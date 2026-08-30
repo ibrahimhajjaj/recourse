@@ -140,6 +140,13 @@ export interface StreamOptions {
   contact?: Contact
   channel?: Channel
   /**
+   * Two-letter country, when the deployment asked for it and the visitor
+   * agreed. Recorded on the conversation and never derived here: the server
+   * layer reads what the edge already resolved, so no address reaches this far
+   * and none is stored.
+   */
+  country?: string
+  /**
    * Results of client actions the browser has since run. Sending these back
    * completes a turn the agent paused halfway through.
    */
@@ -254,6 +261,10 @@ export function createAgent(options: AgentOptions) {
   ): AsyncGenerator<StreamFrame> {
     const signal = call.signal
     const conversationId = call.conversationId ?? options.conversationId ?? newId('c')
+
+    // Merged rather than set, so a turn that arrives without one does not wipe
+    // the country an earlier turn recorded.
+    const placed = call.country ? { meta: { country: call.country } } : {}
     const contact = call.contact ?? options.contact
     const channel = call.channel ?? options.channel ?? 'web'
 
@@ -312,7 +323,7 @@ export function createAgent(options: AgentOptions) {
       if (attachments.length > 0) {
         record.attachments = attachments.map(({ name, mimeType, bytes }) => ({ name, mimeType, bytes }))
       }
-      await store.appendMessage(conversationId, record, { channel, contact })
+      await store.appendMessage(conversationId, record, { channel, contact, ...placed })
     }
 
     // Sources first, so a UI can render citations while text is still arriving.
@@ -542,7 +553,7 @@ export function createAgent(options: AgentOptions) {
       if (flagged.length > 0) {
         record.flags = flagged.map(({ category, score, reason }) => ({ category, score, reason }))
       }
-      await store.appendMessage(conversationId, record, { channel, contact })
+      await store.appendMessage(conversationId, record, { channel, contact, ...placed })
     }
 
     if (!saidNothing) {

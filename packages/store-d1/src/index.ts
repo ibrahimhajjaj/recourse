@@ -385,6 +385,14 @@ export function d1Store(options: D1StoreOptions): Store {
         values,
       )
 
+      const countries = await all<{ country: string; total: number }>(
+        `SELECT json_extract(c.meta, '$.country') AS country, count(*) AS total
+         FROM conversations c ${filter}
+         GROUP BY country
+         HAVING country IS NOT NULL AND country <> ''`,
+        values,
+      )
+
       const weekly = people?.weekly ?? 0
 
       return {
@@ -402,6 +410,7 @@ export function d1Store(options: D1StoreOptions): Store {
           messages: row.messages,
         })),
         byAction: Object.fromEntries(actions.map((row) => [row.name, row.total])),
+        byCountry: Object.fromEntries(countries.map((row) => [row.country, row.total])),
         activeUsers: {
           daily: people?.daily ?? 0,
           weekly,

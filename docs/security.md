@@ -115,6 +115,38 @@ queue, and knowledge sources you can add and retrain without a deploy. `admin:
 true` also serves a single self-contained page for reading yesterday's
 conversations and the ranked list of questions nobody could answer.
 
+## Where the visitor is, if you ask and they agree
+
+Chats by country is the one analytic that needs something about a person, so it
+is off, and turning it on takes a decision rather than a flag:
+
+```ts
+import { consented } from 'helpdeck/server'
+
+createChatHandler({
+  agent,
+  analytics: { country: consented('analytics') },
+})
+```
+
+No address is ever received. Cloudflare, Vercel, Netlify, CloudFront and App
+Engine all resolve the country at the edge and pass it as a header, so what is
+read is a two-letter code and what is stored is the same code on the
+conversation. There is no address to leak, no database to keep current, and
+behind an origin that resolves nothing, no country is recorded and everything
+else works the same.
+
+It is a function rather than `true` because consent is the one thing a library
+cannot decide. It cannot know whether a banner was shown, what it said, or what
+the visitor agreed to, and under the GDPR the lawful basis has to exist before
+the data does. `consented('analytics')` reads `X-Helpdeck-Consent`, which is the
+shape a consent manager already holds, and a missing header is a no. Pass your
+own predicate if your consent lives somewhere else.
+
+Two things worth saying plainly to whoever writes your privacy notice: a
+country is not an identifier on its own, and `Cloudflare` sends `XX` for
+unknown and `T1` for Tor, neither of which is recorded.
+
 ---
 
 [Back to the README](../README.md)

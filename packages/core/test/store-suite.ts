@@ -190,6 +190,20 @@ export function storeBehaviour(name: string, make: () => Promise<Store> | Store)
       expect(stats.daily[0]).toEqual({ date: '2026-03-01', conversations: 1, messages: 2 })
     })
 
+    it('counts conversations by country only where one was recorded', async () => {
+      const store = await make()
+      await store.appendMessage('c1', message(), { meta: { country: 'IE' } })
+      await store.appendMessage('c2', message(), { meta: { country: 'IE' } })
+      await store.appendMessage('c3', message(), { meta: { country: 'GB' } })
+      // No country at all, which is what a visitor who did not consent looks
+      // like, and what every visitor looks like behind an origin that resolves
+      // none. It must not become a bucket of its own.
+      await store.appendMessage('c4', message())
+
+      const stats = await store.stats()
+      expect(stats.byCountry).toEqual({ IE: 2, GB: 1 })
+    })
+
     it('counts the people behind the conversations, not the conversations', async () => {
       const store = await make()
       const now = Date.now()

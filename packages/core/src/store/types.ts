@@ -170,4 +170,11 @@ export interface Stats {
   activeUsers: { daily: number; weekly: number; stickiness: number }
   /** How often each action ran, most used first when read as entries. */
   byAction: Record<string, number>
+  /**
+   * Conversations per two-letter country, for deployments that record one.
+   *
+   * Empty unless the server was configured to ask and the visitor agreed, so
+   * an empty object means "not collected" as often as it means "nobody".
+   */
+  byCountry: Record<string, number>
 }

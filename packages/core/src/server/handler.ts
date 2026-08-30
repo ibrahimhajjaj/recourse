@@ -3,6 +3,7 @@ import type { Embedder, KnowledgeIndex, Match, Message, StreamFrame } from '../t
 import type { Store } from '../store/types.js'
 import type { Action } from '../actions/types.js'
 import type { Procedure } from '../procedures/types.js'
+import { countryFrom } from './country.js'
 import { validateAttachments, type AttachmentPolicy } from '../attachments.js'
 import type { Blobs } from '../storage/blobs.js'
 import { resolveStoredAttachments } from '../storage/references.js'
@@ -53,6 +54,23 @@ export interface ChatHandlerOptions {
   maxHistory?: number
   /** Fires after each answer. Wire analytics, transcripts or lead capture here. */
   onConversation?: (event: ConversationEvent) => void | Promise<void>
+  /**
+   * Records which country a conversation came from, when this says so.
+   *
+   * Off unless set, and a function rather than a flag because consent is a
+   * decision only the deployment can make: the library cannot know whether a
+   * banner was shown or what the visitor agreed to. `consented('analytics')`
+   * covers the common case of a consent manager that sets a header.
+   *
+   *     import { consented } from 'helpdeck/server'
+   *
+   *     analytics: { country: consented('analytics') }
+   *
+   * The value comes from whatever the edge already resolved, so no address is
+   * received and none is stored. Behind nothing that resolves one, no country
+   * is recorded and everything else works the same.
+   */
+  analytics?: { country?: (request: Request) => boolean }
   /**
    * Verifies who the visitor is, so actions can safely touch their data.
    * Without it every visitor is anonymous, which is fine for a public FAQ and
@@ -287,6 +305,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
             signal: request.signal,
             contact: identity.contact,
             conversationId: typeof claim?.conversationId === 'string' ? claim.conversationId : undefined,
+            ...(options.analytics?.country?.(request) ? { country: countryFrom(request) } : {}),
             clientResults,
             // Captured from the single retrieval the agent already ran, rather
             // than retrieving a second time just to log what was used.
