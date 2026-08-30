@@ -10,6 +10,12 @@
  * the same code runs on Workers, Deno and Bun as well as Node.
  */
 
+import { safeEqual } from '../util/compare.js'
+
+// Re-exported so the channels keep their existing entry point for it, and so
+// anything already importing it from here does not have to move.
+export { safeEqual }
+
 const encoder = new TextEncoder()
 
 type HashName = 'SHA-1' | 'SHA-256'
@@ -29,13 +35,6 @@ function toBase64(buffer: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
 }
 
-/** Constant time, so a wrong signature does not leak how much of it was right. */
-export function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let difference = 0
-  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return difference === 0
-}
 
 /**
  * Meta's scheme, used by WhatsApp, Messenger and Instagram.

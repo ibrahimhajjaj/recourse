@@ -1454,3 +1454,59 @@ describe('Discord', () => {
     expect(sent[0]?.token).toBe('interaction-token')
   })
 })
+
+// Two of these channels have no signature at all, so the shared secret is the
+// entire security model rather than a second line behind one. A comparison
+// that stops at the first wrong character takes longer the more of the secret
+// is right, which turns guessing it into a character-at-a-time search.
+describe('comparing the secrets that are the whole security model', () => {
+  it('refuses a Telegram secret that is a prefix of the real one', async () => {
+    const { agent } = await agentFor()
+    const handle = telegramChannel({ agent, botToken: 'bot', secretToken: 'super-secret' })
+
+    for (const guess of ['super', 'super-secretly', '', 'Super-Secret']) {
+      const response = await handle(
+        new Request('https://shop.example/t', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': guess },
+          body: '{}',
+        }),
+      )
+      expect(response.status, `accepted "${guess}"`).toBe(401)
+    }
+  })
+
+  it('accepts the Telegram secret when it is exactly right', async () => {
+    const { agent } = await agentFor()
+    const handle = telegramChannel({ agent, botToken: 'bot', secretToken: 'super-secret' })
+
+    const response = await handle(
+      new Request('https://shop.example/t', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': 'super-secret' },
+        body: '{}',
+      }),
+    )
+    expect(response.status).toBe(200)
+  })
+
+  it('refuses an email secret that is a prefix of the real one', async () => {
+    const { agent } = await agentFor()
+    const handle = emailChannel({
+      agent,
+      secret: { header: 'x-webhook-secret', value: 'super-secret' },
+      send: async () => {},
+    })
+
+    for (const guess of ['super', 'super-secretly', '']) {
+      const response = await handle(
+        new Request('https://shop.example/e', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-webhook-secret': guess },
+          body: JSON.stringify({ From: 'a@b.co', TextBody: 'hi', Subject: 'S' }),
+        }),
+      )
+      expect(response.status, `accepted "${guess}"`).toBe(401)
+    }
+  })
+})
