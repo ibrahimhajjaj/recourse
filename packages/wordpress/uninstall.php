@@ -33,11 +33,11 @@ function helpdeck_uninstall_site() {
 	delete_option( 'helpdeck_storage_key' );
 	delete_option( 'helpdeck_build_state' );
 
-	delete_transient( 'helpdeck_test_result' );
-
-	// The rate limit counters are one transient per visitor and there is no API
-	// for deleting a set of them by prefix. On a site with an external object
-	// cache they never reach this table and expire on their own instead.
+	// Every transient this plugin sets is keyed per visitor or per admin user:
+	// the rate limit counters, and one connection-test result per user id. There
+	// is no API for deleting a set of them by prefix, so they go in one query.
+	// A site with an external object cache keeps none of them in this table, and
+	// both kinds expire on their own instead.
 	$prefix  = $wpdb->esc_like( '_transient_helpdeck_' ) . '%';
 	$timeout = $wpdb->esc_like( '_transient_timeout_helpdeck_' ) . '%';
 
