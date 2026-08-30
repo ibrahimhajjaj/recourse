@@ -17,6 +17,16 @@ export interface TeamsReplyTarget {
   serviceUrl: string
   conversationId: string
   activityId: string
+  /**
+   * Who the reply is from, meaning the bot.
+   *
+   * The Connector refuses a reply without it, with
+   * `MissingProperty: The 'Activity.From' field is required`, and the bot's own
+   * identity is not something it knows about itself: it arrives as the
+   * `recipient` of the message being answered, because on the way in the bot is
+   * who the message was addressed to.
+   */
+  from: { id: string; name?: string }
 }
 
 interface Activity {
@@ -26,7 +36,7 @@ interface Activity {
   serviceUrl?: string
   conversation?: { id?: string }
   from?: { id?: string; name?: string; aadObjectId?: string }
-  recipient?: { id?: string }
+  recipient?: { id?: string; name?: string }
 }
 
 const OPENID_URL = 'https://login.botframework.com/v1/.well-known/openidconfiguration'
@@ -84,7 +94,7 @@ export function teamsChannel(options: TeamsOptions) {
           Authorization: `Bearer ${await accessToken()}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ type: 'message', text }),
+        body: JSON.stringify({ type: 'message', text, from: target.from }),
       })
 
       if (!response.ok) throw new Error(`Teams reply failed: ${response.status} ${await response.text()}`)
@@ -94,6 +104,11 @@ export function teamsChannel(options: TeamsOptions) {
     if (request.method !== 'POST') return new Response('method not allowed', { status: 405 })
 
     const rawBody = await request.text()
+
+    // Held past the verification block, because the address the token was
+    // issued for can only be compared with the one the reply will use after
+    // the body has been parsed.
+    let addressed: string | undefined
 
     if (!options.insecureSkipVerification) {
       const presented = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
@@ -106,6 +121,15 @@ export function teamsChannel(options: TeamsOptions) {
         audience: options.appId,
       })
       if (!claims) return rejected('bad token')
+
+      // The last of Microsoft's verification steps, and the one that stops the
+      // bot handing its own credentials to a stranger. The reply address comes
+      // out of the request body, and the bot posts to it holding a bearer token
+      // that can act as the bot. A signed token that says nothing about where
+      // the reply goes leaves the body free to say anywhere. The token carries
+      // the address it was issued for, so the two have to agree.
+      addressed = normaliseUrl(String(claims.serviceurl ?? ''))
+      if (!addressed) return rejected('service url does not match the token')
     }
 
     let activity: Activity
@@ -115,9 +139,27 @@ export function teamsChannel(options: TeamsOptions) {
       return acknowledge()
     }
 
+    // Checked after the parse, against the field the reply is actually posted
+    // to. Reading it out of the raw body instead compares a different value to
+    // the one that gets used: JSON keeps the last of a repeated key while a
+    // scan finds the first, so a body naming `serviceUrl` twice passes the
+    // check on the first and is delivered to the second.
+    if (addressed !== undefined && addressed !== normaliseUrl(activity.serviceUrl ?? '')) {
+      return rejected('service url does not match the token')
+    }
+
     const text = stripMentions(activity.text ?? '').trim()
     const conversationId = activity.conversation?.id
     const serviceUrl = activity.serviceUrl
+
+    // Belt as well as braces, and the reason it is worth both: the check above
+    // is skipped in development, and a bot that can be talked into posting its
+    // token to an arbitrary host is a bot whose credentials are for the taking.
+    // This one holds whatever the mode, so the worst a skipped verification can
+    // cost is a wrong answer rather than the bot itself.
+    if (serviceUrl && !isConnector(serviceUrl)) {
+      return rejected('service url is not a Bot Connector address')
+    }
 
     // Only messages. Teams also sends membership changes, typing and reactions.
     if (activity.type === 'message' && text && conversationId && serviceUrl && activity.id) {
@@ -125,7 +167,16 @@ export function teamsChannel(options: TeamsOptions) {
         conversationId: `teams:${conversationId}`,
         text,
         contact: { id: activity.from?.aadObjectId ?? activity.from?.id, name: activity.from?.name },
-        reply: { serviceUrl, conversationId, activityId: activity.id },
+        // The bot is the recipient of what it is answering, so that is where
+        // its own identity for the reply comes from. Falling back to the
+        // configured app id covers a channel that leaves recipient off.
+        reply: {
+          serviceUrl,
+          conversationId,
+          activityId: activity.id,
+          botId: activity.recipient?.id ?? options.appId,
+          botName: activity.recipient?.name ?? '',
+        },
       }
 
       answerInBackground(options, 'teams', inbound, async (answer, resolved) => {
@@ -134,6 +185,10 @@ export function teamsChannel(options: TeamsOptions) {
             serviceUrl: resolved.reply.serviceUrl as string,
             conversationId: resolved.reply.conversationId as string,
             activityId: resolved.reply.activityId as string,
+            from: {
+              id: resolved.reply.botId as string,
+              ...(resolved.reply.botName ? { name: resolved.reply.botName as string } : {}),
+            },
           },
           answer,
         )
@@ -143,6 +198,32 @@ export function teamsChannel(options: TeamsOptions) {
     return acknowledge()
   }
 }
+
+/**
+ * Where the Bot Connector lives, and so the only place the bot's token may go.
+ *
+ * Microsoft is explicit that the token is a password and must not be put in a
+ * request to any other service. The reply address arrives in the request body,
+ * so without this the body chooses where the password is sent.
+ */
+const CONNECTOR_HOSTS = ['botframework.com', 'botframework.azure.us', 'smba.trafficmanager.net']
+
+function isConnector(serviceUrl: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(serviceUrl)
+    if (protocol !== 'https:') return false
+    const host = hostname.toLowerCase()
+    return CONNECTOR_HOSTS.some((suffix) => host === suffix || host.endsWith(`.${suffix}`))
+  } catch {
+    return false
+  }
+}
+
+/** Trailing slashes and case differ between the claim and the body. */
+function normaliseUrl(value: string): string {
+  return value.trim().replace(/\/+$/, '').toLowerCase()
+}
+
 
 /** Teams puts `<at>Bot name</at>` in the text of every mention. */
 export function stripMentions(text: string): string {
