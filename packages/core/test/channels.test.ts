@@ -797,6 +797,70 @@ describe('email', () => {
     expect(sent[0]?.subject).toBe('Re: Refund question')
   })
 
+  it('does not reply to a machine, which is how a mail loop starts', async () => {
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ['an out of office reply', { Headers: [{ Name: 'Auto-Submitted', Value: 'auto-replied' }] }],
+      ['an Exchange auto reply', { Headers: [{ Name: 'X-Auto-Response-Suppress', Value: 'All' }] }],
+      ['a newsletter', { Headers: [{ Name: 'Precedence', Value: 'bulk' }] }],
+      ['a mailing list', { Headers: [{ Name: 'List-Unsubscribe', Value: '<https://l.example/u>' }] }],
+      ['a bounce', { From: 'MAILER-DAEMON@mail.example' }],
+      ['a no-reply sender', { From: 'no.reply@shop.example' }],
+      ['the inbox talking to itself', { From: 'support@shop.example', To: 'support@shop.example' }],
+      // Reply-all is the ordinary way a support address ends up second, and
+      // reading only the first recipient misses the loop it is there to catch.
+      [
+        'the inbox copied in behind somebody else',
+        { From: 'support@shop.example', To: 'sam@example.com, support@shop.example' },
+      ],
+      [
+        'the inbox behind a display name',
+        { From: 'support@shop.example', To: '"Sam" <sam@example.com>, Support <support@shop.example>' },
+      ],
+    ]
+
+    for (const [what, overrides] of cases) {
+      const sent: unknown[] = []
+      const { agent } = await agentFor()
+      const pending = collector()
+      const handle = emailChannel({ agent, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+
+      const response = await handle(
+        new Request('https://shop.example/e', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ From: 'sam@example.com', Subject: 'Out of office', TextBody: 'I am away', ...overrides }),
+        }),
+      )
+      await pending.settled()
+
+      expect(sent, what).toEqual([])
+      // Still a 200: the provider must not retry what was left alone on purpose.
+      expect(response.status, what).toBe(200)
+    }
+  })
+
+  it('still answers a person whose signature mentions being automatic', async () => {
+    const sent: unknown[] = []
+    const { agent } = await agentFor()
+    const pending = collector()
+    const handle = emailChannel({ agent, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+
+    await handle(
+      new Request('https://shop.example/e', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          From: 'sam@example.com',
+          Subject: 'Automatic renewal question',
+          TextBody: 'Is my subscription set to renew automatically?',
+          Headers: [{ Name: 'Auto-Submitted', Value: 'no' }],
+        }),
+      }),
+    )
+    await pending.settled()
+    expect(sent).toEqual([1])
+  })
+
   it('refuses a request without the shared secret', async () => {
     const { agent } = await agentFor()
     const handle = emailChannel({
@@ -813,6 +877,329 @@ describe('email', () => {
       }),
     )
     expect(response.status).toBe(401)
+  })
+})
+
+// A messaging channel has no browser holding the conversation, so the only
+// record of what was already said is the store. Written down since the
+// beginning and, until this was tested, never once read back: every message
+// was answered as though it were the first thing anybody had said.
+describe('carrying a messaging conversation forward', () => {
+  /** Records what the model was actually shown on each turn. */
+  function recorder() {
+    const turns: string[][] = []
+    const spy = new MockLanguageModelV4({
+      doStream: async (options) => {
+        turns.push(
+          options.prompt
+            .filter((entry) => entry.role === 'user' || entry.role === 'assistant')
+            .map((entry) =>
+              typeof entry.content === 'string'
+                ? entry.content
+                : entry.content.map((part) => ('text' in part ? part.text : '')).join(''),
+            ),
+        )
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: 'text-start' as const, id: '0' },
+              { type: 'text-delta' as const, id: '0', delta: 'United Kingdom orders arrive in 1-2 working days.' },
+              { type: 'text-end' as const, id: '0' },
+              {
+                type: 'finish' as const,
+                finishReason: { unified: 'stop', raw: 'stop' } as const,
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              },
+            ],
+            chunkDelayInMs: 0,
+          }),
+        }
+      },
+    })
+    return { turns, spy }
+  }
+
+  it('shows the model what was already said, so a follow-up still means something', async () => {
+    const { turns, spy } = recorder()
+    const store = memoryStore()
+    const agent = createAgent({ index: await index(), model: spy, store })
+    const pending = collector()
+
+    const handle = telegramChannel({
+      agent,
+      botToken: 'bot-token',
+      secretToken: 'secret',
+      waitUntil: pending.waitUntil,
+      send: async () => {},
+    })
+
+    const ask = (id: number, text: string) =>
+      new Request('https://api.example/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'secret' },
+        body: JSON.stringify({
+          message: { message_id: id, text, chat: { id: 42, type: 'private' }, from: { id: 42, first_name: 'Sam', is_bot: false } },
+        }),
+      })
+
+    await handle(ask(1, 'do you ship to Ireland?'))
+    await pending.settled()
+    await handle(ask(2, 'and to the UK?'))
+    await pending.settled()
+
+    const second = turns.at(-1)?.join('\n') ?? ''
+    expect(second).toContain('do you ship to Ireland?')
+    expect(second).toContain('United Kingdom orders arrive in 1-2 working days.')
+    expect(second).toContain('and to the UK?')
+  })
+
+  it('does not hand the model the question it is being asked twice', async () => {
+    const { turns, spy } = recorder()
+    const store = memoryStore()
+    const agent = createAgent({ index: await index(), model: spy, store })
+    const pending = collector()
+
+    const handle = telegramChannel({
+      agent,
+      botToken: 'bot-token',
+      secretToken: 'secret',
+      waitUntil: pending.waitUntil,
+      send: async () => {},
+    })
+
+    await handle(
+      new Request('https://api.example/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'secret' },
+        body: JSON.stringify({
+          message: { message_id: 1, text: 'do you do refunds?', chat: { id: 7, type: 'private' }, from: { id: 7, first_name: 'Sam', is_bot: false } },
+        }),
+      }),
+    )
+    await pending.settled()
+
+    const asked = turns.at(-1)?.filter((entry) => entry.includes('do you do refunds?')) ?? []
+    expect(asked).toHaveLength(1)
+  })
+
+  it('carries five exchanges and no more, so an all-day conversation stays affordable', async () => {
+    const { turns, spy } = recorder()
+    const store = memoryStore()
+    const agent = createAgent({ index: await index(), model: spy, store })
+    const pending = collector()
+
+    const handle = telegramChannel({
+      agent,
+      botToken: 'bot-token',
+      secretToken: 'secret',
+      waitUntil: pending.waitUntil,
+      send: async () => {},
+    })
+
+    for (let id = 1; id <= 9; id += 1) {
+      await handle(
+        new Request('https://api.example/telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': 'secret' },
+          body: JSON.stringify({
+            message: { message_id: id, text: `question ${id}`, chat: { id: 9, type: 'private' }, from: { id: 9, first_name: 'Sam', is_bot: false } },
+          }),
+        }),
+      )
+      await pending.settled()
+    }
+
+    const last = turns.at(-1) ?? []
+    // Ten carried plus the question being asked.
+    expect(last.length).toBeLessThanOrEqual(11)
+    expect(last.join('\n')).not.toContain('question 1')
+    expect(last.join('\n')).toContain('question 9')
+  })
+})
+
+// Every other test here hands the channel its own `send`, which is why this
+// went unnoticed: the reply the Connector actually receives was never built.
+// It was rejected every time, with `MissingProperty: The 'Activity.From' field
+// is required`, and the webhook still answered 200 because the failure happens
+// after the acknowledgement.
+describe('the reply a Teams bot actually posts', () => {
+  it('says who it is from, which the Connector requires', async () => {
+    const posted: Array<{ url: string; body: any }> = []
+    const { agent } = await agentFor()
+    const pending = collector()
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('login.microsoftonline.com')) {
+        return new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), { status: 200 })
+      }
+      posted.push({ url, body: JSON.parse(String(init?.body ?? '{}')) })
+      return new Response('{}', { status: 200 })
+    })
+
+    const handle = teamsChannel({
+      agent,
+      appId: 'app-id-123',
+      appPassword: 'secret',
+      insecureSkipVerification: true,
+      waitUntil: pending.waitUntil,
+    })
+
+    await handle(
+      new Request('https://shop.example/webhooks/teams', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'message',
+          id: 'a1',
+          text: 'do you do refunds?',
+          serviceUrl: 'https://smba.trafficmanager.net/teams/',
+          conversation: { id: 'c1' },
+          from: { id: 'u1', name: 'Sam' },
+          // The bot is who the message was addressed to, so this is where its
+          // own identity for the reply comes from.
+          recipient: { id: 'bot-28:abc', name: 'Ada' },
+        }),
+      }),
+    )
+    await pending.settled()
+    fetchSpy.mockRestore()
+
+    const reply = posted.find((call) => call.url.includes('/v3/conversations/'))
+    expect(reply, 'a reply was posted').toBeDefined()
+    expect(reply?.body.from).toEqual({ id: 'bot-28:abc', name: 'Ada' })
+    expect(reply?.body.type).toBe('message')
+  })
+
+  it('falls back to the configured app id when a channel omits recipient', async () => {
+    const posted: any[] = []
+    const { agent } = await agentFor()
+    const pending = collector()
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('login.microsoftonline.com')) {
+        return new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), { status: 200 })
+      }
+      posted.push(JSON.parse(String(init?.body ?? '{}')))
+      return new Response('{}', { status: 200 })
+    })
+
+    const handle = teamsChannel({
+      agent,
+      appId: 'app-id-123',
+      appPassword: 'secret',
+      insecureSkipVerification: true,
+      waitUntil: pending.waitUntil,
+    })
+
+    await handle(
+      new Request('https://shop.example/webhooks/teams', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'message',
+          id: 'a1',
+          text: 'do you do refunds?',
+          serviceUrl: 'https://smba.trafficmanager.net/teams/',
+          conversation: { id: 'c1' },
+          from: { id: 'u1' },
+        }),
+      }),
+    )
+    await pending.settled()
+    fetchSpy.mockRestore()
+
+    expect(posted[0]?.from).toEqual({ id: 'app-id-123' })
+  })
+})
+
+// Microsoft's own verification list has seven steps, and step seven is the one
+// that stops the bot handing over its credentials: the reply address in the
+// body must match the address the token was issued for. Their words on skipping
+// any of them are that it "could cause the bot to divulge its JWT token", and
+// the reply address arriving in the request body is exactly why.
+describe('where a Teams bot is willing to send its token', () => {
+  const base = {
+    appId: 'app-id-123',
+    appPassword: 'secret',
+    insecureSkipVerification: true,
+  }
+
+  function activity(serviceUrl: string) {
+    return JSON.stringify({
+      type: 'message',
+      id: 'a1',
+      text: 'do you do refunds?',
+      serviceUrl,
+      conversation: { id: 'c1' },
+      from: { id: 'u1', name: 'Sam' },
+    })
+  }
+
+  async function post(serviceUrl: string) {
+    const sent: string[] = []
+    const { agent } = await agentFor()
+    const pending = collector()
+
+    const handle = teamsChannel({
+      ...base,
+      agent,
+      waitUntil: pending.waitUntil,
+      send: async (target) => void sent.push(target.serviceUrl),
+    })
+
+    const response = await handle(
+      new Request('https://shop.example/webhooks/teams', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: activity(serviceUrl),
+      }),
+    )
+    await pending.settled()
+    return { status: response.status, sent }
+  }
+
+  it('refuses an address that is not the Bot Connector', async () => {
+    // The attack in one line: the body says where the reply goes, and the reply
+    // carries a bearer token that can act as the bot.
+    const { status, sent } = await post('https://attacker.example/v3/conversations')
+    expect(status).toBe(401)
+    expect(sent).toEqual([])
+  })
+
+  it('refuses a subdomain of the shared Azure suffix', async () => {
+    // Azure Traffic Manager hands `<anything>.trafficmanager.net` to whoever
+    // asks, so the suffix on its own is not evidence of anything. Only the
+    // host the Bot Connector actually answers on is.
+    const { status, sent } = await post('https://attacker.trafficmanager.net/v3')
+    expect(status).toBe(401)
+    expect(sent).toEqual([])
+  })
+
+  it('refuses a lookalike host', async () => {
+    const { status, sent } = await post('https://botframework.com.attacker.example/v3')
+    expect(status).toBe(401)
+    expect(sent).toEqual([])
+  })
+
+  it('refuses plain http, which would put the token on the wire', async () => {
+    const { status, sent } = await post('http://smba.trafficmanager.net/teams')
+    expect(status).toBe(401)
+    expect(sent).toEqual([])
+  })
+
+  it('allows the address Teams actually uses', async () => {
+    const { status, sent } = await post('https://smba.trafficmanager.net/teams/')
+    expect(status).toBe(200)
+    expect(sent).toEqual(['https://smba.trafficmanager.net/teams/'])
+  })
+
+  it('holds even in development, when token verification is skipped', async () => {
+    // The check above is the one that can be turned off. This one cannot, so a
+    // skipped verification costs a wrong answer rather than the bot itself.
+    const { sent } = await post('https://attacker.example/')
+    expect(sent).toEqual([])
   })
 })
 
