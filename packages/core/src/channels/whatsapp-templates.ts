@@ -223,7 +223,7 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
   }
 
   if (!response.ok || body.error) {
-    throw new Error(`WhatsApp template send failed: ${body.error?.message ?? response.status}`)
+    throw new Error(explain(body.error, response.status))
   }
 
   const messageId = body.messages?.[0]?.id ?? ''
@@ -242,6 +242,43 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
   )
 
   return { messageId }
+}
+
+/**
+ * Meta's send errors, with the ones that do not say what to do spelled out.
+ *
+ * 133010 is the one a new number always hits. Creating a number and adding it
+ * to an account is not the same as registering it with the Cloud API, and
+ * nothing in the dashboard says so; the message is "Account not registered"
+ * and the fix is a one-time POST nobody guesses. Meta's test numbers are not
+ * registered when they are handed to you either.
+ *
+ * 131030 is the other one worth naming: a test number may only write to the
+ * recipients on its own allow list, and the message says "not in allowed list"
+ * without saying which list or where it lives.
+ */
+function explain(error: { message?: string; code?: number } | undefined, status: number): string {
+  // Meta's messages end in a full stop and every branch continues the
+  // sentence, so keeping it doubles the punctuation.
+  const said = (error?.message ?? String(status)).replace(/\.\s*$/, '')
+
+  if (error?.code === 133010) {
+    return (
+      `WhatsApp template send failed: ${said}. The number exists but was never registered with ` +
+      'the Cloud API. Register it once: POST /{phone-number-id}/register with ' +
+      '{ messaging_product: "whatsapp", pin: "<six digits>" }, where the pin is the two-step ' +
+      'verification pin for that number.'
+    )
+  }
+
+  if (error?.code === 131030) {
+    return (
+      `WhatsApp template send failed: ${said}. A test number may only message the recipients ` +
+      'added to it in the dashboard, five at most. A production number has no such list.'
+    )
+  }
+
+  return `WhatsApp template send failed: ${said}`
 }
 
 /**

@@ -272,6 +272,44 @@ describe('sending one', () => {
       }),
     ).rejects.toThrow('does not exist in the translation')
   })
+
+  // The message Meta actually returns for a number that was created but never
+  // registered, copied from a live send. On its own it tells you nothing.
+  it('says how to fix a number that was never registered', async () => {
+    const { fetch } = responding(
+      { error: { message: '(#133010) Account not registered', code: 133010 } },
+      false,
+      400,
+    )
+
+    await expect(
+      sendTemplate({
+        accessToken: 't',
+        phoneNumberId: 'pn_1',
+        to: '447700900123',
+        template: { name: 'hello_world', language: 'en_US' },
+        fetch,
+      }),
+    ).rejects.toThrow('/register')
+  })
+
+  it('says where the allow list is when a test number writes to a stranger', async () => {
+    const { fetch } = responding(
+      { error: { message: 'Recipient phone number not in allowed list', code: 131030 } },
+      false,
+      400,
+    )
+
+    await expect(
+      sendTemplate({
+        accessToken: 't',
+        phoneNumberId: 'pn_1',
+        to: '447700900123',
+        template: { name: 'hello_world', language: 'en_US' },
+        fetch,
+      }),
+    ).rejects.toThrow('five at most')
+  })
 })
 
 describe('opening conversations in a campaign', () => {
