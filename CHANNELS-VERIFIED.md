@@ -1,7 +1,7 @@
 # Channels, and what has actually been proved
 
-Eleven adapters ship. Seven have been through real traffic from real accounts on
-a real phone, and an eighth through a real mail server run locally. One more is
+Eleven adapters ship. Eight have been through real traffic from real accounts on
+a real phone, and a ninth through a real mail server run locally. One more is
 wired and blocked on a commercial gate rather than on anything technical. The
 rest are verified against each platform's documented signature examples and
 mocked send paths, which is a weaker claim, and this file exists so the
@@ -28,7 +28,7 @@ reproduced byte for byte offline.
 | Voice (ElevenLabs) | n/a | yes | yes | yes | 2026-08-30 |
 | Teams | n/a | yes | yes | yes | 2026-08-30, via Bot Connector |
 | Email | no | yes | yes | yes | 2026-08-30, against a local mail server |
-| Sunshine | n/a | fixture | mocked | fixture | not yet |
+| Sunshine | n/a | yes | yes | yes | 2026-08-30 |
 
 Email is the one that needed no account. A mail server is a thing you can run,
 and the adapter's two seams are a function that reads the provider's body and a
