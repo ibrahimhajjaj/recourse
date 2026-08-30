@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { liveChat, salesforceCases, transferToPhone } from '../src/actions/index.js'
+import { liveChat, transferToPhone } from '../src/actions/index.js'
+import { salesforce } from '../src/helpdesk/connectors.js'
 import type { StreamFrame } from '../src/types.js'
 
 function ctx() {
@@ -112,10 +113,13 @@ describe('salesforce cases', () => {
     }) as unknown as typeof fetch
 
     try {
-      const create = salesforceCases({ instanceUrl: 'https://acme.my.salesforce.com', accessToken: 'tok' })
-      const result = await create({ subject: 'Charged twice', body: 'Two payments', email: 'a@b.co', priority: 'urgent' })
+      const create = salesforce({ instanceUrl: 'https://acme.my.salesforce.com', accessToken: 'tok' })
+      const result = await create(
+        { subject: 'Charged twice', body: 'Two payments', email: 'a@b.co', priority: 'urgent' },
+        {} as never,
+      )
 
-      expect(result.id).toBe('500XX')
+      expect(result?.id).toBe('500XX')
       expect(sent).toMatchObject({ Subject: 'Charged twice', SuppliedEmail: 'a@b.co', Priority: 'High' })
     } finally {
       globalThis.fetch = original
@@ -127,8 +131,8 @@ describe('salesforce cases', () => {
     globalThis.fetch = vi.fn(async () => new Response('nope', { status: 401 })) as unknown as typeof fetch
 
     try {
-      const create = salesforceCases({ instanceUrl: 'https://acme.my.salesforce.com', accessToken: 'bad' })
-      await expect(create({ subject: 'a', body: 'b' })).rejects.toThrow(/Salesforce case creation failed/)
+      const create = salesforce({ instanceUrl: 'https://acme.my.salesforce.com', accessToken: 'bad' })
+      await expect(create({ subject: 'a', body: 'b' }, {} as never)).rejects.toThrow(/Salesforce ticket failed/)
     } finally {
       globalThis.fetch = original
     }
