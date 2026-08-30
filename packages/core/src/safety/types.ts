@@ -150,7 +150,12 @@ export const THRESHOLDS: Record<Sensitivity, number> = {
  *     categories: translateCategories({
  *       injection: 'Ik kan alleen helpen met vragen over onze producten.',
  *       abuse: 'Ik wil graag helpen, maar houd het alstublieft netjes.',
+ *       crisis: 'Ik verbind u door met een collega die u verder kan helpen.',
+ *       leak: 'Er ging iets mis met dat antwoord. Ik haal er een collega bij.',
  *     })
+ *
+ * Every category that can refuse is worth naming. One left out keeps its
+ * English, and it will be read by somebody who was not expecting English.
  */
 export function translateCategories(
   messages: Record<string, string>,
@@ -179,6 +184,19 @@ export const DEFAULT_CATEGORIES: CategoryPolicy[] = [
     action: 'handoff',
     sensitivity: 'high',
     message: 'I am putting you through to a person who can help properly. One moment.',
+  },
+  {
+    // The one output category that withholds rather than records. The rules
+    // behind it fire on an API key, a private key, or the agent reciting its
+    // own instructions, and none of those are a judgement call the way a
+    // stray figure is: there is no answer worth sending that contains a
+    // private key. With `output` gating off this still only reaches the
+    // transcript, the same as a flag, because by then the answer has gone. It
+    // is `refuse` so that turning gating on actually stops one.
+    name: 'leak',
+    action: 'refuse',
+    sensitivity: 'high',
+    message: 'Sorry, something went wrong with that answer. Let me get a colleague to help.',
   },
   {
     // Observed, not blocked. A number the sources do not contain is worth

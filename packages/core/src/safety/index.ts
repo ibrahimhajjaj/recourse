@@ -35,6 +35,7 @@ export {
 export { translateCategories } from './types.js'
 export {
   modelClassifier,
+  crisisWatch,
   buildPrompt,
   type ModelClassifierOptions,
   type LabelledExample,
