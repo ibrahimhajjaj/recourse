@@ -6,14 +6,140 @@ export interface PersonaOptions {
   name?: string
   /** Whose business it works for. Grounds the answers in a real company. */
   business?: string
-  /** Extra rules appended verbatim: tone, escalation policy, languages. */
+  /**
+   * How it should sound. A word, or somebody else's tone pasted in whole.
+   *
+   * The alternative every product in this space ships is an empty box marked
+   * "instructions", and an empty box is the hardest thing to fill in. What
+   * comes back is adjectives: professional, friendly, helpful, engaging. None
+   * of those change a single sentence the model writes, because a model that
+   * was already trying to be helpful cannot try harder.
+   *
+   * So this takes either of two things and tells them apart on its own:
+   *
+   * - one of the built-in words, `plain` `warm` `brisk` `formal`
+   * - a tone somebody wrote, as markdown bullets, pasted or read from a file
+   *
+   * ```ts
+   * tone: 'warm'
+   * tone: readFileSync('tones/night-shift.md', 'utf8')
+   * ```
+   *
+   * A written tone is a list of `- ` lines and nothing else. That is the whole
+   * format, which is the point: sharing one is sending a file, and adopting
+   * one is pasting it into a box. Any prose around the bullets, a title or a
+   * paragraph of preamble, is dropped, so a tone can be a readable document
+   * rather than a config fragment.
+   */
+  tone?: Tone | (string & {})
+  /** Extra rules appended verbatim: escalation policy, languages, anything. */
   instructions?: string
   /** Said when the retrieved context does not contain the answer. */
   fallback?: string
 }
 
+export type Tone = 'plain' | 'warm' | 'brisk' | 'formal'
+
+/**
+ * What each tone actually means, in rules rather than adjectives.
+ *
+ * Kept deliberately short. These sit alongside a dozen answering rules, and a
+ * tone that argues with them at length wins arguments it should lose: a warm
+ * agent that invents a refund to be nice has done more damage than a curt one.
+ * Voice is allowed to shape the sentence, never the fact.
+ */
+const TONES: Record<Tone, string[]> = {
+  plain: [
+    'Write the way you would to a colleague: direct, unfussy, no ceremony. One exclamation mark in a conversation is plenty.',
+  ],
+  warm: [
+    'Sound like a person who is glad they can help. Use their name if you know it.',
+    'If something has gone wrong for them, say so before you say anything else. One line, meant, then the fix. Do not perform sympathy you have not earned by reading what they wrote.',
+  ],
+  brisk: [
+    'The shortest correct answer, and then stop. No preamble, no summary of what you just said, no offer to help further unless there is a real next step.',
+    'One sentence is a complete reply when one sentence is the answer.',
+  ],
+  formal: [
+    'Full sentences, no contractions, no slang, no emoji. Address them as you would in a letter.',
+    'Formal is not distant. Say the useful thing plainly; do not pad it out to sound official.',
+  ],
+}
+
+/**
+ * What it says when it does not know.
+ *
+ * Deliberately in the customer's vocabulary rather than ours. "I don't have
+ * that in my documentation" is how the people who built the index think about
+ * it; nobody writing in has a mental model of an index, and a sentence that
+ * mentions one sounds like a machine reporting a lookup failure. It also
+ * invites the reply this replaces: asked for a password, the agent said "for
+ * passwords, I don't have that in my documentation", which is true, useless
+ * and slightly absurd.
+ *
+ * Both offers stay, because both are real: a rephrase often does find the
+ * answer, and a person is the honest end of the road when it does not.
+ */
 const DEFAULT_FALLBACK =
-  "I don't have that in my documentation. Could you rephrase, or would you like me to pass this to a human?"
+  "I'm not sure about that one. Could you put it another way, or shall I pass you to someone on the team?"
+
+/**
+ * The rules for a tone: a built-in one, or one somebody wrote.
+ *
+ * The two are told apart by shape rather than by a second field, because a
+ * second field is a thing to explain and get wrong. A built-in is a single
+ * bare word. A written tone has bullets in it. Nothing else is either.
+ *
+ * An unknown bare word is ignored rather than rejected. This value arrives
+ * from a settings screen and a database column at least as often as from code,
+ * and a deployment whose agent stops answering everybody because somebody
+ * typed "freindly" into a text field has failed worse than one that sounds
+ * slightly wrong for an afternoon.
+ */
+export function toneRules(tone: string | undefined): string[] {
+  if (!tone) return []
+
+  const trimmed = tone.trim()
+  if (isBuiltIn(trimmed)) return TONES[trimmed].map((rule) => `- ${rule}`)
+
+  // Everything that is not a bullet goes: a title, a paragraph explaining the
+  // voice, the blank lines between sections. A shared tone should be readable
+  // as a document, and only the rules belong in the prompt.
+  const written = trimmed
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+\S/.test(line))
+    .map((line) => `- ${line.replace(/^[-*]\s+/, '')}`)
+
+  // Silently dropping the rest would be the worst of both: the tone looks
+  // applied, most of it is, and the missing part is invisible until somebody
+  // notices the agent ignoring a rule they are certain they wrote down.
+  if (written.length > MAX_TONE_RULES) {
+    console.warn(
+      `[helpdeck] this tone has ${written.length} rules and only the first ${MAX_TONE_RULES} are used. ` +
+        'A tone shapes a sentence rather than the answer, and a long one starts winning arguments ' +
+        'against the rules that keep answers true. Anything that has to hold belongs in the prompt.',
+    )
+  }
+
+  // A bare word that is not one of ours, with no bullets under it, is a typo.
+  return written.slice(0, MAX_TONE_RULES)
+}
+
+function isBuiltIn(tone: string): tone is Tone {
+  return Object.prototype.hasOwnProperty.call(TONES, tone)
+}
+
+/**
+ * How much voice a tone may carry.
+ *
+ * A tone sits alongside the answering rules and is allowed to shape a sentence,
+ * never a fact. Somebody who pastes forty rules of personality in here is
+ * writing a system prompt, and it would start winning arguments against the
+ * grounding rules that keep the answers true. The cap is generous enough that
+ * no honest tone hits it and low enough that a pasted essay cannot take over.
+ */
+const MAX_TONE_RULES = 12
 
 /**
  * The system prompt does three jobs and nothing else: fence the model to the
@@ -71,25 +197,52 @@ export function buildInstructions(options: InstructionOptions): string {
   // the agent has no standing invitation to reach for them.
   const openActions = actions.filter((action) => !action.procedureOnly)
 
+  // A procedure rather than a list.
+  //
+  // The list came first and grew a rule every time a live conversation went
+  // wrong: a greeting refused, "are you human" refused, three questions
+  // answered with one refusal, a password request answered as a failed lookup.
+  // Six rules, six evenings, all of them patches on the same wound. The wound
+  // was a single line saying "when you cannot answer, say this and stop",
+  // sitting at the same level as everything else and winning, because a
+  // sentence that broad wins every argument it is allowed to have.
+  //
+  // So the fallback is no longer a rule. It lives inside the one branch it
+  // belongs to, and it cannot reach the others. The exceptions that existed
+  // only to fence it off are gone, which is six fewer instructions competing
+  // for a small model's attention.
   const lines = [
-    `You are ${name}, a customer support agent${business}.`,
+    `You are ${name}, a customer support agent${business}. You are an AI assistant, and you say so plainly whenever anyone asks.`,
     '',
-    'Answering:',
-    '- Answer from the numbered sources below and from what actions return. Nothing else.',
-    // Ordered deliberately. A model told "say the fallback when the sources do
-    // not answer" reaches for it the moment retrieval comes back empty, which
-    // is exactly the moment an action was going to earn its keep: an order
-    // lookup or a ticket is never in the help pages.
-    ...(openActions.length > 0
-      ? [
-          '- The sources are help pages, not live data. If the question needs something only an action can get, use the action. Not finding it in the sources is not an answer.',
-          `- Only when the sources cannot answer and no action can either, say exactly this and stop: "${fallback}"`,
-        ]
-      : [`- If the sources do not answer the question, say exactly this and stop: "${fallback}"`]),
-    '- Never invent prices, policies, dates, URLs, order details or availability. A wrong answer costs more than no answer.',
+    'Work out what they want, then follow the matching step. A message can hold several; handle each part on its own, and never let one part decide the answer to another.',
+    '',
+    '1. Saying hello, thank you or goodbye. Answer in one short line and wait for the real question. Nothing below applies.',
+    '',
+    '2. Asking about you: what you are, whether you are a person, what you can help with. Answer from this paragraph and stop. You are an AI assistant, never a human, and you help with questions about ' +
+      (persona.business ?? 'this business') +
+      ' answered from its help pages' +
+      (openActions.length > 0 ? ', and with the things your actions can do' : '') +
+      '. The help pages are not consulted for this and are not needed for it.',
+    '',
+    '3. Asking for something you will never do: a password, a card number, anyone else\'s account or details. Say plainly that you cannot, in your own words, the way a person would, and give them the step that actually solves it. Never write "contact us", "contact support", "reach out to us", "get in touch with us" or "contact customer service", because they are contacting you right now; offer to pass them to someone on the team, or name a real place such as the password reset page. If they say they already tried what you suggested, do not suggest it again: offer the person.',
+    '',
+    openActions.length > 0
+      ? '4. Asking something you could look up. Answer from the numbered sources below and from what your actions return, and nothing else. The sources are help pages rather than live data, so a question needing an order, a stock level or a ticket wants an action; not finding it in the sources is not an answer. If neither the sources nor an action can answer that part, reply to that part with exactly this and nothing more: "' +
+        fallback +
+        '"'
+      : '4. Asking something you could look up. Answer from the numbered sources below and nothing else. If the sources cannot answer that part, reply to that part with exactly this and nothing more: "' +
+        fallback +
+        '"',
+    '',
+    'Always:',
+    '- Never invent a price, a policy, a date, a URL, an order detail or an availability. If one is not in the sources or in what an action returned, you do not have it, and saying so is the answer.',
     '- Cite the sources you used inline as [1], [2]. Cite only what you actually relied on.',
     '- Be brief. Two or three sentences unless the question genuinely needs steps.',
     '- Reply in the language the customer wrote in.',
+    // Not a matter of taste, which is why it sits here rather than in a tone.
+    // Every tone is worse with it, and small models reach for it hardest.
+    '- Do not open with "Great question", "I\'d be happy to help", "Certainly", "Absolutely", or an apology for a problem that has not happened yet. Start with the answer.',
+    ...toneRules(persona.tone),
   ]
 
   if (openActions.length > 0) {
@@ -100,6 +253,10 @@ export function buildInstructions(options: InstructionOptions): string {
       // Small models in particular will write the call out as text when they
       // cannot manage the real thing, and the customer sees the machinery.
       '- Never write an action name, its arguments, or a line like "action_name: ..." into your reply. Either call the action properly or leave it out.',
+      // The WordPress port grew this one first, watching a live shop answer
+      // "Your lead has been captured! Reference: 18." That is our vocabulary
+      // for our own plumbing, and the customer has no use for it.
+      '- Do not narrate the machinery afterwards either. "Your lead has been captured" and "I have filed a ticket" are your words for it, not the customer\'s. Say what happens next for them: somebody will be in touch, and by when if you know.',
       // Asked directly, a model will happily enumerate its own attack surface.
       // What it can do is fine to describe; the function names are a map.
       '- If you are asked what tools, functions or actions you have, do not list them. Say what you can help with in plain words instead, and never give a name from the list below.',
@@ -166,7 +323,18 @@ export function buildInstructions(options: InstructionOptions): string {
     // A citation with nothing behind it is worse than none: it invites the
     // reader to check something that does not exist. Models reach for [1] out
     // of habit when the rest of the prompt has told them to cite.
-    lines.push('', 'There are no sources for this question. Do not write [1] or any other citation.')
+    //
+    // The second sentence is here rather than with the answering rules because
+    // this is the last thing the model reads, and the last thing it reads is
+    // "you have nothing". Live, that beat the exceptions written above it: a
+    // bare "how can you help me?" retrieves nothing and came back as the
+    // fallback, even with a rule two hundred words earlier saying it must not.
+    // A rule only wins where it is read.
+    lines.push(
+      '',
+      'There are no sources for this question. Do not write [1] or any other citation.',
+      'That is about the documentation and nothing else. A greeting, a question about you or what you can do, and anything you will never do are all still answered as set out above, not with the fallback.',
+    )
   }
 
   lines.push(

@@ -5,6 +5,7 @@ export {
   retrievalQuery,
   contextualQuery,
   type PersonaOptions,
+  type Tone,
 } from './prompt.js'
 export { corsHeaders, type CorsOptions } from './cors.js'
 export {

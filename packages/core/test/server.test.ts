@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { readFileSync, readdirSync } from 'node:fs'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
 import { buildIndex } from '../src/knowledge/build.js'
@@ -8,7 +9,7 @@ import { memoryStore } from '../src/store/memory.js'
 import { createRetriever } from '../src/retrieve/retriever.js'
 import { createKnowledgeSearch, knowledgeTool } from '../src/tool.js'
 import { createAgent } from '../src/agent.js'
-import { buildInstructions, contextualQuery, retrievalQuery, toSourceRefs } from '../src/server/prompt.js'
+import { buildInstructions, contextualQuery, retrievalQuery, toSourceRefs, toneRules } from '../src/server/prompt.js'
 import type { Document, KnowledgeIndex, Match, StreamFrame } from '../src/types.js'
 
 const documents: Document[] = [
@@ -74,6 +75,65 @@ describe('prompt', () => {
     const instructions = buildInstructions({ persona: { fallback: 'I cannot help with that.' }, matches: [] })
     expect(instructions).toContain('I cannot help with that.')
     expect(instructions).toContain('nothing in the documentation matched')
+  })
+
+  // Six evenings of live defects were one defect: a global "when you cannot
+  // answer, say this and stop" sitting at the same level as everything else,
+  // winning every argument it was allowed to have. Each fix was an exception
+  // fencing it off. The fallback now lives inside the one branch it belongs
+  // to, so these assert containment rather than ordering.
+  describe('the fallback stays in its branch', () => {
+    const built = (extra: Partial<Parameters<typeof buildInstructions>[0]> = {}) =>
+      buildInstructions({ matches: [], persona: { fallback: 'FALLBACK_MARKER' }, ...extra })
+
+    it('names the fallback once, inside the step about looking something up', () => {
+      const instructions = built()
+      const occurrences = instructions.split('FALLBACK_MARKER').length - 1
+      expect(occurrences).toBe(1)
+
+      const lookup = instructions.indexOf('4. Asking something you could look up')
+      const fallbackAt = instructions.indexOf('FALLBACK_MARKER')
+      expect(lookup).toBeGreaterThan(-1)
+      expect(fallbackAt).toBeGreaterThan(lookup)
+    })
+
+    it('keeps it inside step 4 when actions exist too', () => {
+      const instructions = built({
+        actions: [{ name: 'look_up_order', whenToUse: 'when they ask about an order', parameters: {} }],
+      })
+      const lookup = instructions.indexOf('4. Asking something you could look up')
+      expect(instructions.indexOf('FALLBACK_MARKER')).toBeGreaterThan(lookup)
+    })
+
+    // Each of these was its own defect and its own patch. They are branches now.
+    it('has a branch for each thing that used to be refused', () => {
+      const instructions = built()
+      expect(instructions).toContain('1. Saying hello, thank you or goodbye')
+      expect(instructions).toContain('2. Asking about you')
+      expect(instructions).toContain('3. Asking for something you will never do')
+      expect(instructions).toContain('4. Asking something you could look up')
+    })
+
+    it('says what it is in the opening line as well as in its own branch', () => {
+      const instructions = built()
+      const opening = instructions.slice(0, instructions.indexOf('\n'))
+      // Primacy and recency both, since this is the one a regulator cares about.
+      expect(opening).toContain('AI assistant')
+      expect(instructions.indexOf('never a human')).toBeGreaterThan(opening.length)
+    })
+
+    it('tells it to handle each part of a message on its own', () => {
+      expect(built()).toContain('handle each part on its own')
+    })
+
+    // Live: "please contact us for password assistance", to somebody who was
+    // contacting us. Exact strings, because the concept was ignored.
+    it('bans the exact phrases rather than describing them', () => {
+      const instructions = built()
+      for (const phrase of ['contact us', 'reach out to us', 'get in touch with us']) {
+        expect(instructions).toContain(`"${phrase}"`)
+      }
+    })
   })
 
   it('numbers the sources so citations line up', async () => {
@@ -676,5 +736,58 @@ describe('a visitor asking to be forgotten', () => {
 
     // A deletion is not a turn. Answering one would put the words back.
     expect(asked).toBe(0)
+  })
+})
+
+describe('how much voice a tone may carry', () => {
+  const rules = (n: number) =>
+    Array.from({ length: n }, (_, i) => `- Rule number ${i + 1}.`).join('\n')
+
+  it('keeps a tone written as a document, and only its rules', () => {
+    const document = [
+      '# Night shift',
+      '',
+      'For the hours when nobody is at a desk.',
+      '',
+      '- Say when the office opens again.',
+      '- Do not promise a callback before then.',
+    ].join('\n')
+
+    expect(toneRules(document)).toEqual([
+      '- Say when the office opens again.',
+      '- Do not promise a callback before then.',
+    ])
+  })
+
+  it('caps a tone that is really a system prompt', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(toneRules(rules(25))).toHaveLength(12)
+    warn.mockRestore()
+  })
+
+  // Silently dropping them is the worst outcome: the tone looks applied, most
+  // of it is, and the missing half only surfaces when somebody notices a rule
+  // being ignored that they are certain they wrote.
+  it('says so rather than dropping the rest quietly', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    toneRules(rules(25))
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    const said = String(warn.mock.calls[0]?.[0])
+    expect(said).toContain('25 rules')
+    expect(said).toContain('first 12')
+    warn.mockRestore()
+  })
+
+  it('stays quiet for a tone within the cap', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    toneRules(rules(4))
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('leaves the built-in names alone', () => {
+    expect(toneRules('warm').length).toBeGreaterThan(0)
+    expect(toneRules(undefined)).toEqual([])
   })
 })
