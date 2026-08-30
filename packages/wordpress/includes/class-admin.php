@@ -366,6 +366,39 @@ class Admin {
 						</td>
 					</tr>
 					<tr>
+						<th scope="row"><label for="helpdeck_persona_tone"><?php esc_html_e( 'Tone', 'helpdeck' ); ?></label></th>
+						<td>
+							<select id="helpdeck_persona_tone" name="<?php echo esc_attr( Settings::OPTION ); ?>[persona][tone]">
+								<?php
+								$helpdeck_tones = array(
+									'plain'  => __( 'Plain, direct and unfussy', 'helpdeck' ),
+									'warm'   => __( 'Warm, acknowledges when something has gone wrong', 'helpdeck' ),
+									'brisk'  => __( 'Brisk, the shortest correct answer', 'helpdeck' ),
+									'formal' => __( 'Formal, full sentences and no contractions', 'helpdeck' ),
+								);
+								foreach ( $helpdeck_tones as $helpdeck_key => $helpdeck_label ) {
+									printf(
+										'<option value="%1$s"%2$s>%3$s</option>',
+										esc_attr( $helpdeck_key ),
+										selected( $settings['persona']['tone'], $helpdeck_key, false ),
+										esc_html( $helpdeck_label )
+									);
+								}
+								?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Each one is a short set of rules about how to write, not a label. Leave it on Plain if you are not sure.', 'helpdeck' ); ?></p>
+							<?php
+							$helpdeck_written = ! in_array( $settings['persona']['tone'], Settings::TONES, true )
+								? $settings['persona']['tone']
+								: '';
+							?>
+							<textarea id="helpdeck_tone_written" name="<?php echo esc_attr( Settings::OPTION ); ?>[persona][tone_written]" class="large-text code" rows="6" placeholder="- Assume they are reading on a phone.&#10;- Lead with the fix, explanation second."><?php echo esc_textarea( $helpdeck_written ); ?></textarea>
+							<p class="description">
+								<?php esc_html_e( 'Paste a tone here to use it instead of the one selected above; clear the box to go back to it. One rule per line, each starting with a dash or an asterisk. Anything else on the line is ignored, so you can keep a title and notes in here too. This is the whole format: to share a tone, send the text.', 'helpdeck' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="helpdeck_persona_instructions"><?php esc_html_e( 'Extra Instructions', 'helpdeck' ); ?></label></th>
 						<td>
 							<textarea id="helpdeck_persona_instructions" name="<?php echo esc_attr( Settings::OPTION ); ?>[persona][instructions]" class="large-text" rows="5"><?php echo esc_textarea( $settings['persona']['instructions'] ); ?></textarea>

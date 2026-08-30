@@ -26,6 +26,16 @@ class Settings {
 	const OPTION = 'helpdeck_settings';
 
 	/**
+	 * The tones the prompt knows how to turn into rules.
+	 *
+	 * A closed set so the settings screen and the sanitiser cannot drift apart,
+	 * and so a hand-made POST cannot put arbitrary text where a tone belongs.
+	 *
+	 * @var array<int, string>
+	 */
+	const TONES = array( 'plain', 'warm', 'brisk', 'formal' );
+
+	/**
 	 * Everything, with defaults filled in.
 	 *
 	 * @return array<string, mixed>
@@ -47,6 +57,7 @@ class Settings {
 				'business'     => self::text( $stored, 'persona', 'business', get_bloginfo( 'name' ) ),
 				'greeting'     => self::text( $stored, 'persona', 'greeting', '' ),
 				'fallback'     => self::text( $stored, 'persona', 'fallback', '' ),
+				'tone'         => self::text( $stored, 'persona', 'tone', 'plain' ),
 				'instructions' => self::text( $stored, 'persona', 'instructions', '' ),
 			),
 			'model'      => array(
@@ -109,6 +120,47 @@ class Settings {
 	}
 
 	/**
+	 * The chosen tone, or the default when it is not one we offer.
+	 *
+	 * A select element is only a suggestion. The request that arrives carries
+	 * whatever the sender chose to put in it, so the closed set is checked here
+	 * rather than trusted from the form.
+	 *
+	 * @param  array<string, mixed> $input Raw submitted settings.
+	 * @return string
+	 */
+	private static function tone( $input ) {
+		// The screen posts both: a select that is always one of the four, and a
+		// textarea that is usually empty. Written wins when it has content,
+		// which is what the checkbox beside it means.
+		$written = isset( $input['persona']['tone_written'] )
+			? trim( (string) $input['persona']['tone_written'] )
+			: '';
+		$value   = '' !== $written
+			? $written
+			: ( isset( $input['persona']['tone'] ) ? trim( (string) $input['persona']['tone'] ) : '' );
+
+		if ( in_array( sanitize_key( $value ), self::TONES, true ) ) {
+			return sanitize_key( $value );
+		}
+
+		// Not one of ours, so it is a tone somebody wrote. Kept as text rather
+		// than forced into the closed set, because the whole point of a written
+		// tone is that it is not one of the four. Only the bullet lines survive
+		// the prompt builder, so what is stored here is documentation as much
+		// as configuration.
+		// The same test the prompt builder applies, so the two halves cannot
+		// disagree about what a tone is. Looking for a bare dash anywhere
+		// accepted prose with a hyphen in it, which stores fine and then
+		// produces no rules, and threw away a tone written with asterisks.
+		if ( '' !== $value && 1 === preg_match( '/^[-*]\s+\S/m', $value ) ) {
+			return sanitize_textarea_field( $value );
+		}
+
+		return 'plain';
+	}
+
+	/**
 	 * Cleans what a form submitted.
 	 *
 	 * Registered as the sanitize callback, so nothing reaches the database
@@ -147,6 +199,10 @@ class Settings {
 				'business'     => self::clean_line( $input, 'persona', 'business' ),
 				'greeting'     => self::clean_line( $input, 'persona', 'greeting' ),
 				'fallback'     => self::clean_line( $input, 'persona', 'fallback' ),
+				// A closed set, checked here rather than trusted from the form.
+				// A select element is only a suggestion; the request that
+				// arrives is whatever the sender chose to put in it.
+				'tone'         => self::tone( $input ),
 				// The one multi-line field: extra rules for the model, where
 				// newlines are how the rules are separated.
 				'instructions' => isset( $input['persona']['instructions'] )

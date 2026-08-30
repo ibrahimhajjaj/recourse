@@ -43,6 +43,101 @@ function __( $text, $domain = 'default' ) { // phpcs:ignore WordPress.NamingConv
 	return $text;
 }
 
+/**
+ * The sanitisers the settings screen runs a saved form through.
+ *
+ * Each is the documented behaviour rather than the implementation: a key is
+ * lowercased and stripped to a safe alphabet, a text field loses its tags and
+ * its line breaks, a textarea keeps the breaks.
+ *
+ * @param string $value Raw value.
+ * @return string
+ */
+function sanitize_key( $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $value ) );
+}
+
+/**
+ * A text field: tags gone, whitespace collapsed to single spaces.
+ *
+ * @param string $value Raw value.
+ * @return string
+ */
+function sanitize_text_field( $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return trim( preg_replace( '/\s+/', ' ', wp_strip_all_tags( (string) $value ) ) );
+}
+
+/**
+ * A textarea: tags gone, line breaks kept.
+ *
+ * @param string $value Raw value.
+ * @return string
+ */
+function sanitize_textarea_field( $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return trim( wp_strip_all_tags( (string) $value ) );
+}
+
+/**
+ * Markup removed, which is what both sanitisers lean on.
+ *
+ * @param string $value Raw value.
+ * @return string
+ */
+function wp_strip_all_tags( $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return strip_tags( (string) $value ); // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags
+}
+
+/**
+ * A URL safe to store, as opposed to one safe to print.
+ *
+ * @param string $value Raw value.
+ * @return string
+ */
+function esc_url_raw( $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return filter_var( (string) $value, FILTER_SANITIZE_URL );
+}
+
+/**
+ * The two post types every install has, which is all the settings sanitiser
+ * needs to decide whether a submitted type is a real one.
+ *
+ * @param array  $args   Query, ignored.
+ * @param string $output Shape, ignored.
+ * @return array
+ */
+function get_post_types( $args = array(), $output = 'names' ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	unset( $args, $output );
+
+	$types = array();
+
+	foreach ( array(
+		'post' => 'Posts',
+		'page' => 'Pages',
+	) as $helpdeck_name => $helpdeck_label ) {
+		$type               = new \stdClass();
+		$type->name         = $helpdeck_name;
+		$type->labels       = new \stdClass();
+		$type->labels->name = $helpdeck_label;
+
+		$types[ $helpdeck_name ] = $type;
+	}
+
+	return $types;
+}
+
+/**
+ * No database here, so every option is its default.
+ *
+ * @param string $name     Option name, ignored.
+ * @param mixed  $fallback Whatever the caller will accept.
+ * @return mixed
+ */
+function get_option( $name, $fallback = false ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	unset( $name );
+
+	return $fallback;
+}
+
 $helpdeck_testable = array(
 	'tokenizer',
 	'bm25',
@@ -52,7 +147,27 @@ $helpdeck_testable = array(
 	'html',
 	'prompt',
 	'actions',
+	// Only for the gate that decides what may be indexed, which returns before
+	// it reaches a WordPress call. The stubs below cover what the rest of the
+	// class would need if a test ever went past it.
+	'content',
+	// The tone the settings screen stores has to be one the prompt builder
+	// will read back, and only a test that runs both halves can say so.
+	'settings',
 );
+
+/**
+ * Enough of the filter API for a gate that runs before anything else.
+ *
+ * @param string $hook  Hook name, ignored.
+ * @param mixed  $value The value to pass through.
+ * @return mixed
+ */
+function apply_filters( $hook, $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	unset( $hook );
+
+	return $value;
+}
 
 foreach ( $helpdeck_testable as $helpdeck_class ) {
 	require_once __DIR__ . '/../includes/class-' . $helpdeck_class . '.php';

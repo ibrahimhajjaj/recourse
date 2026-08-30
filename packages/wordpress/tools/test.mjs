@@ -51,7 +51,16 @@ if (args.includes('--lint-only')) {
   for (const file of files) {
     if (run('php', ['-l', file]) !== 0) process.exit(1)
   }
-  process.exit(0)
+
+  // `php -l` only proves a file parses. The coding standard is the half that
+  // catches what a reviewer at wp.org would send back, and leaving it out of
+  // the gate meant it only ever ran when somebody remembered to run it.
+  if (!existsSync(join(root, 'vendor', 'bin', 'phpcs'))) {
+    console.log('phpcs not installed; run `composer install` in packages/wordpress')
+    process.exit(0)
+  }
+
+  process.exit(run('vendor/bin/phpcs', ['--standard=.phpcs.xml.dist', 'includes', 'tests']))
 }
 
 if (!existsSync(join(root, 'vendor', 'bin', 'phpunit'))) {
