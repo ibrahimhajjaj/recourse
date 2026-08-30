@@ -29,8 +29,6 @@ export {
 export {
   liveChat,
   transferToPhone,
-  salesforceCases,
   type LiveChatOptions,
   type TransferToPhoneOptions,
-  type SalesforceCaseOptions,
 } from './builtin/handoff.js'

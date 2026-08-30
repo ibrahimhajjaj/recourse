@@ -261,7 +261,6 @@ export {
   shopifyOrders,
   liveChat,
   transferToPhone,
-  salesforceCases,
 } from './actions/index.js'
 export type {
   Action,
@@ -287,7 +286,6 @@ export type {
   ShopifyOptions,
   LiveChatOptions,
   TransferToPhoneOptions,
-  SalesforceCaseOptions,
 } from './actions/index.js'
 
 export {
@@ -304,6 +302,7 @@ export {
   type ChatHandlerOptions,
   type ConversationEvent,
   type PersonaOptions,
+  type Tone,
   type CorsOptions,
   type RateLimitOptions,
 } from './server/index.js'
@@ -337,6 +336,7 @@ export { models, embedders, type OpenAICompatibleOptions } from './models.js'
 export { translateCategories } from './safety/types.js'
 export {
   modelClassifier,
+  crisisWatch,
   buildPrompt as buildClassifierPrompt,
   type ModelClassifierOptions,
   type LabelledExample,

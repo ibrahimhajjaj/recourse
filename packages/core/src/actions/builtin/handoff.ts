@@ -1,6 +1,5 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionContext } from '../types.js'
-import { fetchWithRetry } from '../../util/http.js'
 
 /**
  * Handing the conversation to a person, live.
@@ -152,54 +151,4 @@ function withinHours(hours: { open: number; close: number; days?: number[] }): b
   if (!(hours.days ?? [1, 2, 3, 4, 5]).includes(day)) return false
   const hour = now.getHours()
   return hour >= hours.open && hour < hours.close
-}
-
-export interface SalesforceCaseOptions {
-  /** Your instance, such as `https://acme.my.salesforce.com`. */
-  instanceUrl: string
-  /** An OAuth access token with permission to create cases. */
-  accessToken: string
-  apiVersion?: string
-}
-
-/**
- * Opens a Salesforce case, for teams whose queue lives there.
- *
- * Written as a ticket sink for `escalate` rather than its own action, so the
- * agent has one way to hand over regardless of where the ticket ends up.
- */
-export function salesforceCases(options: SalesforceCaseOptions) {
-  const version = options.apiVersion ?? 'v62.0'
-
-  return async function createCase(ticket: {
-    subject: string
-    body: string
-    email?: string
-    name?: string
-    priority?: string
-  }): Promise<{ id?: string }> {
-    const response = await fetchWithRetry(
-      `${options.instanceUrl}/services/data/${version}/sobjects/Case`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${options.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Subject: ticket.subject,
-          Description: ticket.body,
-          SuppliedEmail: ticket.email,
-          SuppliedName: ticket.name,
-          Origin: 'Web',
-          Priority: ticket.priority === 'urgent' ? 'High' : ticket.priority === 'low' ? 'Low' : 'Medium',
-        }),
-      },
-      { attempts: 2 },
-    )
-
-    if (!response.ok) throw new Error(`Salesforce case creation failed (${response.status})`)
-    const body = (await response.json()) as { id?: string }
-    return { id: body.id }
-  }
 }
