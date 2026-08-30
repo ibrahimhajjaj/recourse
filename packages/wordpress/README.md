@@ -143,7 +143,7 @@ turn the endpoint into a way of mapping which numbers exist.
 Nothing shipped writes to a shop. A model that misreads a sentence should not
 be able to refund an order.
 
-## What core now does, checked on a live 7.1
+## Left to core, checked on a live 7.1
 
 WordPress grew two things that overlap with this plugin, so both are used
 rather than reimplemented.
@@ -189,8 +189,8 @@ then fails at generation, so the failure is handled where it happens.
 Streaming and embeddings are not in core yet. Embeddings are targeted at 7.2,
 and they are the thing that could replace this index layer entirely.
 
-## What is not here
+## Not in the plugin
 
-Ten channels, voice, attachments, the safety classifier, four database stores,
+Eleven channels, voice, attachments, the safety classifier, four database stores,
 procedures and the eval harness are all in the Node core and none of them is
 planned for PHP. This is the standalone path, for a site with no Node anywhere.

@@ -26,11 +26,42 @@ const widget = createWidget({
 
 ## Script tag attributes
 
-`data-endpoint` (required), `data-title`, `data-subtitle`, `data-greeting`,
-`data-accent`, `data-position` (`bottom-right` or `bottom-left`), `data-theme`
-(`light`, `dark`, `auto`), `data-suggestions` (pipe separated), `data-open`,
-`data-persist`, `data-target` (a selector, to render inline rather than
-floating), `data-attachments`.
+| Attribute | Does |
+| --- | --- |
+| `data-endpoint` | Where to post. The only required one. |
+| `data-title`, `data-subtitle`, `data-greeting` | The header and the opening line. |
+| `data-accent` | One colour; everything else is derived from it. |
+| `data-position` | `bottom-right` (default) or `bottom-left`. |
+| `data-theme` | `light`, `dark`, or `auto` (default). |
+| `data-suggestions` | Pipe separated openers: `Track my order\|Returns`. |
+| `data-open` | `true` to start open. |
+| `data-persist` | `false` to forget the conversation on reload. |
+| `data-target` | A selector, to render inline instead of floating. |
+| `data-attachments` | `true` for a paperclip, or a number for a size cap in MB. |
+| `data-dictation` | `true` for a microphone. |
+| `data-dictation-lang` | Overrides the page language for speech. |
+| `data-dictation-cloud` | `true` to allow the browser's cloud fallback. |
+| `data-feedback` | `false` to remove the thumbs on each answer. |
+| `data-copy` | `false` to remove the copy button. |
+| `data-delete` | `true` to let a visitor delete their own conversation. |
+| `data-invite` | A message that opens the widget itself after a pause. |
+| `data-invite-delay` | Milliseconds before it does. |
+| `data-user-id`, `data-user-hash` | A signed identity, below. |
+
+### Telling the agent who this is
+
+```html
+data-user-id="cus_8813"
+data-user-hash="a3f1…"
+```
+
+The hash is an HMAC of the id, computed on your server with a secret the browser
+never sees. Without it a visitor can claim to be anybody by editing an
+attribute, which matters the moment an action returns something private: an
+order, an invoice, an address.
+
+Actions can then refuse to answer an unverified session rather than trusting the
+id it was handed.
 
 `window.helpdeck` exposes `open()`, `close()`, `ask(question)`, `clear()` and
 `destroy()`.
@@ -82,6 +113,18 @@ permits the fallback if you would rather have it work.
 
 The button is hidden entirely where the browser has no speech recognition,
 which today means Firefox. A control that cannot work is worse than no control.
+
+## Right to left
+
+The agent answers in the language the customer wrote in, so one conversation can
+hold both directions at once. Every bubble and the composer carry `dir="auto"`,
+which lets the browser decide per message from its first strong character. An
+Arabic answer renders as Arabic on an English page with nothing for the host to
+declare, and an English answer in the same thread is unaffected.
+
+The stylesheet uses logical properties throughout, so list markers and table
+text follow the direction rather than sitting on whichever side happened to be
+written down.
 
 ## Rendering safety
 

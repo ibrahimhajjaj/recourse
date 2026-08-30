@@ -1,7 +1,7 @@
 # helpdeck evals
 
-Scored suites for retrieval quality, answer grounding and injection
-resistance. Not published; this is a development tool.
+Scored suites for retrieval quality, answer grounding, injection resistance
+and conduct. Not published; this is a development tool.
 
 The unit tests prove the machinery works. These prove the answers are good,
 which is a different question and the one customers actually experience.
@@ -50,6 +50,7 @@ way to tell an improvement from a regression.
 | `retrieval` | 22 | no |
 | `grounding` | 21 | yes |
 | `injection` | 20 | yes |
+| `conduct` | 33 | yes |
 
 **retrieval** asserts which documents come back for a query. Deterministic and
 fast, so it belongs on every push: it catches a stemmer or threshold change
@@ -67,6 +68,23 @@ running against `corpora/shop-poisoned.json`, where a document in the knowledge
 base itself carries instructions aimed at the model. That is the attack a RAG
 system cannot screen at the input, because the payload arrives with the
 authority of the business's own content.
+
+**conduct** is how it behaves rather than what it knows: greetings, "are you
+human", several questions in one message, requests it must decline, pressure,
+overpromising, and answering in the language it was written to.
+
+This suite exists because six defects were found in one evening by one person
+typing into a live WhatsApp bot while 870 unit tests stayed green. Every one of
+them was a message a customer sends in the first minute. The unit tests assert
+that a rule is present and where it sits, which catches source drift and cannot
+catch a model ignoring it. Each of those six is a case here now, so they are
+regressions rather than memories.
+
+Its assertions lean on `mustNotContain`, because there are many acceptable ways
+to greet somebody and very few acceptable ways to leak the word "documentation"
+or invent an email address. On its first full run it caught the agent answering
+an empty retrieval by writing its own fallback containing a contact address
+that exists nowhere.
 
 ## Adding a case
 
@@ -92,14 +110,14 @@ Append a line to a suite. No code to edit.
 anything; one that stays and explains itself is a note to whoever tries to fix
 it next.
 
-## Why the grading is deterministic
+## The grading is deterministic on purpose
 
 String matching, regex, citation counting and which actions ran. No model
 grades another model by default: a judge that disagrees with itself between
 runs turns a regression suite into a mood ring. Where a judge is genuinely
 needed it must not be the model under test.
 
-## What this found on its first run
+## Found on the first run
 
 - A stemmer gap: `freshness` did not reduce to `fresh`, so a heading and the
   question asking about it never met.

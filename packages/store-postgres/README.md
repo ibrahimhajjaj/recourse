@@ -16,7 +16,7 @@ createChatHandler({ index, store })
 
 That is the whole integration. Tables are created on first use.
 
-## Why you need it
+## When the other stores stop being enough
 
 `memoryStore` dies with the process. `fileStore` assumes one writer.
 
@@ -45,7 +45,7 @@ postgresStore({
 `migrate(pool)` is exported if you would rather run it yourself at boot. It
 takes an advisory lock, so several instances starting at once is fine.
 
-## What it does differently
+## Where it departs from the other stores
 
 - **Message order comes from a sequence, not the timestamp.** Two messages in
   one turn are written in the same millisecond, and ordering on the timestamp

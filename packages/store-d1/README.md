@@ -17,13 +17,13 @@ export default {
 { "d1_databases": [{ "binding": "DB", "database_name": "helpdeck", "database_id": "..." }] }
 ```
 
-## Why this rather than Postgres
+## Choosing this over Postgres
 
 The deployment, not the database. A Worker reaches D1 through a binding: no
 connection pool, no credential, nothing to exhaust. On a runtime where every
 instance opening a pool is the failure mode, not having pools is the feature.
 
-## What it costs
+## The bill
 
 | | Free | Paid |
 | --- | --- | --- |

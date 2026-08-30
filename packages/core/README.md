@@ -16,6 +16,20 @@ export const POST = createChatHandler({ index: knowledge })
 
 Full documentation: https://github.com/ibrahimhajjaj/helpdeck
 
+Each topic has its own page rather than one long file: [choosing a
+model](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/models.md),
+[getting your content
+in](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/retrieval.md),
+[actions](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/actions.md),
+[channels](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/channels.md),
+[the help
+desk](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/helpdesk.md),
+[security](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/security.md),
+[stores](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/stores.md),
+[evals](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/evals.md),
+[deploying](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/deploying.md),
+[files](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/files.md).
+
 ## Exports
 
 | Entry | What it gives you |
@@ -25,16 +39,18 @@ Full documentation: https://github.com/ibrahimhajjaj/helpdeck
 | `helpdeck/agent` | `createAgent`, the agent with no transport attached |
 | `helpdeck/actions` | Lead capture, escalation, HTTP actions, commerce, handoff |
 | `helpdeck/procedures` | Multi-step flows with branches and variables |
-| `helpdeck/channels` | WhatsApp, Slack, Teams, Telegram, Discord, SMS, email |
-| `helpdeck/helpdesk` | Tickets, routing, assignment, triggers, saved views |
+| `helpdeck/channels` | WhatsApp, Messenger, Instagram, Slack, Teams, Telegram, Discord, SMS, voice, email, Sunshine |
+| `helpdeck/helpdesk` | Tickets, routing, assignment, triggers, saved views, and connectors for nine outside desks |
 | `helpdeck/api` | Management API, admin page, public help page |
 | `helpdeck/store` | Conversation, lead, ticket and source persistence |
 | `helpdeck/webhooks` | Signed outbound events |
 | `helpdeck/outbound` | Campaigns, with consent enforced |
-| `helpdeck/tool` | `knowledgeTool` for AI SDK and eve agents |
+| `helpdeck/tool` | `knowledgeTool`, for the AI SDK, eve, or anything built on them |
 | `helpdeck/ingest` | `ingest` and `writeIndex`, for build scripts |
 | `helpdeck/attachments` | Validating and reading files a visitor sends |
 | `helpdeck/safety` | Classifier with per-category sensitivity and actions |
+| `helpdeck/models` | `models` and `embedders`, including one picked from the environment |
+| `helpdeck/storage` | S3, R2 and local blobs for what a visitor uploads |
 
 ## CLI
 
