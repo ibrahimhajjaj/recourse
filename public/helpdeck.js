@@ -643,7 +643,7 @@
 
 .bubble p { margin: 0 0 8px; }
 .bubble p:last-child { margin-bottom: 0; }
-.bubble ul, .bubble ol { margin: 0 0 8px; padding-left: 20px; }
+.bubble ul, .bubble ol { margin: 0 0 8px; padding-inline-start: 20px; }
 .bubble li { margin: 2px 0; }
 .bubble code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -895,14 +895,14 @@
 
 .ui-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--hd-line); border-radius: 10px; }
 .ui-table { border-collapse: collapse; font-size: 13px; width: 100%; }
-.ui-table th, .ui-table td { text-align: left; padding: 7px 10px; white-space: nowrap; }
+.ui-table th, .ui-table td { text-align: start; padding: 7px 10px; white-space: nowrap; }
 .ui-table th { color: var(--hd-muted); font-weight: 560; border-bottom: 1px solid var(--hd-line); }
 .ui-table tbody tr + tr td { border-top: 1px solid var(--hd-line); }
 
 .ui-list { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
 .ui-list-item {
   font: inherit;
-  text-align: left;
+  text-align: start;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1159,6 +1159,7 @@
     const composer = document.createElement("form");
     composer.className = "composer";
     const input = document.createElement("textarea");
+    input.setAttribute("dir", "auto");
     input.rows = 1;
     input.placeholder = strings.placeholder;
     input.setAttribute("aria-label", strings.inputLabel);
@@ -1366,6 +1367,7 @@
       wrapper.dataset.role = message.role;
       const bubble = document.createElement("div");
       bubble.className = "bubble";
+      bubble.setAttribute("dir", "auto");
       if (message.role === "user") bubble.textContent = message.content;
       else bubble.appendChild(renderMarkdown(message.content));
       if (message.role === "user" && !message.content && message.attachments?.length) bubble.remove();
@@ -1510,6 +1512,7 @@
     }
     async function runTurn(actionResults, sending) {
       const { bubble, wrapper } = paintMessage({ role: "assistant", content: "" });
+      log.setAttribute("aria-busy", "true");
       const typing = document.createElement("span");
       typing.className = "typing";
       typing.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
@@ -1551,6 +1554,7 @@
         strings
       );
       typing.remove();
+      log.setAttribute("aria-busy", "false");
       if (requested.length > 0 && !actionResults) {
         wrapper.remove();
         const form = requested.find((request) => request.payload?.form);
