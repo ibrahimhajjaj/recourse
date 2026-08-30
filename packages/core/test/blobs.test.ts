@@ -167,10 +167,32 @@ describe.skipIf(!minioUp)('s3 against minio', () => {
 })
 
 describe('keys', () => {
-  it('keeps the visitor filename readable but harmless', () => {
-    const key = blobKey('../../etc/passwd')
+  // A filename arrives from whoever is uploading, and every one of these is a
+  // real shape rather than a hypothetical: back slashes for Windows, doubled
+  // dots that survive a naive single strip, percent encoding for a layer that
+  // decodes later, and a leading dot for a file a listing would hide.
+  it.each([
+    '../../etc/passwd',
+    '..\\..\\windows\\system32\\config\\sam',
+    '....//....//etc/shadow',
+    '/absolute/path.pdf',
+    'a/b/c.pdf',
+    '%2e%2e%2fetc%2fpasswd',
+    '.htaccess',
+    '...',
+    '',
+  ])('keeps the visitor filename readable but harmless: %j', (name) => {
+    const key = blobKey(name)
+
     expect(key).toMatch(/^attachments\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{18}-/)
-    expect(key).not.toContain('..')
+
+    // Only the last segment comes from the name. The prefix and the date are
+    // ours, so a slash surviving into the tail is the thing that would matter.
+    const tail = key.split('/').slice(2).join('/')
+    expect(tail).not.toContain('..')
+    expect(tail).not.toContain('/')
+    expect(tail).not.toContain('\\')
+    expect(key.startsWith('/')).toBe(false)
   })
 
   it('does not collide when two people upload the same name', () => {

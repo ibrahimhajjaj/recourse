@@ -18,6 +18,7 @@
  * every query counts against a per-invocation budget.
  */
 
+import { safeEqual } from '../util/compare.js'
 import type { Attachment } from '../attachments.js'
 import { sanitiseName } from '../attachments.js'
 import type { Blobs } from './blobs.js'
@@ -49,13 +50,7 @@ export async function signReference(secret: string, key: string): Promise<string
 
 /** Constant time, so a wrong token does not leak how much of it was right. */
 export async function verifyReference(secret: string, key: string, token: string): Promise<boolean> {
-  const expected = await hmac(secret, key)
-  if (expected.length !== token.length) return false
-  let difference = 0
-  for (let index = 0; index < expected.length; index++) {
-    difference |= expected.charCodeAt(index) ^ token.charCodeAt(index)
-  }
-  return difference === 0
+  return safeEqual(await hmac(secret, key), token)
 }
 
 export interface ResolveOptions {
