@@ -14,7 +14,11 @@ jobs:
       # present, so the database implementation is covered on every push
       # instead of only when somebody remembers to start one.
       postgres:
-        image: postgres:16-alpine
+        # pgvector's own image, which is the stock Postgres one with the
+        # extension already there. On plain postgres:16 the vector suite fails
+        # on `CREATE EXTENSION vector` rather than skipping, so the adapter's
+        # similarity search went uncovered while the job looked like it ran.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_PASSWORD: recourse
           POSTGRES_DB: recourse
