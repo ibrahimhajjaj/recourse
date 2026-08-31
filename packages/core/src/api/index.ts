@@ -27,6 +27,38 @@ export interface ApiOptions {
    * every transcript, so it belongs behind the same auth as the rest of this.
    */
   admin?: boolean
+  /**
+   * Called for every request to this API, including the refused ones.
+   *
+   * Nothing here writes it down. Where an access log belongs is a decision
+   * about your infrastructure rather than about this library, and a store that
+   * grew its own audit table would be the wrong place for it on most
+   * deployments.
+   *
+   * It exists because three separate regimes want the same thing and none of
+   * them can be satisfied after the fact: the HIPAA Security Rule asks for a
+   * record of who examined systems holding health information, the GDPR asks
+   * you to show who accessed personal data, and SOC 2 asks the same question.
+   * This endpoint hands back whole transcripts, so it is the one worth
+   * recording.
+   *
+   *     onAccess: (event) => logger.info('helpdeck.api', event)
+   *
+   * `actor` names which credential was used without revealing it: the first
+   * twelve characters of the token's SHA-256, which is stable across requests.
+   * Putting a bearer token in a log file is how they leak.
+   */
+  onAccess?: (event: AccessEvent) => void | Promise<void>
+}
+
+/** One request to the management API, for whoever keeps the access log. */
+export interface AccessEvent {
+  at: string
+  method: string
+  path: string
+  status: number
+  /** A stable fingerprint of the bearer token, never the token. */
+  actor?: string
 }
 
 /**
@@ -411,9 +443,29 @@ export function createApiHandler(options: ApiOptions) {
     const cors = corsHeaders(request, options.cors)
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
-    if (options.tokens?.length) {
-      const presented = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    const presented = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
 
+    const recorded = async (response: Response): Promise<Response> => {
+      if (!options.onAccess) return response
+
+      try {
+        await options.onAccess({
+          at: new Date().toISOString(),
+          method: request.method,
+          path: new URL(request.url).pathname,
+          status: response.status,
+          ...(presented ? { actor: await fingerprint(presented) } : {}),
+        })
+      } catch (error) {
+        // A log that cannot be written must not take the API down with it, and
+        // refusing to answer is not the safer failure here.
+        console.error('[helpdeck] onAccess threw', error)
+      }
+
+      return response
+    }
+
+    if (options.tokens?.length) {
       // Compared the same way every signature in this library is, rather than
       // with `includes`, which stops at the first wrong character and so takes
       // longer the more of the token is right. This endpoint hands back
@@ -422,7 +474,9 @@ export function createApiHandler(options: ApiOptions) {
       const allowed = presented ? options.tokens.some((token) => safeEqual(token, presented)) : false
 
       if (!allowed) {
-        return withCors(fail('unauthorized', 'a valid bearer token is required', 401), cors)
+        // Recorded too. A refused attempt is the entry an access log exists
+        // for, and dropping it leaves a log that only ever shows success.
+        return recorded(withCors(fail('unauthorized', 'a valid bearer token is required', 401), cors))
       }
     }
 
@@ -430,16 +484,32 @@ export function createApiHandler(options: ApiOptions) {
     const pathname = base && url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname
 
     const matched = router.match(request.method, pathname)
-    if (!matched) return withCors(fail('not_found', `no route for ${request.method} ${pathname}`, 404), cors)
+    if (!matched) {
+      return recorded(withCors(fail('not_found', `no route for ${request.method} ${pathname}`, 404), cors))
+    }
 
     try {
-      return withCors(await matched.handler(request, matched.params), cors)
+      return recorded(withCors(await matched.handler(request, matched.params), cors))
     } catch (error) {
       // The message stays server-side; a stack trace is not a client's business.
       console.error('[helpdeck] api error', error)
-      return withCors(fail('internal_error', 'the request could not be completed', 500), cors)
+      return recorded(withCors(fail('internal_error', 'the request could not be completed', 500), cors))
     }
   }
+}
+
+/**
+ * Which credential, without the credential.
+ *
+ * Twelve hex characters of a SHA-256 is stable across requests, so an access
+ * log can be grouped by who, and reverses to nothing.
+ */
+async function fingerprint(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
+  return [...new Uint8Array(digest)]
+    .slice(0, 6)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 function noKnowledge(): Response {

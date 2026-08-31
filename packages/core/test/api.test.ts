@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { AccessEvent } from '../src/api/index.js'
 import { createApiHandler } from '../src/api/index.js'
 import { createHelpdesk } from '../src/helpdesk/index.js'
 import { memoryStore } from '../src/store/index.js'
@@ -474,5 +475,80 @@ describe('the admin page', () => {
 
     expect((await handle(get('/admin'))).status).toBe(401)
     expect((await handle(get('/admin', 'secret'))).status).toBe(200)
+  })
+})
+
+/**
+ * The record of who read what.
+ *
+ * Three regimes ask for it and none can be satisfied afterwards, so the thing
+ * worth testing is that it fires on the refusals too, and that a bearer token
+ * never reaches whatever writes the log.
+ */
+describe('the access log', () => {
+  const TOKEN = 'sk-management-abcdefghijklmnop'
+
+  function watched() {
+    const seen: AccessEvent[] = []
+    const { store } = setup()
+    const handle = createApiHandler({ store, tokens: [TOKEN], onAccess: (event) => void seen.push(event) })
+    return { handle, seen }
+  }
+
+  it('records a read, and names the credential without printing it', async () => {
+    const { handle, seen } = watched()
+
+    await handle(get('/conversations', TOKEN))
+
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.path).toBe('/conversations')
+    expect(seen[0]?.status).toBe(200)
+    expect(seen[0]?.method).toBe('GET')
+    expect(seen[0]?.actor).toMatch(/^[0-9a-f]{12}$/)
+
+    // The whole point of a fingerprint. A log file holding bearer tokens is
+    // how bearer tokens get out.
+    expect(JSON.stringify(seen)).not.toContain(TOKEN)
+  })
+
+  it('records the attempt that was turned away', async () => {
+    const { handle, seen } = watched()
+
+    await handle(get('/conversations', 'sk-not-the-token'))
+
+    expect(seen[0]?.status).toBe(401)
+    // Fingerprinted too, so repeated attempts on one wrong credential group
+    // together instead of looking like many.
+    expect(seen[0]?.actor).toMatch(/^[0-9a-f]{12}$/)
+  })
+
+  it('gives the same credential the same name every time', async () => {
+    const { handle, seen } = watched()
+
+    await handle(get('/conversations', TOKEN))
+    await handle(get('/leads', TOKEN))
+
+    expect(seen[0]?.actor).toBe(seen[1]?.actor)
+  })
+
+  it('keeps answering when the log throws', async () => {
+    const { store } = setup()
+    const handle = createApiHandler({
+      store,
+      tokens: [TOKEN],
+      onAccess: () => {
+        throw new Error('the log is full')
+      },
+    })
+
+    // Refusing to answer because an audit sink is down is not the safer
+    // failure: it takes the whole API out for a logging problem.
+    expect((await handle(get('/conversations', TOKEN))).status).toBe(200)
+  })
+
+  it('says nothing when nobody asked for it', async () => {
+    const { store } = setup()
+    const handle = createApiHandler({ store, tokens: [TOKEN] })
+    expect((await handle(get('/conversations', TOKEN))).status).toBe(200)
   })
 })

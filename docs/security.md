@@ -115,6 +115,41 @@ queue, and knowledge sources you can add and retrain without a deploy. `admin:
 true` also serves a single self-contained page for reading yesterday's
 conversations and the ranked list of questions nobody could answer.
 
+## Who read what
+
+The management API hands back whole transcripts, so it is the one endpoint
+worth recording access to:
+
+```ts
+createApiHandler({
+  store,
+  tokens: [process.env.HELPDECK_ADMIN_TOKEN as string],
+  onAccess: (event) => logger.info('helpdeck.api', event),
+})
+```
+
+It fires for refused requests as well as successful ones, which is the half an
+access log exists for. `actor` is twelve hex characters of the token's SHA-256
+rather than the token, so entries group by credential and a log file never
+becomes a list of bearer tokens. A hook that throws is logged and ignored:
+taking the API down because an audit sink is unavailable is not the safer
+failure.
+
+Nothing here writes it down, because where an access log belongs is a decision
+about your infrastructure. Three separate regimes ask for one and none can be
+satisfied afterwards: the HIPAA Security Rule wants a record of who examined
+systems holding health information, the GDPR wants you able to show who
+accessed personal data, and SOC 2 asks the same question.
+
+On HIPAA specifically, one thing is worth saying plainly because it is the
+opposite of what a feature comparison suggests. A hosted product needs a
+business associate agreement with you because it processes your data on its
+servers. Self-hosted, there is no business associate: the deployment is yours,
+the data never leaves it, and the agreement you would have needed does not
+apply. What does apply is the Security Rule on your own infrastructure, and
+the model is the part to look at hardest, since a hosted model provider that
+sees a transcript is a business associate even when nothing else is.
+
 ## Where the visitor is, if you ask and they agree
 
 Chats by country is the one analytic that needs something about a person, so it
