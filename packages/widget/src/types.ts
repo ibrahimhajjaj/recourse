@@ -24,6 +24,15 @@ export interface WidgetOptions {
   /** Remember the conversation for the tab's lifetime. */
   persist?: boolean
   /**
+   * Opens on a question carried in the page URL, as `?helpdeck_q=...`.
+   *
+   * On by default. The parameter is namespaced precisely so leaving it on is
+   * safe: a page that already has `?q=` or `?search=` is untouched, because
+   * answering somebody's site search in the chat window is not what they
+   * asked for. Pass `false` to ignore the link entirely.
+   */
+  deepLink?: boolean
+  /**
    * Handlers for actions the agent asks the browser to run. The key is the
    * action name configured on the server.
    */

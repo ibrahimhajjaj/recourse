@@ -1044,6 +1044,43 @@
     );
   }
 
+  // src/deeplink.ts
+  var DEEP_LINK_PARAMS = ["helpdeck_q", "hd_q"];
+  var MAX_LENGTH = 1e3;
+  function readDeepLink(options = {}) {
+    const names = options.params ?? DEEP_LINK_PARAMS;
+    let url;
+    try {
+      url = new URL(options.href ?? window.location.href);
+    } catch {
+      return null;
+    }
+    let question = null;
+    for (const name of names) {
+      const value = url.searchParams.get(name);
+      if (value && value.trim()) {
+        question = value.trim().slice(0, MAX_LENGTH);
+        break;
+      }
+    }
+    if (question === null) return null;
+    if (options.strip !== false) {
+      for (const name of names) url.searchParams.delete(name);
+      try {
+        window.history.replaceState(window.history.state, "", url.toString());
+      } catch {
+      }
+    }
+    return question;
+  }
+  function openDeepLink(widget, options = {}) {
+    const question = readDeepLink(options);
+    if (question === null) return null;
+    widget.open();
+    void widget.ask(question);
+    return question;
+  }
+
   // src/widget.ts
   function storageKey(endpoint) {
     return `helpdeck:transcript:${endpoint}`;
@@ -1148,6 +1185,8 @@
     const log = document.createElement("div");
     log.className = "log";
     log.setAttribute("role", "log");
+    log.setAttribute("aria-live", "polite");
+    log.setAttribute("aria-relevant", "additions text");
     log.setAttribute("aria-live", "polite");
     log.setAttribute("aria-relevant", "additions text");
     const suggestions = document.createElement("div");
@@ -1552,9 +1591,10 @@
         },
         state.controller?.signal,
         strings
-      );
-      typing.remove();
-      log.setAttribute("aria-busy", "false");
+      ).finally(() => {
+        typing.remove();
+        log.setAttribute("aria-busy", "false");
+      });
       if (requested.length > 0 && !actionResults) {
         wrapper.remove();
         const form = requested.find((request) => request.payload?.form);
@@ -1751,7 +1791,7 @@
       if (event.key === "Escape" && !inline) setOpen(false);
     });
     repaint();
-    return {
+    const api = {
       open: () => setOpen(true),
       close: () => setOpen(false),
       ask,
@@ -1778,6 +1818,8 @@
       },
       element: host
     };
+    if (options.deepLink !== false) openDeepLink(api);
+    return api;
   }
   function applyTheme(host, theme) {
     if (theme !== "auto") {
@@ -1852,6 +1894,9 @@
       theme: data.theme === "dark" || data.theme === "light" ? data.theme : "auto",
       open: data.open === "true",
       persist: data.persist !== "false",
+      // `data-deep-link="false"` stops the widget reading `?helpdeck_q=` out of
+      // the page URL.
+      deepLink: data.deepLink !== "false",
       // `data-attachments="true"` turns the paperclip on; a number caps the size
       // in megabytes, so `data-attachments="4"` is a 4MB limit.
       ...attachmentsFrom(data.attachments),

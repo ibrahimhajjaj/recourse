@@ -4,6 +4,7 @@ import { streamChat } from './stream.js'
 import { createDictation, type Dictation } from './dictation.js'
 import { styles } from './styles.js'
 import { resolveStrings, fill } from './strings.js'
+import { openDeepLink } from './deeplink.js'
 import type {
   ChatMessage,
   ClientActionHandler,
@@ -1012,7 +1013,7 @@ export function createWidget(options: WidgetOptions) {
 
   repaint()
 
-  return {
+  const api = {
     open: () => setOpen(true),
     close: () => setOpen(false),
     ask,
@@ -1041,6 +1042,12 @@ export function createWidget(options: WidgetOptions) {
     },
     element: host,
   }
+
+  // Last, so the widget is fully wired before a linked question is asked
+  // through the same path a typed one takes.
+  if (options.deepLink !== false) openDeepLink(api)
+
+  return api
 }
 
 function applyTheme(host: HTMLElement, theme: 'light' | 'dark' | 'auto') {

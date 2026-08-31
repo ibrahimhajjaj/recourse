@@ -46,7 +46,26 @@ const widget = createWidget({
 | `data-delete` | `true` to let a visitor delete their own conversation. |
 | `data-invite` | A message that opens the widget itself after a pause. |
 | `data-invite-delay` | Milliseconds before it does. |
+| `data-deep-link` | `false` to ignore `?helpdeck_q=` in the page URL. |
 | `data-user-id`, `data-user-hash` | A signed identity, below. |
+
+### Linking straight to a question
+
+A help article that ends "still stuck?" can only offer a contact form. Link to
+the answer instead:
+
+```html
+<a href="/billing?helpdeck_q=How+do+I+change+my+VAT+number">ask about VAT</a>
+```
+
+The visitor lands on the page they were going to anyway, the panel opens, and
+the question is already being answered. `hd_q` works too, for links people type
+by hand. The parameter is removed from the address bar as soon as it is read, so
+a refresh does not ask again and a copied URL does not carry the question.
+
+Deliberately not `q`: that is a site search on half the web, and answering
+somebody's product search in the chat window is not what they asked for. Nothing
+happens on a page that has no `helpdeck_q`, which is why this is on by default.
 
 ### Telling the agent who this is
 

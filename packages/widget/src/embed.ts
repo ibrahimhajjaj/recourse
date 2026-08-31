@@ -41,6 +41,9 @@ function readConfig(): WidgetOptions | null {
     theme: data.theme === 'dark' || data.theme === 'light' ? data.theme : 'auto',
     open: data.open === 'true',
     persist: data.persist !== 'false',
+    // `data-deep-link="false"` stops the widget reading `?helpdeck_q=` out of
+    // the page URL.
+    deepLink: data.deepLink !== 'false',
     // `data-attachments="true"` turns the paperclip on; a number caps the size
     // in megabytes, so `data-attachments="4"` is a 4MB limit.
     ...attachmentsFrom(data.attachments),
