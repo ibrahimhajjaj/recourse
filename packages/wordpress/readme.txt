@@ -18,6 +18,24 @@ Nothing is indexed that a visitor could not already read. Drafts, private posts,
 
 Retrieval runs on your own server and needs no account and no credential. Generating the answer text does: you supply an OpenAI-compatible endpoint and its key, and you pay whatever that provider charges. Until you do, the plugin makes no external request at all.
 
+Under Settings there is a Model Provider picker that fills the endpoint in for
+you. These all speak the OpenAI chat format and all work:
+
+*   OpenAI, `https://api.openai.com/v1`
+*   Anthropic (Claude), `https://api.anthropic.com/v1`
+*   xAI (Grok), `https://api.x.ai/v1`
+*   DeepSeek, `https://api.deepseek.com/v1`
+*   Groq, `https://api.groq.com/openai/v1`
+*   OpenRouter, `https://openrouter.ai/api/v1`
+*   Mistral, `https://api.mistral.ai/v1`
+*   Moonshot (Kimi), `https://api.moonshot.cn/v1`
+*   Alibaba Qwen, `https://dashscope.aliyuncs.com/compatible-mode/v1`
+*   Zhipu (GLM), `https://open.bigmodel.cn/api/paas/v4`
+*   Ollama on your own server, `http://localhost:11434/v1`
+
+The list is a convenience, not a limit. Anything else speaking the same format
+works if you type its address in, and the boxes stay editable after you pick.
+
 The key belongs in `wp-config.php` rather than the database if you would rather it did not travel in a backup:
 
 `define( 'RECOURSE_API_KEY', 'your-key' );`

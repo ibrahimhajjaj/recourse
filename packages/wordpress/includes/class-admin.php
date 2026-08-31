@@ -406,9 +406,26 @@ class Admin {
 					</tr>
 
 					<tr>
+						<th scope="row"><label for="recourse_provider"><?php esc_html_e( 'Model Provider', 'recourse' ); ?></label></th>
+						<td>
+							<select id="recourse_provider">
+								<option value=""><?php esc_html_e( 'Other, or already set up', 'recourse' ); ?></option>
+								<?php foreach ( Providers::all() as $key => $provider ) : ?>
+									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $key, Providers::match( (string) $settings['model']['base_url'] ) ); ?>>
+										<?php echo esc_html( $provider['label'] ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description" id="recourse_provider_note">
+								<?php esc_html_e( 'Picking one fills in the two boxes below. Both stay editable, and anything speaking the OpenAI chat format works whether it is listed here or not.', 'recourse' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="recourse_model_base_url"><?php esc_html_e( 'Model Base URL', 'recourse' ); ?></label></th>
 						<td>
-							<input type="url" id="recourse_model_base_url" name="<?php echo esc_attr( Settings::OPTION ); ?>[model][base_url]" value="<?php echo esc_attr( $settings['model']['base_url'] ); ?>" class="regular-text" />
+							<input type="url" id="recourse_model_base_url" name="<?php echo esc_attr( Settings::OPTION ); ?>[model][base_url]" value="<?php echo esc_attr( $settings['model']['base_url'] ); ?>" class="regular-text" placeholder="https://api.openai.com/v1" />
+							<p class="description"><?php esc_html_e( 'The address of an OpenAI-compatible chat endpoint. Usually ends in /v1.', 'recourse' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -454,6 +471,45 @@ class Admin {
 				</table>
 				<?php submit_button(); ?>
 			</form>
+
+			<script>
+			( function () {
+				// Filling two text boxes from a picker. Deliberately plain: the
+				// settings screen loads no build step and no framework, and this
+				// is the only script on it.
+				var providers = <?php echo Providers::as_json(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already JSON, encoded with the hex flags so it cannot close this tag. Escaping it again would corrupt it. ?>;
+				var picker = document.getElementById( 'recourse_provider' );
+				var url = document.getElementById( 'recourse_model_base_url' );
+				var model = document.getElementById( 'recourse_model_model' );
+				var note = document.getElementById( 'recourse_provider_note' );
+				var original = note ? note.textContent : '';
+
+				if ( ! picker || ! url || ! model ) {
+					return;
+				}
+
+				picker.addEventListener( 'change', function () {
+					var chosen = providers[ picker.value ];
+
+					// "Other" is a real answer, not an empty one. Somebody who
+					// picks it has an endpoint of their own and their boxes are
+					// left exactly as they were.
+					if ( ! chosen ) {
+						if ( note ) {
+							note.textContent = original;
+						}
+						return;
+					}
+
+					url.value = chosen.base_url;
+					model.value = chosen.model;
+
+					if ( note ) {
+						note.textContent = chosen.note;
+					}
+				} );
+			}() );
+			</script>
 
 			<hr>
 

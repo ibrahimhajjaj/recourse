@@ -151,6 +151,7 @@ $recourse_testable = array(
 	// it reaches a WordPress call. The stubs below cover what the rest of the
 	// class would need if a test ever went past it.
 	'content',
+	'providers',
 	// The tone the settings screen stores has to be one the prompt builder
 	// will read back, and only a test that runs both halves can say so.
 	'settings',
@@ -167,6 +168,29 @@ function apply_filters( $hook, $value ) { // phpcs:ignore WordPress.NamingConven
 	unset( $hook );
 
 	return $value;
+}
+
+/**
+ * Stub of WordPress's URL parser, which is `parse_url` with the PHP 5.4 bug
+ * worked around. The bug is irrelevant here; the signature is what matters.
+ *
+ * @param string $url       The URL.
+ * @param int    $component Which piece to return, or -1 for all of it.
+ * @return mixed
+ */
+function wp_parse_url( $url, $component = -1 ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return parse_url( $url, $component ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url
+}
+
+/**
+ * Stub of WordPress's JSON encoder.
+ *
+ * @param mixed $data    What to encode.
+ * @param int   $options Encoding flags.
+ * @return string|false
+ */
+function wp_json_encode( $data, $options = 0 ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	return json_encode( $data, $options ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode
 }
 
 foreach ( $recourse_testable as $recourse_class ) {
