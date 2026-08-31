@@ -463,8 +463,17 @@ describe('the admin page', () => {
     expect(response.headers.get('content-type')).toContain('text/html')
 
     const html = await response.text()
+
     // No build step and nothing fetched from a CDN: one file, on your origin.
-    expect(html).not.toMatch(/<script[^>]+src=/)
+    // Checked on the markup only. The page's own program builds a script tag
+    // as text for the operator to copy, and searching the whole document finds
+    // that string and calls it a dependency.
+    const markup = html.replace(/<script type="module">[\s\S]*?<\/script>/, '')
+    expect(markup, 'the admin page loads an external script').not.toMatch(/<script[^>]+src=/)
+
+    // The one exception, and it is deliberate: the widget preview imports a
+    // build the operator points it at, when they open that tab.
+    expect(html).toContain('import(new URL(settings.script')
     expect(html).toContain('Answer gaps')
   })
 

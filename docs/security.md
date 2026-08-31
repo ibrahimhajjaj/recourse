@@ -115,6 +115,19 @@ queue, and knowledge sources you can add and retrain without a deploy. `admin:
 true` also serves a single self-contained page for reading yesterday's
 conversations and the ranked list of questions nobody could answer.
 
+That page has a Widget tab: every appearance and behaviour option as a control,
+the real widget rendered beside them as a live preview, and the `<script>` tag
+to paste into your site. The preview mounts the actual build rather than a
+drawing of one, so what it shows is what visitors get; point it at a script the
+browser can reach and it works, and when it cannot the snippet is still
+correct.
+
+Nothing there is saved, and that is the design rather than a shortcut. The
+snippet is the configuration: it lives on your site, so there is no stored
+copy that can drift from what visitors actually see, and no migration when a
+field is added. A hosted product needs somewhere to keep your settings because
+it renders the widget for you. Here you render it.
+
 ## Who read what
 
 The management API hands back whole transcripts, so it is the one endpoint
