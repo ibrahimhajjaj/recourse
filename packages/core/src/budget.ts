@@ -62,12 +62,36 @@ export const PRICES: PriceList = {
  * and should not: the electricity is not billed per token.
  */
 export function costOf(model: string, usage: Usage, prices: PriceList = PRICES): number | undefined {
-  const price = prices[model] ?? prices[Object.keys(prices).find((id) => id.endsWith(`/${model}`)) ?? '']
+  const price = priceFor(model, prices)
   if (!price) return undefined
 
   const input = ((usage.inputTokens ?? 0) / 1_000_000) * price.input
   const output = ((usage.outputTokens ?? 0) / 1_000_000) * price.output
   return input + output
+}
+
+/**
+ * A model's price, trying the three ways an id turns up in the wild.
+ *
+ * Exact first. Then without the provider prefix, so `gpt-4o-mini` finds
+ * `openai/gpt-4o-mini`. Then with a dated suffix removed, because providers
+ * return the pinned snapshot they actually served rather than the alias that
+ * was asked for: a request for `gpt-4o` comes back as `gpt-4o-2024-11-20`,
+ * and matching only exactly means the model that answered every request
+ * prices as unknown. The alternative is listing every snapshot by hand and
+ * silently under-reporting the day a new one ships.
+ */
+function priceFor(model: string, prices: PriceList): ModelPrice | undefined {
+  const exact = prices[model]
+  if (exact) return exact
+
+  const unprefixed = Object.keys(prices).find((id) => id.endsWith(`/${model}`))
+  if (unprefixed) return prices[unprefixed]
+
+  const undated = model.replace(/-(\d{8}|\d{4}-\d{2}-\d{2}|latest|preview)$/, '')
+  if (undated === model) return undefined
+
+  return prices[undated] ?? prices[Object.keys(prices).find((id) => id.endsWith(`/${undated}`)) ?? '']
 }
 
 /**
@@ -259,11 +283,18 @@ export function createBudget(options: BudgetOptions = {}): Budget {
       const tokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
       const usd = costOf(model, usage, prices)
 
+      // A missing price and a price of zero are different facts, and the gap
+      // between them is where a spend cap quietly stops working. Unknown means
+      // this deployment is spending an amount nobody is counting, which is
+      // worth saying out loud. Zero is a deliberate statement that a model is
+      // free, which a self-hosted one on somebody's own hardware genuinely is,
+      // and that should pass in silence.
       if (usd === undefined && !unpriced.has(model)) {
         unpriced.add(model)
         console.warn(
           `[helpdeck] no price for model "${model}", so it counts towards token caps but not spend caps. ` +
-            'Pass prices: { "' + model + '": { input, output } } if you cap in dollars.',
+            `Pass prices: { "${model}": { input: 0, output: 0 } } to declare it free, ` +
+            'or its real rates per million tokens if you cap in dollars.',
         )
       }
 

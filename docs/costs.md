@@ -46,7 +46,19 @@ createBudget({ monthlyUsd: 50, prices: { 'my-provider/model': { input: 0.2, outp
 ```
 
 A model with no price still counts towards token caps, and says so once in the
-log rather than being quietly valued at zero.
+log rather than being quietly valued at zero. That distinction matters more
+than it looks: an unpriced model treated as free reports confident zero spend
+and silently blinds every dollar cap that keys off it. Declare a genuinely free
+model rather than leaving it unknown:
+
+```ts
+createBudget({ monthlyUsd: 50, prices: { 'ollama/qwen3:4b': { input: 0, output: 0 } } })
+```
+
+Providers return the pinned snapshot they served rather than the alias you
+asked for, so `gpt-4o` comes back as `gpt-4o-2024-11-20`. A dated suffix falls
+back to the undated id, which means a new snapshot prices correctly on the day
+it ships instead of quietly costing nothing.
 
 Start with `onExceeded: 'warn'` for the first month. It logs and keeps
 answering, which is how you find out what normal traffic costs before you pick a

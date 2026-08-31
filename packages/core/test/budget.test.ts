@@ -72,6 +72,25 @@ describe('pricing a call', () => {
   it('counts a missing half as zero rather than as NaN', () => {
     expect(costOf('openai/gpt-4o-mini', { inputTokens: 1_000_000 })).toBeCloseTo(0.15, 10)
   })
+
+  it('prices the dated snapshot a provider actually served', () => {
+    // A request for gpt-4o comes back as gpt-4o-2024-11-20. Matching only
+    // exactly would price every real response as unknown.
+    expect(costOf('openai/gpt-4o-2024-11-20', { inputTokens: 1_000_000, outputTokens: 0 })).toBeCloseTo(2.5, 10)
+    expect(costOf('gpt-4o-mini-2024-07-18', { inputTokens: 1_000_000, outputTokens: 0 })).toBeCloseTo(0.15, 10)
+    expect(costOf('claude-haiku-4.5-20260101', { inputTokens: 1_000_000, outputTokens: 0 })).toBeCloseTo(1, 10)
+  })
+
+  it('does not mistake a different model for a dated one', () => {
+    // Stripping a suffix must never reach across to another model's price.
+    expect(costOf('openai/gpt-4o-mini-audio', { inputTokens: 1_000_000, outputTokens: 0 })).toBeUndefined()
+  })
+
+  it('tells a declared-free model apart from one with no price at all', () => {
+    const free = { 'ollama/qwen3:4b': { input: 0, output: 0 } }
+    expect(costOf('ollama/qwen3:4b', { inputTokens: 5_000_000, outputTokens: 5_000_000 }, free)).toBe(0)
+    expect(costOf('ollama/mistral', { inputTokens: 5_000_000, outputTokens: 5_000_000 }, free)).toBeUndefined()
+  })
 })
 
 describe('caps', () => {
