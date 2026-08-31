@@ -343,3 +343,5 @@ export {
 } from './safety/model-classifier.js'
 export { upstashRateLimiter, redisRateLimiter, type RedisLike } from './server/ratelimit-shared.js'
 export type { RateLimiter, RateLimitResult } from './server/ratelimit.js'
+
+export { shrink, redact, type ShrinkOptions } from './actions/shrink.js'

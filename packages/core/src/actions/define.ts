@@ -1,5 +1,6 @@
 import { jsonSchema, tool, type Tool, type ToolSet } from 'ai'
 import type { Action, ActionContext, ActionField, ActionInput, ActionResult } from './types.js'
+import { redact, shrink, type ShrinkOptions } from './shrink.js'
 
 /**
  * Declares an action. This is deliberately a thin identity function: it exists
@@ -39,6 +40,8 @@ export interface ToolBuildOptions {
   /** Excludes procedure-only actions unless a procedure has unlocked them. */
   unlocked?: Set<string>
   context: ActionContext
+  /** How much of a result reaches the model. */
+  results?: ShrinkOptions
 }
 
 /**
@@ -65,11 +68,15 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
             async execute(input: ActionInput): Promise<ActionResult> {
               try {
                 const data = await action.execute?.(input, options.context)
-                return { ok: true, data }
+                return { ok: true, data: shrink(data, options.results) }
               } catch (error) {
                 // Handed back as data rather than thrown, so the agent can tell
                 // the customer what failed instead of the turn dying silently.
-                return { ok: false, error: error instanceof Error ? error.message : String(error) }
+                // Redacted first: an action that fails on an authenticated
+                // request tends to quote the request, credential included, and
+                // this string is about to be stored in the transcript.
+                const message = error instanceof Error ? error.message : String(error)
+                return { ok: false, error: redact(message).slice(0, 500) }
               }
             },
           })

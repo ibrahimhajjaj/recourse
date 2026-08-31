@@ -13,6 +13,7 @@ import { prepareAttachments, type PrepareOptions } from './attachments-prepare.j
 import { blocks, createClassifier } from './safety/classify.js'
 import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
+import type { ShrinkOptions } from './actions/shrink.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -65,6 +66,14 @@ export interface AgentOptions {
    * one, so this caps a runaway loop rather than the useful work.
    */
   maxSteps?: number
+  /**
+   * How much of an action's result is shown to the model.
+   *
+   * Defaults are generous and still finite. An action returning a customer
+   * list otherwise pays for all of it on every step of the turn, and stores
+   * all of it in the transcript.
+   */
+  actionResults?: ShrinkOptions
   /** Who the agent is talking to, when the host knows. */
   contact?: Contact
   conversationId?: string
@@ -386,7 +395,11 @@ export function createAgent(options: AgentOptions) {
         }
       }),
       abortSignal: signal,
-      tools: actionsToTools(actions, { context, unlocked }),
+      tools: actionsToTools(actions, {
+        context,
+        unlocked,
+        ...(options.actionResults ? { results: options.actionResults } : {}),
+      }),
       // Without this the turn ends the moment a tool is called, and the
       // customer gets an action but no answer explaining what happened.
       stopWhen: stepCountIs(maxSteps),
