@@ -141,6 +141,7 @@ the thing you came for.
 | Keep keys out of the browser and rate limit it | [docs/security.md](docs/security.md) |
 | Store conversations somewhere that survives | [docs/stores.md](docs/stores.md) |
 | Start conversations, and tell other systems | [docs/reaching-out.md](docs/reaching-out.md) |
+| Wire it to Zapier, ViaSocket, Make or n8n | [docs/automation.md](docs/automation.md) |
 | Let a non-developer fix a wrong answer | [docs/config-assistant.md](docs/config-assistant.md) |
 | Find out whether any of it actually works | [docs/evals.md](docs/evals.md) |
 | Put it on Cloudflare, and check it before a customer does | [docs/deploying.md](docs/deploying.md) |

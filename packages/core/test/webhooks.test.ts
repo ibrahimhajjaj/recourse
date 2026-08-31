@@ -170,3 +170,67 @@ describe('delivering events', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * An automation platform hands you a URL to paste somewhere. If that somewhere
+ * is the deployment's source, adding a second one is a redeploy, which is the
+ * difference between a library that supports Zapier and one that technically
+ * could.
+ */
+describe('endpoints that are not known at boot', () => {
+  it('asks for them on each event', async () => {
+    const asked: string[] = []
+    const sent: string[] = []
+
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      sent.push(String(url))
+      return new Response('ok', { status: 200 })
+    })
+
+    const waiting: Array<Promise<unknown>> = []
+    let live = ['https://hooks.zapier.example/one']
+
+    const webhooks = createWebhooks({
+      endpoints: () => {
+        asked.push('read')
+        return live.map((url) => ({ url }))
+      },
+      waitUntil: (work) => void waiting.push(work),
+    })
+
+    webhooks.emit('lead.captured', { email: 'sam@example.com' })
+    await Promise.allSettled(waiting)
+
+    // Added without a restart, which is the whole point.
+    live = [...live, 'https://flow.viasocket.example/two']
+    webhooks.emit('lead.captured', { email: 'ada@example.com' })
+    await Promise.allSettled(waiting)
+
+    expect(asked).toHaveLength(2)
+    expect(sent).toEqual([
+      'https://hooks.zapier.example/one',
+      'https://hooks.zapier.example/one',
+      'https://flow.viasocket.example/two',
+    ])
+
+    spy.mockRestore()
+  })
+
+  it('does not take the answer down when they cannot be read', async () => {
+    const waiting: Array<Promise<unknown>> = []
+    const failures: unknown[] = []
+
+    const webhooks = createWebhooks({
+      endpoints: () => Promise.reject(new Error('the database is asleep')),
+      waitUntil: (work) => void waiting.push(work),
+      onError: (error) => void failures.push(error),
+    })
+
+    // Emitting is not awaited by the answer path, so a lookup that throws has
+    // to end up in onError rather than as an unhandled rejection.
+    expect(() => webhooks.emit('lead.captured', {})).not.toThrow()
+    await Promise.allSettled(waiting)
+
+    expect(failures).toHaveLength(1)
+  })
+})

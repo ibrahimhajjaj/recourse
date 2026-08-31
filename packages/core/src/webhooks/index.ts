@@ -26,7 +26,17 @@ export interface WebhookEndpoint {
 }
 
 export interface WebhookOptions {
-  endpoints: WebhookEndpoint[]
+  /**
+   * Where deliveries go, as a list or as a function called per event.
+   *
+   * A list is right when the receivers are part of the deployment. A function
+   * is right when they are not: an automation platform hands you a URL to
+   * paste in, and somebody adding a second one should not need a redeploy to
+   * do it. Read them from wherever you keep them and return them here.
+   *
+   *     endpoints: () => db.webhookEndpoints.findMany()
+   */
+  endpoints: WebhookEndpoint[] | (() => WebhookEndpoint[] | Promise<WebhookEndpoint[]>)
   /** Signs every delivery that has no endpoint secret of its own. */
   secret?: string
   /** Attempts per endpoint before giving up. */
@@ -130,11 +140,6 @@ export function createWebhooks(options: WebhookOptions) {
      * fail, because somebody's CRM is down.
      */
     emit(event: WebhookEvent, data: Record<string, unknown>): void {
-      const subscribed = options.endpoints.filter(
-        (endpoint) => !endpoint.events?.length || endpoint.events.includes(event),
-      )
-      if (subscribed.length === 0) return
-
       const delivery: WebhookDelivery = {
         id: `whd_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
         event,
@@ -142,13 +147,29 @@ export function createWebhooks(options: WebhookOptions) {
         data,
       }
 
-      for (const endpoint of subscribed) {
-        const work = deliver(endpoint, delivery).catch((error: unknown) => {
-          options.onError?.(error, { url: endpoint.url, event })
-          console.error(`[helpdeck] webhook to ${endpoint.url} failed`, error)
-        })
-        if (options.waitUntil) options.waitUntil(work)
-      }
+      // Resolved inside the promise, because looking the endpoints up may
+      // touch a database and this is called from the answer path, which is
+      // never allowed to wait for one.
+      const work = (async () => {
+        const all = typeof options.endpoints === 'function' ? await options.endpoints() : options.endpoints
+        const subscribed = all.filter(
+          (endpoint) => !endpoint.events?.length || endpoint.events.includes(event),
+        )
+
+        await Promise.all(
+          subscribed.map((endpoint) =>
+            deliver(endpoint, delivery).catch((error: unknown) => {
+              options.onError?.(error, { url: endpoint.url, event })
+              console.error(`[helpdeck] webhook to ${endpoint.url} failed`, error)
+            }),
+          ),
+        )
+      })().catch((error: unknown) => {
+        options.onError?.(error, { url: 'endpoints', event })
+        console.error('[helpdeck] could not read the webhook endpoints', error)
+      })
+
+      if (options.waitUntil) options.waitUntil(work)
     },
   }
 }
