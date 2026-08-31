@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import pg from 'pg'
 import { postgresStore, migrate } from '../src/index.js'
-import { message, storeBehaviour } from '../../core/test/store-suite.js'
+import { message, storeConformance } from '../../core/src/store/conformance.js'
 
 /**
  * Runs against a real Postgres, and skips cleanly without one.
@@ -59,7 +59,7 @@ afterAll(async () => {
 describe.skipIf(!CONNECTION)('postgres', () => {
   // The same assertions every other implementation passes. A store that only
   // passes a suite written for it is not interchangeable with anything.
-  storeBehaviour('postgres', make)
+  storeConformance({ name: 'postgres', make, hooks: { describe, it } })
 
   it('lets two instances on one database see each other', async () => {
     // The test memory and file stores cannot pass, and the reason this package

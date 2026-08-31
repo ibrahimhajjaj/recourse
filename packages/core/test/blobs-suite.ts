@@ -1,7 +1,7 @@
 /**
  * The behaviour every Blobs implementation has to have.
  *
- * The same argument as `store-suite.ts`: an adapter that passes a suite
+ * The same argument as the store conformance suite: an adapter that passes a suite
  * written for it is not interchangeable with anything. This one is worth more
  * than most, because of the failures it catches: a `get` on a missing key
  * throwing instead of answering null, or metadata that does not survive a

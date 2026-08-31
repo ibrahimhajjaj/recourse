@@ -70,6 +70,10 @@
       "types": "./dist/store/index.d.ts",
       "import": "./dist/store/index.js"
     },
+    "./store/conformance": {
+      "types": "./dist/store/conformance.d.ts",
+      "import": "./dist/store/conformance.js"
+    },
     "./procedures": {
       "types": "./dist/procedures/index.d.ts",
       "import": "./dist/procedures/index.js"

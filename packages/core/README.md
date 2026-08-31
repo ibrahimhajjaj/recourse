@@ -43,6 +43,7 @@ desk](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/helpdesk.md),
 | `helpdeck/helpdesk` | Tickets, routing, assignment, triggers, saved views, and connectors for nine outside desks |
 | `helpdeck/api` | Management API, admin page, public help page |
 | `helpdeck/store` | Conversation, lead, ticket and source persistence |
+| `helpdeck/store/conformance` | The suite a store of your own has to pass |
 | `helpdeck/webhooks` | Signed outbound events |
 | `helpdeck/outbound` | Campaigns, with consent enforced |
 | `helpdeck/tool` | `knowledgeTool`, for the AI SDK, eve, or anything built on them |

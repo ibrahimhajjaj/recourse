@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
 import { fileStore, memoryStore } from '../src/store/index.js'
-import { message, storeBehaviour } from './store-suite.js'
+import { message, storeConformance } from '../src/store/conformance.js'
 import type { Store, StoredMessage } from '../src/store/index.js'
 import { createAgent } from '../src/agent.js'
 import { collectLeads } from '../src/actions/index.js'
@@ -48,10 +48,11 @@ async function index(): Promise<KnowledgeIndex> {
 }
 
 // Both implementations must behave identically, or swapping one is a rewrite.
-// The assertions live in store-suite.ts so a new implementation runs the same
+// The assertions live in src/store/conformance.ts, which ships, so a store
+// written outside this repo runs exactly the same
 // ones rather than a hand-copied approximation.
-storeBehaviour('memory', () => memoryStore())
-storeBehaviour('file', makeFileStore)
+storeConformance({ name: 'memory', make: () => memoryStore(), hooks: { describe, it } })
+storeConformance({ name: 'file', make: makeFileStore, hooks: { describe, it } })
 
 describe('file store durability', () => {
   it('reads back everything after a restart', async () => {

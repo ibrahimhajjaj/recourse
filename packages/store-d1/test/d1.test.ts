@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createRequire } from 'node:module'
 import { d1Store, migrate, type D1Like, type D1Statement } from '../src/index.js'
-import { message, storeBehaviour } from '../../core/test/store-suite.js'
+import { message, storeConformance } from '../../core/src/store/conformance.js'
 
 /**
  * `node:sqlite` arrived in Node 22. On anything older these skip rather than
@@ -70,7 +70,7 @@ async function make() {
 
 // The same assertions the memory, file and Postgres stores pass. A fourth
 // implementation that only passes its own tests is not interchangeable.
-if (DatabaseSync) storeBehaviour('d1', make)
+if (DatabaseSync) storeConformance({ name: 'd1', make, hooks: { describe, it } })
 
 describe.skipIf(!DatabaseSync)('d1 specifics', () => {
   it('hands out a unique ticket number per insert', async () => {
