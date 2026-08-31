@@ -243,6 +243,17 @@ export interface BudgetVerdict {
 export interface Spend {
   tokens: number
   usd: number
+  /**
+   * Tokens spent on models with no price, which are in `tokens` and not in
+   * `usd`.
+   *
+   * The number that says how much to trust the one next to it. A deployment
+   * whose models are all unpriced reports confident zero spend while a dollar
+   * cap sits there never tripping, and the log line saying so scrolled past
+   * weeks ago. Showing the volume alongside the money makes the gap something
+   * a person notices at the moment they read the total.
+   */
+  unpricedTokens: number
 }
 
 export interface Budget {
@@ -253,6 +264,16 @@ export interface Budget {
   /** Today's and this month's totals, for a dashboard. */
   spent(): Promise<{ day: Spend; month: Spend }>
 }
+
+/**
+ * How long a price table may sit before it is worth mentioning.
+ *
+ * Six months, which is long enough that a routine release is not nagging and
+ * short enough that a table has usually moved by then. Prices drop more often
+ * than they rise, so the failure this catches is a cap that quietly stopped
+ * being reachable rather than one that trips early.
+ */
+const STALE_AFTER_MS = 180 * 86_400_000
 
 const DEFAULT_MESSAGE =
   'Our assistant has reached the limit set for today, so I cannot answer right now. ' +
@@ -271,6 +292,22 @@ export function createBudget(options: BudgetOptions = {}): Budget {
   const clock = options.now ?? (() => new Date())
   const pauses = (options.onExceeded ?? 'pause') === 'pause'
   const unpriced = new Set<string>()
+  const capsMoney = options.dailyUsd !== undefined || options.monthlyUsd !== undefined
+
+  // Said once, at construction, and only to somebody who capped in dollars.
+  // `PRICES_CHECKED` is a constant in a file nobody opens, and a table that
+  // has drifted low does not fail: the cap simply never trips, which looks
+  // exactly like traffic staying under budget.
+  if (capsMoney) {
+    const age = Date.now() - Date.parse(PRICES_CHECKED)
+    if (age > STALE_AFTER_MS) {
+      const months = Math.floor(age / (30 * 86_400_000))
+      console.warn(
+        `[helpdeck] the built-in model prices were last checked ${PRICES_CHECKED}, about ${months} months ago, ` +
+          'and a dollar cap is only as good as they are. Pass your own `prices`, or cap in tokens instead.',
+      )
+    }
+  }
 
   /** `2026-08-31` and `2026-08`, from the same instant so they cannot disagree. */
   function windows(): { day: string; month: string } {
@@ -279,8 +316,12 @@ export function createBudget(options: BudgetOptions = {}): Budget {
   }
 
   async function read(window: string): Promise<Spend> {
-    const [tokens, usd] = await Promise.all([ledger.total(`tokens:${window}`), ledger.total(`usd:${window}`)])
-    return { tokens, usd }
+    const [tokens, usd, unpricedTokens] = await Promise.all([
+      ledger.total(`tokens:${window}`),
+      ledger.total(`usd:${window}`),
+      ledger.total(`unpriced:${window}`),
+    ])
+    return { tokens, usd, unpricedTokens }
   }
 
   return {
@@ -337,6 +378,11 @@ export function createBudget(options: BudgetOptions = {}): Budget {
 
       if (tokens > 0) {
         writes.push(ledger.add(`tokens:${day}`, tokens), ledger.add(`tokens:${month}`, tokens))
+        // Counted apart as well as together, so the total can say how much of
+        // itself is guesswork.
+        if (usd === undefined) {
+          writes.push(ledger.add(`unpriced:${day}`, tokens), ledger.add(`unpriced:${month}`, tokens))
+        }
       }
       if (usd !== undefined && usd > 0) {
         writes.push(ledger.add(`usd:${day}`, usd), ledger.add(`usd:${month}`, usd))

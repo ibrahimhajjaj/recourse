@@ -4,7 +4,7 @@ import { simulateReadableStream } from 'ai'
 import { buildIndex } from '../src/knowledge/build.js'
 import { textSource } from '../src/sources/text.js'
 import { createAgent } from '../src/agent.js'
-import { costOf, createBudget, memoryLedger, redisLedger, PRICES } from '../src/budget.js'
+import { costOf, createBudget, memoryLedger, redisLedger, PRICES, PRICES_CHECKED } from '../src/budget.js'
 import type { KnowledgeIndex } from '../src/types.js'
 
 let cached: KnowledgeIndex | null = null
@@ -216,6 +216,59 @@ describe('caps', () => {
     await budget.record('qwen3:4b', { inputTokens: 1_000_000, outputTokens: 0 })
 
     expect((await budget.check()).ok).toBe(false)
+  })
+})
+
+describe('saying how much of a total is guesswork', () => {
+  it('reports the tokens that went unpriced next to the money', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const budget = createBudget({ dailyTokens: 1_000_000_000 })
+
+    await budget.record('openai/gpt-4o-mini', { inputTokens: 1000, outputTokens: 1000 })
+    await budget.record('some-local-thing', { inputTokens: 4000, outputTokens: 0 })
+
+    const { day } = await budget.spent()
+    expect(day.tokens).toBe(6000)
+    expect(day.unpricedTokens).toBe(4000)
+    // Two thirds of the volume is not in the dollar figure, and the number
+    // that says so sits next to it rather than in a log line.
+    expect(day.usd).toBeGreaterThan(0)
+    warn.mockRestore()
+  })
+
+  it('reports nothing unpriced when everything priced', async () => {
+    const budget = createBudget({ dailyTokens: 1_000_000_000 })
+    await budget.record('openai/gpt-4o', { inputTokens: 500, outputTokens: 500 })
+
+    expect((await budget.spent()).day.unpricedTokens).toBe(0)
+  })
+
+  it('counts a declared-free model as priced, not as guesswork', async () => {
+    const budget = createBudget({ dailyTokens: 1_000_000_000, prices: { 'ollama/*': { input: 0, output: 0 } } })
+    await budget.record('ollama/qwen3:4b', { inputTokens: 9000, outputTokens: 9000 })
+
+    const { day } = await budget.spent()
+    expect(day.tokens).toBe(18_000)
+    expect(day.usd).toBe(0)
+    // Declared free is a fact. Unknown is an absence. Only one is guesswork.
+    expect(day.unpricedTokens).toBe(0)
+  })
+
+  it('warns once when a dollar cap rides on a table nobody has checked', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    createBudget({ monthlyUsd: 50 })
+    const stale = warn.mock.calls.filter(([line]) => String(line).includes('last checked'))
+
+    // The table is current in this build, so this asserts the rule rather than
+    // today's answer: it fires only when the table is old, and only in dollars.
+    const age = Date.now() - Date.parse(PRICES_CHECKED)
+    expect(stale.length).toBe(age > 180 * 86_400_000 ? 1 : 0)
+
+    warn.mockClear()
+    createBudget({ monthlyTokens: 50 })
+    expect(warn.mock.calls.filter(([line]) => String(line).includes('last checked'))).toHaveLength(0)
+    warn.mockRestore()
   })
 })
 

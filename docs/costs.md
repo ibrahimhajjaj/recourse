@@ -61,6 +61,21 @@ the first time they pull a new tag. Longest prefix wins, so a specific entry
 still beats the family it sits in, and `'*'` alone is a last resort rather than
 something that shadows every real price.
 
+`spent()` reports the volume that went unpriced next to the money:
+
+```ts
+const { month } = await budget.spent()
+// { tokens: 8_400_000, usd: 12.40, unpricedTokens: 4_200_000 }
+```
+
+That third number says how much to trust the second. Half the volume priced as
+unknown means the dollar figure describes half the traffic, and a cap keyed off
+it is looser than it looks. The built-in table also says when it was last
+checked, and a dollar cap built on one older than six months says so once at
+startup, because a table that has drifted low does not fail loudly: the cap
+simply stops being reachable, which looks exactly like traffic staying under
+budget.
+
 Model ids arrive as `provider/model` either way. A gateway id already is one; a
 self-hosted model reports a bare `qwen3:4b`, so the provider is put back on the
 front, which is the only thing that tells a local model apart from a hosted one.
