@@ -7,11 +7,43 @@ open a ticket, hand over to a person.
 It is the self-hosted shape of what Chatbase sells, with two differences: you own
 the code, and there is nothing to sign up for to get it working.
 
+## It runs before you configure anything
+
+No account, no API key, no model, no database. Point it at some content and ask
+it something:
+
+```bash
+npx recourse ingest --path ./docs
+npx recourse ask "how do I get a refund?"
+```
+
+```
+Indexed 1 documents into 2 chunks in 0.0s
+Retrieval: keyword only
+Written to recourse/knowledge.json (1 KB)
+
+No AI_GATEWAY_API_KEY set, showing retrieved passages instead of an answer.
+
+[1] Refunds  (keyword, 0.0164)
+We refund any order within 30 days of delivery.
+```
+
+That is the real output, with nothing configured. Retrieval is the part that
+has to be right, and it runs locally on your machine with no credential at all.
+Everything above it is optional and each piece is one environment variable:
+
+| Layer | Needs | What it adds |
+| --- | --- | --- |
+| Keyword retrieval | nothing | finds the passage that answers the question |
+| Vectors | an embedding endpoint | matches a question phrased differently |
+| Written answers | any OpenAI-compatible model | turns the passages into a sentence |
+
+Nothing degrades to an error. Without an embedder the index is keyword-only and
+says so; without a model `ask` shows you the passages it found and says why.
+
 ```bash
 npx recourse ingest --url https://your-site.com
 ```
-
-That command needs no account and no API key.
 
 ## No keys to create
 
