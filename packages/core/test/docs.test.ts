@@ -291,3 +291,43 @@ describe('the entry points the prose names', () => {
     expect(subpaths.length).toBeGreaterThan(10)
   })
 })
+
+describe('the skill, as the installer has to find it', () => {
+  // `skills add <owner>/<repo>` walks `skills/` looking for directories that
+  // contain a SKILL.md, and reads two frontmatter fields off each. Get the
+  // layout or either field wrong and the skill is simply not there, with no
+  // error to explain why.
+  const container = join(repo, 'skills')
+  const found = existsSync(container)
+    ? readdirSync(container, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => ({ name: entry.name, file: join(container, entry.name, 'SKILL.md') }))
+        .filter((entry) => existsSync(entry.file))
+    : []
+
+  it('ships at least one skill in the layout the installer walks', () => {
+    expect(found.length).toBeGreaterThan(0)
+  })
+
+  it('carries the two fields the installer requires', () => {
+    for (const { name, file } of found) {
+      const front = /^---\n([\s\S]*?)\n---\n/.exec(readFileSync(file, 'utf8'))
+      expect(front, `${name} has no frontmatter block`).not.toBeNull()
+
+      const fields = Object.fromEntries(
+        (front?.[1] ?? '')
+          .split('\n')
+          .filter((line) => /^[a-z]/.test(line) && line.includes(':'))
+          .map((line) => [line.slice(0, line.indexOf(':')).trim(), line.slice(line.indexOf(':') + 1).trim()]),
+      )
+
+      expect(fields.name, `${name} declares no name`).toBeTruthy()
+      expect(fields.description, `${name} declares no description`).toBeTruthy()
+
+      // The directory is what somebody types; a name that disagrees with it
+      // installs one thing under another thing's label.
+      expect(fields.name, `${name} declares a different name`).toBe(name)
+      expect(fields.name, `${name} is not a usable identifier`).toMatch(/^[a-z0-9-]+$/)
+    }
+  })
+})
