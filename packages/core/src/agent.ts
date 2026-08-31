@@ -74,6 +74,15 @@ export interface AgentOptions {
    * all of it in the transcript.
    */
   actionResults?: ShrinkOptions
+  /**
+   * How many identical calls to the same action before it is refused.
+   *
+   * Small models loop: an action that returns "not found" gets called with the
+   * same arguments until the step limit stops it, and every one of those is a
+   * real request to somebody's API. Two by default, so a single retry is still
+   * allowed. Set 0 to turn it off.
+   */
+  repeatLimit?: number
   /** Who the agent is talking to, when the host knows. */
   contact?: Contact
   conversationId?: string
@@ -399,6 +408,7 @@ export function createAgent(options: AgentOptions) {
         context,
         unlocked,
         ...(options.actionResults ? { results: options.actionResults } : {}),
+        ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
       }),
       // Without this the turn ends the moment a tool is called, and the
       // customer gets an action but no answer explaining what happened.

@@ -42,7 +42,26 @@ export interface ToolBuildOptions {
   context: ActionContext
   /** How much of a result reaches the model. */
   results?: ShrinkOptions
+  /**
+   * How many times running to the same call with the same arguments before it
+   * is refused rather than run again. Two, so the second identical call still
+   * happens and only the third is stopped: a model retrying once after a
+   * transient failure is doing the right thing.
+   */
+  repeatLimit?: number
 }
+
+/**
+ * What the model is told when it has asked the same thing twice already.
+ *
+ * Phrased as an instruction rather than an error, because an error is a thing
+ * models retry. It names the two ways out, since a model in this state has
+ * usually stopped considering that there are any.
+ */
+const STOP_REPEATING =
+  'You already called this with exactly these arguments and the result has not changed. ' +
+  'Do not call it again. Use what you already have, or ask the customer for something ' +
+  'that would change the answer.'
 
 /**
  * Compiles actions into an AI SDK tool set.
@@ -50,9 +69,17 @@ export interface ToolBuildOptions {
  * A client action gets a tool with no `execute`, which is how the SDK signals
  * "this call has no result yet". The turn stops there, the frame goes to the
  * browser, and the result arrives on the next request.
+ *
+ * The wrapper around `execute` is per turn, and so is the record of what has
+ * been called: a model that gets an unhelpful result and calls the same thing
+ * again is common enough on small models to be worth spending code on, and
+ * every repeat is another round trip to somebody's payment API.
  */
 export function actionsToTools(actions: Action[], options: ToolBuildOptions): ToolSet {
   const tools: ToolSet = {}
+  const repeatLimit = options.repeatLimit ?? 2
+  /** Signature of every server call this turn, and how often it has been made. */
+  const calls = new Map<string, number>()
 
   for (const action of actions) {
     if (action.procedureOnly && !options.unlocked?.has(action.name)) continue
@@ -66,6 +93,15 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
             description: action.whenToUse,
             inputSchema,
             async execute(input: ActionInput): Promise<ActionResult> {
+              const signature = `${action.name}:${stableKey(input)}`
+              const seen = calls.get(signature) ?? 0
+              calls.set(signature, seen + 1)
+
+              if (repeatLimit > 0 && seen >= repeatLimit) {
+                console.warn(`[helpdeck] "${action.name}" called ${seen + 1} times with the same input; refusing to run it again.`)
+                return { ok: false, error: STOP_REPEATING }
+              }
+
               try {
                 const data = await action.execute?.(input, options.context)
                 return { ok: true, data: shrink(data, options.results) }
@@ -83,4 +119,20 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
   }
 
   return tools
+}
+
+/**
+ * The same arguments in a different order are the same call.
+ *
+ * Models re-emit their arguments freely, so comparing raw JSON would miss the
+ * repeat that matters. Undefined values are dropped for the same reason: a
+ * model that omits an optional field once and sends it as null the next time
+ * has not asked a new question.
+ */
+function stableKey(input: ActionInput): string {
+  const entries = Object.entries(input ?? {})
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .sort(([left], [right]) => left.localeCompare(right))
+
+  return JSON.stringify(entries)
 }
