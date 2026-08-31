@@ -16,9 +16,12 @@ it something:
 npx @recourse-ai/core@latest init
 ```
 
-It looks at what you have, learns the content you point it at, writes the chat
-endpoint for your framework and hands you the widget snippet. Or do the two
-steps by hand:
+It looks at what you have, learns the content you point it at, installs itself,
+writes the chat endpoint for your framework and hands you the widget snippet.
+It also asks how it should answer, and one of the choices is a model already
+running on your machine, which needs no account and no key. Pick "decide later"
+and the widget cites the passages it found and hands over to a person until you
+set one. Or do the two steps by hand:
 
 ```bash
 npx @recourse-ai/core ingest --path ./docs

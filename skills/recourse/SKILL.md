@@ -9,9 +9,23 @@ A support agent that learns a site's own content, answers with citations, and
 does the things support has to do: capture a lead, look up an order, open a
 ticket, hand over to a person.
 
-Nothing here needs an account or an API key to get working.
+Crawling and retrieval need no account and no key. Answering needs a model, and
+`init` asks which one: a model already running on the machine through Ollama
+needs neither. Without a model the widget cites the passages it found and hands
+over to a person. `recourse model` asks the same question again later, so the
+choice is never final.
 
 ## The whole setup
+
+One command does all of it, and asks the two questions it cannot guess:
+
+```bash
+npx @recourse-ai/core@latest init
+```
+
+It learns the content, installs the library, writes the chat endpoint for
+whichever framework is there, configures the model into the right environment
+file, and prints the widget snippet. The steps by hand:
 
 ```bash
 npm install @recourse-ai/core
