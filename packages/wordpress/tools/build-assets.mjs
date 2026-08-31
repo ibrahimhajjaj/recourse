@@ -7,7 +7,7 @@
  * answers the question before it is asked.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -46,6 +46,15 @@ if (existsSync(source) && newestSource(source) > statSync(join(built, 'recourse.
 }
 
 mkdirSync(assets, { recursive: true })
+
+// Remove any bundle already here before copying the current one in. Copying
+// over a fixed set of names leaves anything under a previous name untouched,
+// and the plugin zip then ships both: a reviewer sees two copies of the widget
+// under two names, one matching no code in the plugin. Only the generated
+// bundles go; admin.css is authored and stays.
+for (const stale of readdirSync(assets)) {
+  if (stale.endsWith('.js')) rmSync(join(assets, stale))
+}
 
 for (const file of ['recourse.js', 'recourse.min.js']) {
   copyFileSync(join(built, file), join(assets, file))

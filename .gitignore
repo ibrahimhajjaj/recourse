@@ -16,3 +16,8 @@ coverage/
 
 # Copied from the widget build by the example prebuild step.
 examples/nextjs/public/recourse.js
+
+# Built from packages/widget by tools/build-assets.mjs. Tracking a generated
+# bundle is how a stale copy of it ends up in the plugin zip.
+packages/wordpress/assets/recourse.js
+packages/wordpress/assets/recourse.min.js
