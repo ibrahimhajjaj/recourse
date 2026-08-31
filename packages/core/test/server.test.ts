@@ -486,8 +486,11 @@ describe('the agent with no transport attached', () => {
       },
     })
     const result = await createAgent({ index: await index(), model: failing }).answer('refund?')
-    expect(result.error).toContain('provider exploded')
+    expect(result.error).toBeTruthy()
     expect(result.text).toBe('')
+    // Said in a sentence, with a reference the operator can grep the log for.
+    expect(result.error).toMatch(/reference [a-z0-9]{6}/)
+    expect(result.error).not.toContain('provider exploded')
   })
 
   it('streams the same answer as frames', async () => {

@@ -228,20 +228,37 @@ describe('attachments through the agent', () => {
       },
     ])
 
-    expect(result.error).toContain('could not open the file you sent')
+    expect(result.error).toContain('could not open what you sent')
     expect(result.error).not.toContain('Multimodal data provided')
   })
 
-  it('leaves an unrelated provider error alone', async () => {
+  it('does not blame the file when nothing was attached', async () => {
     const model = new MockLanguageModelV4({
       doStream: async () => {
-        throw new Error('rate limit exceeded')
+        throw new Error('model does not support this request')
       },
     })
     const agent = createAgent({ index: await index(), model, embedder: false })
 
     const result = await agent.answer('are damaged items replaced?')
-    expect(result.error).toContain('rate limit exceeded')
+    expect(result.error).not.toContain('could not open')
+    expect(result.error).toContain('unavailable')
+  })
+
+  it('tells a rate-limited customer to wait without quoting the provider', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error('rate limit exceeded for key sk-live-8f2b1c9d4e6a7f3b')
+      },
+    })
+    const agent = createAgent({ index: await index(), model, embedder: false })
+
+    const result = await agent.answer('are damaged items replaced?')
+    expect(result.error).toContain('Try again in a minute')
+    // The whole point: the key the provider echoed back does not reach a
+    // customer, and does not reach the transcript either.
+    expect(result.error).not.toContain('sk-live')
+    expect(result.error).not.toContain('rate limit exceeded')
   })
 
   it('records attachment metadata on the transcript but never the bytes', async () => {

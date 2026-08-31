@@ -344,4 +344,7 @@ export {
 export { upstashRateLimiter, redisRateLimiter, type RedisLike } from './server/ratelimit-shared.js'
 export type { RateLimiter, RateLimitResult } from './server/ratelimit.js'
 
+export { describeFailure, logFailure } from './diagnostics.js'
+export type { Diagnostic, FailureReason } from './diagnostics.js'
+
 export { shrink, redact, type ShrinkOptions } from './actions/shrink.js'

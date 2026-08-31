@@ -17,6 +17,41 @@
 - Outbound campaigns refuse to contact anyone without explicit consent, drop
   duplicates, and stop early when too much is failing.
 
+## What a customer is told when the provider fails
+
+A provider's error string is written for whoever holds the API key. It quotes
+the request back, which means the customer's own words, the instructions, and
+sometimes a URL with a token in it. Putting that on a chat widget publishes all
+three, and storing it in the transcript keeps them next to the conversation
+forever.
+
+So the customer gets a sentence and a reference, and the provider's own words go
+to `console.error` and stop there:
+
+```
+I could not answer that. Try again in a minute. (reference k3n8fa)
+```
+
+```
+[helpdeck] model call failed conversation=c_8f2 model=openai/gpt-4o ref=k3n8fa reason=rate_limited …
+```
+
+The two are joined by that reference rather than by copying the text into both,
+so a customer who quotes it gets an operator straight to the line. Failures are
+classified into a fixed vocabulary (`rate_limited`, `quota_exhausted`,
+`unauthorized`, `timeout`, `too_large`, `unsupported_input`, `unavailable`,
+`cancelled`, `unknown`) and anything unrecognised lands on `unknown`, which is
+safe by construction: a new provider's phrasing degrades to a vague sentence
+rather than to a leak.
+
+The same applies to actions. An action that fails on an authenticated request
+tends to quote the request, credential included, and that string is about to
+become tool output and then a stored transcript, so it is redacted and capped
+first.
+
+`describeFailure` and `logFailure` are exported if you want the same split
+somewhere else.
+
 ## Rate limiting
 
 Per-instance by default, which stops a script and is not a budget control: N

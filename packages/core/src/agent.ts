@@ -14,6 +14,7 @@ import { blocks, createClassifier } from './safety/classify.js'
 import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { ShrinkOptions } from './actions/shrink.js'
+import { describeFailure, logFailure } from './diagnostics.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -589,8 +590,14 @@ export function createAgent(options: AgentOptions) {
       })
     }
 
-    if (failure) yield { type: 'error', message: explain(failure, prepared !== null) }
-    else yield { type: 'done' }
+    if (failure) {
+      // The provider's own words go to the process log and stop there. What
+      // reaches the customer, and what goes in the transcript, is a sentence
+      // and a reference that ties the two together.
+      const diagnosis = describeFailure(failure, prepared !== null)
+      logFailure(diagnosis, failure, { conversation: conversationId, model: nameOf(model) })
+      yield { type: 'error', message: `${diagnosis.message} (reference ${diagnosis.reference})` }
+    } else yield { type: 'done' }
   }
 
   /**
@@ -791,17 +798,16 @@ function trimStop(reason: string): string {
 }
 
 /**
- * Turns a provider's complaint into something worth showing a customer.
+ * The id a model prices under.
  *
- * A model that cannot see is a configuration mistake by the business, not
- * something the visitor did wrong, and they should not be reading a provider's
- * JSON to find that out.
+ * A bare string already is one. An SDK instance carries its own, and anything
+ * else is a locally hosted model with no published price, which is correct:
+ * self-hosted tokens are not billed per token.
  */
-function explain(failure: string, hadAttachments: boolean): string {
-  if (hadAttachments && /multimodal|image|vision|not support/i.test(failure)) {
-    return 'I could not open the file you sent. Please describe the problem instead, or try again later.'
-  }
-  return failure
+function nameOf(model: LanguageModel): string {
+  if (typeof model === 'string') return model
+  const id = (model as { modelId?: unknown }).modelId
+  return typeof id === 'string' ? id : 'unknown'
 }
 
 /**
