@@ -12,9 +12,9 @@
  * found, and a model turns those into a sentence whenever one is configured.
  *
  * Interactive prompts come from `@clack/prompts`, imported only here and only
- * when needed. That library wants a newer Node than this package requires, so
- * everything below also works from flags alone, and an old Node gets the flag
- * path with an explanation rather than a stack trace.
+ * when there is a terminal to draw them in. Everything below also works from
+ * flags alone, so a run in CI, or with the output piped somewhere, takes the
+ * flag path rather than stopping on a question nobody is there to answer.
  */
 
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
@@ -194,10 +194,11 @@ interface Prompts {
 /**
  * clack, when the runtime can load it.
  *
- * It reaches for `util.styleText`, which arrived in Node 20.12, and this
- * package supports older than that. Rather than raise the floor of the whole
- * library for one command's prompts, the import is attempted and a failure
- * means the flag path, which needs nothing.
+ * It reaches for `util.styleText`, which arrived in Node 20.12. The declared
+ * floor is above that now, but the check stays rather than being deleted: the
+ * import is attempted instead of assumed, and anything that goes wrong means
+ * the flag path, which needs nothing, and not a stack trace on the first
+ * command somebody ever runs.
  */
 async function loadPrompts(): Promise<Prompts | null> {
   const [major, minor] = process.versions.node.split('.').map(Number) as [number, number]

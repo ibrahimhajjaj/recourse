@@ -37,7 +37,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22"
   },
   "exports": {
     ".": {
