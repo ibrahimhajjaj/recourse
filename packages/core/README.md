@@ -34,24 +34,25 @@ desk](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/helpdesk.md),
 
 | Entry | What it gives you |
 | --- | --- |
-| `recourse` | Everything below, re-exported |
-| `recourse/server` | `createChatHandler`, a `Request` to `Response` function |
-| `recourse/agent` | `createAgent`, the agent with no transport attached |
-| `recourse/actions` | Lead capture, escalation, HTTP actions, commerce, handoff |
-| `recourse/procedures` | Multi-step flows with branches and variables |
-| `recourse/channels` | WhatsApp, Messenger, Instagram, Slack, Teams, Telegram, Discord, SMS, voice, email, Sunshine |
-| `recourse/helpdesk` | Tickets, routing, assignment, triggers, saved views, and connectors for nine outside desks |
-| `recourse/api` | Management API, admin page, public help page |
-| `recourse/store` | Conversation, lead, ticket and source persistence |
+| `@recourse-ai/core` | Everything below, re-exported |
+| `@recourse-ai/core/server` | `createChatHandler`, a `Request` to `Response` function |
+| `@recourse-ai/core/agent` | `createAgent`, the agent with no transport attached |
+| `@recourse-ai/core/actions` | Lead capture, escalation, HTTP actions, commerce, handoff |
+| `@recourse-ai/core/procedures` | Multi-step flows with branches and variables |
+| `@recourse-ai/core/channels` | WhatsApp, Messenger, Instagram, Slack, Teams, Telegram, Discord, SMS, voice, email, Sunshine |
+| `@recourse-ai/core/helpdesk` | Tickets, routing, assignment, triggers, saved views, and connectors for nine outside desks |
+| `@recourse-ai/core/api` | Management API, admin page, public help page |
+| `@recourse-ai/core/store` | Conversation, lead, ticket and source persistence |
+| `@recourse-ai/core/store/conformance` | The suite every store has to pass, for one you write yourself |
 | `recourse/store/conformance` | The suite a store of your own has to pass |
-| `recourse/webhooks` | Signed outbound events |
-| `recourse/outbound` | Campaigns, with consent enforced |
-| `recourse/tool` | `knowledgeTool`, for the AI SDK, eve, or anything built on them |
-| `recourse/ingest` | `ingest` and `writeIndex`, for build scripts |
-| `recourse/attachments` | Validating and reading files a visitor sends |
-| `recourse/safety` | Classifier with per-category sensitivity and actions |
-| `recourse/models` | `models` and `embedders`, including one picked from the environment |
-| `recourse/storage` | S3, R2 and local blobs for what a visitor uploads |
+| `@recourse-ai/core/webhooks` | Signed outbound events |
+| `@recourse-ai/core/outbound` | Campaigns, with consent enforced |
+| `@recourse-ai/core/tool` | `knowledgeTool`, for the AI SDK, eve, or anything built on them |
+| `@recourse-ai/core/ingest` | `ingest` and `writeIndex`, for build scripts |
+| `@recourse-ai/core/attachments` | Validating and reading files a visitor sends |
+| `@recourse-ai/core/safety` | Classifier with per-category sensitivity and actions |
+| `@recourse-ai/core/models` | `models` and `embedders`, including one picked from the environment |
+| `@recourse-ai/core/storage` | S3, R2 and local blobs for what a visitor uploads |
 
 ## CLI
 

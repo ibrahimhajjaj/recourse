@@ -106,6 +106,8 @@ they wait for it to upload. **Set the same limits on the server**, where they
 are enforced:
 
 ```js
+import { createChatHandler } from '@recourse-ai/core/server'
+
 createChatHandler({ attachments: { maxBytes: 8 * 1024 * 1024, maxCount: 3 } })
 ```
 
@@ -188,6 +190,8 @@ page served over plain HTTP.
 conversation id, and asks the server to forget the old one.
 
 ```ts
+import { createChatHandler } from '@recourse-ai/core/server'
+
 createChatHandler({ index, store })   // the server side is the store
 ```
 

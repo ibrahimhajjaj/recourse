@@ -7,6 +7,7 @@ npm install @recourse-ai/store-postgres pg
 ```
 
 ```ts
+import { createChatHandler } from '@recourse-ai/core/server'
 import { postgresStore } from '@recourse-ai/store-postgres'
 
 const store = postgresStore({ connectionString: process.env.DATABASE_URL })

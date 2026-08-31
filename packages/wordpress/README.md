@@ -150,9 +150,9 @@ rather than reimplemented.
 
 **The Abilities API, core since 6.9** (about 76% of installs). It is a registry
 of callable things with a JSON Schema and a permission callback, which is
-exactly the shape a model wants. This plugin registers `recourse/answer` and
-`recourse/search` there, both annotated `readonly`, so any other agent on the
-site can use them. `recourse/search` needs no model and no credential at all.
+exactly the shape a model wants. This plugin registers `@recourse-ai/core/answer` and
+`@recourse-ai/core/search` there, both annotated `readonly`, so any other agent on the
+site can use them. `@recourse-ai/core/search` needs no model and no credential at all.
 
 It reads from the registry too, but only what the site names:
 

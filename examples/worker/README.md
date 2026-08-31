@@ -17,8 +17,8 @@ the first time it ran.
 
 **Import subpaths, not the root.** `recourse` re-exports `ingest` and the
 local-file source, which read from disk and so import `node:fs`. On a Worker
-use `recourse/server`, `recourse/models`, `recourse/agent`, `recourse/actions`,
-`recourse/channels`, `recourse/safety` or `recourse/store`, none of which
+use `@recourse-ai/core/server`, `@recourse-ai/core/models`, `@recourse-ai/core/agent`, `@recourse-ai/core/actions`,
+`@recourse-ai/core/channels`, `@recourse-ai/core/safety` or `@recourse-ai/core/store`, none of which
 touch the filesystem.
 
 **There is no `process`.** Reading it throws rather than returning undefined,

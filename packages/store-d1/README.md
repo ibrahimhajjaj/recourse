@@ -3,6 +3,7 @@
 The recourse `Store`, backed by Cloudflare D1.
 
 ```ts
+import { createChatHandler } from '@recourse-ai/core/server'
 import { d1Store } from '@recourse-ai/store-d1'
 
 export default {
