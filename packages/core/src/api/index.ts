@@ -103,6 +103,56 @@ export function createApiHandler(options: ApiOptions) {
         },
       }),
     )
+
+    // The preview, on its own page, for one reason: the admin page allows
+    // inline script and nothing else, which is what a page showing every
+    // transcript should allow. Loading the widget build into it would mean
+    // widening that to any same-origin script. An iframe pointed here keeps
+    // the strict policy where the transcripts are and puts the loosening on a
+    // page that holds nothing.
+    router.get('/admin/preview', async (request) => {
+      const asked = new URL(request.url).searchParams
+      const source = asked.get('src') ?? '/helpdeck.js'
+
+      // Only the attributes the widget documents, and only from a fixed list.
+      // This page reflects a query string into markup, so what may appear is
+      // decided here rather than by the caller.
+      const allowed = [
+        'endpoint', 'title', 'subtitle', 'greeting', 'accent', 'theme',
+        'suggestions', 'invite', 'feedback', 'copy', 'attachments', 'dictation',
+      ]
+
+      const attributes = allowed
+        .filter((name) => asked.get(name))
+        .map((name) => `data-${name}="${escapeAttribute(asked.get(name) as string)}"`)
+        .join('\n    ')
+
+      return new Response(
+        `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Widget preview</title>
+<style>html,body{margin:0;height:100%;background:transparent}</style></head>
+<body>
+<script
+    src="${escapeAttribute(sameOrigin(source))}"
+    ${attributes}
+    data-open="true"
+    data-persist="false"
+    defer
+></script>
+</body>
+</html>`,
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            // Scripts from this origin, because that is the whole job here.
+            // Still no third-party anything, and this page has no data on it.
+            'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'",
+          },
+        },
+      )
+    })
   }
 
   // ---- conversations -------------------------------------------------------
@@ -496,6 +546,28 @@ export function createApiHandler(options: ApiOptions) {
       return recorded(withCors(fail('internal_error', 'the request could not be completed', 500), cors))
     }
   }
+}
+
+/** Attribute values are reflected into markup, so they are escaped as such. */
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .slice(0, 500)
+}
+
+/**
+ * A same-origin path, or nothing.
+ *
+ * The preview names the script to load, and the point of the policy above is
+ * that it cannot be somebody else's. A path is allowed, an absolute URL is
+ * not, and the policy would refuse it anyway; refusing here as well means the
+ * page says so rather than rendering a tag that silently never runs.
+ */
+function sameOrigin(source: string): string {
+  return /^\/[^/\\]/.test(source) ? source : '/helpdeck.js'
 }
 
 /**

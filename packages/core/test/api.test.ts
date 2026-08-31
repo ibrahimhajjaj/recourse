@@ -471,9 +471,10 @@ describe('the admin page', () => {
     const markup = html.replace(/<script type="module">[\s\S]*?<\/script>/, '')
     expect(markup, 'the admin page loads an external script').not.toMatch(/<script[^>]+src=/)
 
-    // The one exception, and it is deliberate: the widget preview imports a
-    // build the operator points it at, when they open that tab.
-    expect(html).toContain('import(new URL(settings.script')
+    // The one exception, and it is deliberate: opening the Widget tab injects
+    // the very script tag it is telling you to paste, so the preview is the
+    // real widget rather than a drawing of one.
+    expect(html).toContain("'/admin/preview?'")
     expect(html).toContain('Answer gaps')
   })
 

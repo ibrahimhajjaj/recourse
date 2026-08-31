@@ -52,7 +52,10 @@ export const ADMIN_PAGE = `<!doctype html>
   .field textarea { resize:vertical; min-height:56px }
   .switches { display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:12px }
   .switches label { font-size:13px; display:flex; gap:6px; align-items:center }
-  .preview { position:relative; min-height:440px; border:1px solid var(--line); border-radius:10px;
+  /* A definite height, not min-height: the frame inside asks for 100% of it,
+     and a percentage resolves against nothing when the parent is only a
+     minimum, so the frame silently falls back to its default 150px. */
+  .preview { position:relative; height:620px; border:1px solid var(--line); border-radius:10px;
     background:var(--soft); overflow:hidden }
   .preview .note { position:absolute; inset:0; display:grid; place-items:center; padding:20px;
     text-align:center; font-size:13px; color:var(--dim) }
@@ -124,7 +127,7 @@ const views = {
    */
   async widget() {
     const settings = {
-      endpoint: base + '/../chat',
+      endpoint: '/api/chat',
       script: '/helpdeck.js',
       title: '',
       subtitle: '',
@@ -173,45 +176,24 @@ const views = {
       attributes().map(([name, value]) => '  ' + name + '="' + String(value).replace(/"/g, '&quot;') + '"').join('\\n') +
       '\\n  defer\\n></' + 'script>'
 
-    // The real widget, not a drawing of it. A preview built from a copy of the
-    // widget's own stylesheet is a second implementation that goes out of date
-    // silently, and the first thing it would get wrong is the thing being
-    // previewed.
-    const render = async () => {
+    // The real widget, on its own page, in a frame. This page allows inline
+    // script and nothing else, which is what a page showing every transcript
+    // should allow, and a preview that needed that widened would be paying for
+    // itself with the wrong currency. The frame loads /admin/preview, which
+    // carries nothing worth stealing and may load a script from this origin.
+    const render = () => {
       code.textContent = snippet()
 
-      try {
-        const module = await import(new URL(settings.script, location.href).href)
-        if (!module.createWidget) throw new Error('that script does not export createWidget')
+      const asked = new URLSearchParams({ src: settings.script })
+      for (const [name, value] of attributes()) asked.set(name.replace(/^data-/, ''), value)
 
-        mounted?.destroy?.()
-        preview.replaceChildren()
-        mounted = module.createWidget({
-          endpoint: settings.endpoint,
-          target: preview,
-          open: true,
-          persist: false,
-          title: settings.title || undefined,
-          subtitle: settings.subtitle || undefined,
-          greeting: settings.greeting || undefined,
-          accent: settings.accent,
-          theme: settings.theme,
-          feedback: settings.feedback,
-          copy: settings.copy,
-          attachments: settings.attachments,
-          dictation: settings.dictation,
-          suggestions: settings.suggestions.split('\\n').map((one) => one.trim()).filter(Boolean),
-        })
-      } catch (error) {
-        mounted = null
-        preview.replaceChildren(el('div', { className: 'note' },
-          el('div', {}, [
-            el('p', { textContent: 'No preview: ' + error.message }),
-            el('p', { className: 'muted', textContent:
-              'Point "Widget script" at a build the browser can reach. The snippet below is correct either way.' }),
-          ]),
-        ))
-      }
+      preview.replaceChildren(
+        el('iframe', {
+          src: base + '/admin/preview?' + asked.toString(),
+          title: 'Widget preview',
+          style: 'width:100%;height:100%;border:0;display:block',
+        }),
+      )
     }
 
     const text = (key, label, placeholder = '') =>
