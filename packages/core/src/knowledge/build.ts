@@ -9,7 +9,8 @@ import type {
 } from '../types.js'
 import { markdownChunker } from '../chunk/index.js'
 import { buildKeywordIndex } from './bm25.js'
-import { buildVectorIndex } from './vector.js'
+import { packVectors, quantize, unpackVectors } from './vector.js'
+import { parseIndex } from './serialize.js'
 import type { VectorStore } from '../retrieve/vector-store.js'
 
 export interface BuildOptions {
@@ -34,6 +35,22 @@ export interface BuildOptions {
    * moving them out afterwards would quantise a second time for nothing.
    */
   vectorStore?: VectorStore
+  /**
+   * The index this build replaces. Text that has not changed is not embedded
+   * again.
+   *
+   * Most re-crawls change almost nothing: a site of four hundred pages ships
+   * one edit, and paying to embed the other three hundred and ninety-nine is
+   * the largest avoidable cost in the whole pipeline. A chunk is carried over
+   * when its indexed text is byte-for-byte what it was, which is a stricter
+   * test than "same page": an edited paragraph re-embeds, and so does one
+   * whose heading moved, because the heading is part of what was embedded.
+   *
+   * Ignored when the embedding model has changed. Vectors from two models are
+   * not comparable, and half an index from each would rank nonsense highly
+   * while looking like it worked.
+   */
+  previous?: KnowledgeIndex | string
 }
 
 /**
@@ -74,14 +91,70 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
   let embedded: number | undefined
 
   if (options.embedder) {
-    report({ phase: 'embed', message: `embedding ${chunks.length} chunks`, done: 0, total: chunks.length })
-    const values = await options.embedder.embed(searchable, ctx)
+    const carried = await carryOver(
+      options.previous,
+      options.embedder.name,
+      searchable,
+      chunks,
+      options.vectorStore !== undefined,
+    )
+    // Positions that still need a vector, in order.
+    const fresh = searchable.map((_text, position) => position).filter((position) => !carried.rows.has(position))
+
+    if (carried.rows.size > 0) {
+      report({
+        phase: 'embed',
+        message: `${carried.rows.size} of ${chunks.length} chunks are unchanged and keep their vectors`,
+      })
+    }
+
+    report({ phase: 'embed', message: `embedding ${fresh.length} chunks`, done: 0, total: fresh.length })
+    const values =
+      fresh.length > 0
+        ? await options.embedder.embed(
+            fresh.map((position) => searchable[position] as string),
+            ctx,
+          )
+        : []
     embedded = values.length
 
     if (options.vectorStore) {
-      await writeVectors(options.vectorStore, chunks, values, report)
+      // The store already holds the carried-over rows under the same chunk
+      // ids, so only the fresh ones are written.
+      const written = fresh.map((position, offset) => ({
+        chunk: chunks[position] as Chunk,
+        vector: values[offset] as Float32Array,
+      }))
+      await writeVectors(options.vectorStore, written, report)
     } else {
-      vectors = buildVectorIndex(values, options.embedder.name)
+      const rows: Int8Array[] = new Array(chunks.length)
+      for (const [position, row] of carried.rows) rows[position] = row
+      fresh.forEach((position, offset) => {
+        rows[position] = quantize(values[offset] as Float32Array)
+      })
+
+      const width = values[0]?.length ?? carried.dimensions
+
+      // A provider that changed the width of a model's output without changing
+      // its name. Packing short rows against long ones would misalign every
+      // vector after the first and produce an index that loads, scores, and is
+      // wrong, so the carried rows are replaced rather than trusted. Only they
+      // need redoing; the fresh ones are already the new width.
+      if (carried.rows.size > 0 && values.length > 0 && width !== carried.dimensions) {
+        report({
+          phase: 'embed',
+          message: `previous vectors are ${carried.dimensions} wide, this model returns ${width}; re-embedding the ${carried.rows.size} carried over`,
+        })
+
+        const stale = [...carried.rows.keys()]
+        const replaced = await options.embedder.embed(stale.map((position) => searchable[position] as string), ctx)
+        stale.forEach((position, offset) => {
+          rows[position] = quantize(replaced[offset] as Float32Array)
+        })
+        embedded += replaced.length
+      }
+
+      vectors = packVectors(rows, width, options.embedder.name)
     }
   }
 
@@ -110,25 +183,109 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
  */
 async function writeVectors(
   store: VectorStore,
-  chunks: Chunk[],
-  values: Float32Array[],
+  written: Array<{ chunk: Chunk; vector: Float32Array }>,
   report: (event: ProgressEvent) => void,
 ): Promise<void> {
   const BATCH = 500
 
-  for (let start = 0; start < chunks.length; start += BATCH) {
-    const entries = chunks.slice(start, start + BATCH).map((chunk, offset) => ({
+  for (let start = 0; start < written.length; start += BATCH) {
+    const entries = written.slice(start, start + BATCH).map(({ chunk, vector }) => ({
       id: chunk.id,
       chunk,
-      vector: values[start + offset] as Float32Array,
+      vector,
     }))
 
     await store.upsert(entries)
     report({
       phase: 'embed',
-      message: `wrote ${Math.min(start + BATCH, chunks.length)} of ${chunks.length} vectors to ${store.name}`,
-      done: Math.min(start + BATCH, chunks.length),
-      total: chunks.length,
+      message: `wrote ${Math.min(start + BATCH, written.length)} of ${written.length} vectors to ${store.name}`,
+      done: Math.min(start + BATCH, written.length),
+      total: written.length,
     })
   }
+}
+
+/**
+ * Which of the new chunks can keep a vector the previous index already paid
+ * for, and the row to use for each.
+ *
+ * Matching is on the exact indexed text rather than on the chunk id or the
+ * document url. Ids are derived from position, so inserting a paragraph high
+ * up a page renumbers everything below it while changing none of the words:
+ * matching on id would re-embed the whole page, and matching on text carries
+ * all of it over. The reverse case matters more: an id that stays the same
+ * while the words change must never keep the old vector, or the index would
+ * quietly answer from text nobody can read any more.
+ */
+async function carryOver(
+  previous: KnowledgeIndex | string | undefined,
+  model: string,
+  searchable: string[],
+  chunks: Chunk[],
+  /**
+   * Whether the chunk id has to match as well.
+   *
+   * It does when the vectors live in a database, because there the row is
+   * found by id and carrying one over means not writing it: a chunk whose text
+   * survived but whose id moved would be skipped and then have no vector at
+   * all. In the file the rows are copied by hand into the new order, so the id
+   * is irrelevant and matching on text alone carries over strictly more.
+   */
+  keyed: boolean,
+): Promise<{ rows: Map<number, Int8Array>; dimensions: number }> {
+  const empty = { rows: new Map<number, Int8Array>(), dimensions: 0 }
+  if (!previous) return empty
+
+  const before = typeof previous === 'string' ? parseIndex(previous) : previous
+  const old = before.vectors
+
+  // No vectors to carry, or vectors from a different model, which are not
+  // comparable with the ones about to be produced.
+  if (!old || old.model !== model || old.dimensions === 0) return empty
+  if (before.chunks.length === 0) return empty
+
+  const rows = unpackVectors(old)
+  // A vector blob that does not line up with the chunk list cannot be indexed
+  // into safely, and guessing which end is short would misalign every row.
+  if (rows.length !== before.chunks.length) return empty
+
+  const key = async (text: string, id: string) => (keyed ? `${id} ${await digest(text)}` : digest(text))
+
+  const known = new Map<string, number>()
+  await Promise.all(
+    before.chunks.map(async (chunk, position) => {
+      const text = [chunk.title, chunk.section, chunk.text].filter(Boolean).join('\n')
+      const at = await key(text, chunk.id)
+      // First occurrence wins. Two identical chunks share a vector anyway, so
+      // which one is carried over makes no difference to any score.
+      if (!known.has(at)) known.set(at, position)
+    }),
+  )
+
+  const carried = new Map<number, Int8Array>()
+  await Promise.all(
+    searchable.map(async (text, position) => {
+      const at = await key(text, (chunks[position] as Chunk).id)
+      const found = known.get(at)
+      if (found === undefined) return
+      const row = rows[found]
+      if (row) carried.set(position, row)
+    }),
+  )
+
+  return { rows: carried, dimensions: old.dimensions }
+}
+
+/**
+ * SHA-256, hex, through the platform's own crypto.
+ *
+ * `crypto.subtle` rather than node:crypto because this package runs on
+ * Workers as well, and a cryptographic digest rather than a cheap one because
+ * a collision here silently answers from a vector belonging to different text.
+ */
+const encoder = new TextEncoder()
+
+async function digest(value: string): Promise<string> {
+  const hashed = await crypto.subtle.digest('SHA-256', encoder.encode(value))
+  return [...new Uint8Array(hashed)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }

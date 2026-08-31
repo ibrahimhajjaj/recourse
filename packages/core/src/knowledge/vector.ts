@@ -38,21 +38,50 @@ export function normalize(vector: Float32Array): Float32Array {
   return out
 }
 
-export function buildVectorIndex(vectors: Float32Array[], model: string): VectorIndex {
-  const dimensions = vectors[0]?.length ?? 0
-  const packed = new Int8Array(vectors.length * dimensions)
+/** One embedding, unit-normalised and scaled into a byte per component. */
+export function quantize(vector: Float32Array): Int8Array {
+  const unit = normalize(vector)
+  const row = new Int8Array(vector.length)
 
-  for (let i = 0; i < vectors.length; i++) {
-    const unit = normalize(vectors[i] as Float32Array)
-    const offset = i * dimensions
-    for (let d = 0; d < dimensions; d++) {
-      // Clamp guards against a provider returning a component marginally over 1.
-      const scaled = Math.round((unit[d] as number) * 127)
-      packed[offset + d] = scaled > 127 ? 127 : scaled < -127 ? -127 : scaled
-    }
+  for (let d = 0; d < vector.length; d++) {
+    // Clamp guards against a provider returning a component marginally over 1.
+    const scaled = Math.round((unit[d] as number) * 127)
+    row[d] = scaled > 127 ? 127 : scaled < -127 ? -127 : scaled
   }
 
+  return row
+}
+
+/**
+ * Assembles rows that are already quantised.
+ *
+ * Kept separate from {@link buildVectorIndex} so an incremental build can mix
+ * rows carried over from the previous index with rows it has just embedded.
+ * A row that came out of an index is already at the right scale, and putting
+ * it through the float path again would decode and requantise it for nothing.
+ */
+export function packVectors(rows: Int8Array[], dimensions: number, model: string): VectorIndex {
+  const packed = new Int8Array(rows.length * dimensions)
+  for (let i = 0; i < rows.length; i++) packed.set(rows[i] as Int8Array, i * dimensions)
   return { dimensions, data: toBase64(packed), model }
+}
+
+/** The rows back out again, in the order they were written. */
+export function unpackVectors(index: VectorIndex): Int8Array[] {
+  const { dimensions } = index
+  if (dimensions === 0) return []
+
+  const packed = fromBase64(index.data)
+  const count = Math.floor(packed.length / dimensions)
+  const rows: Int8Array[] = new Array(count)
+
+  for (let i = 0; i < count; i++) rows[i] = packed.slice(i * dimensions, (i + 1) * dimensions)
+  return rows
+}
+
+export function buildVectorIndex(vectors: Float32Array[], model: string): VectorIndex {
+  const dimensions = vectors[0]?.length ?? 0
+  return packVectors(vectors.map(quantize), dimensions, model)
 }
 
 export interface VectorHit {

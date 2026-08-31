@@ -44,6 +44,14 @@ export interface IngestOptions {
    * keyword search rather than to nothing if the database is unreachable.
    */
   vectorStore?: VectorStore
+  /**
+   * The index being replaced, so unchanged text is not embedded a second time.
+   *
+   * A re-crawl of a site that has barely changed otherwise pays for every
+   * chunk again. Pass the file you are about to overwrite and only what
+   * actually changed is sent to the embedding model.
+   */
+  previous?: KnowledgeIndex | string
 }
 
 /**
@@ -70,6 +78,7 @@ export async function ingest(options: IngestOptions): Promise<KnowledgeIndex> {
     sources,
     chunker: options.chunker,
     ...(options.vectorStore ? { vectorStore: options.vectorStore } : {}),
+    ...(options.previous ? { previous: options.previous } : {}),
     embedder: wantsEmbeddings
       ? (options.embedder ??
         createEmbedder({

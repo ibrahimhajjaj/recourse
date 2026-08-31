@@ -85,6 +85,38 @@ has reached the customer or an action has run, a second attempt would either
 repeat itself on screen or charge the same card twice, so a half-delivered
 answer stays half delivered.
 
+## Not embedding the same page twice
+
+Re-crawling a site pays to embed every chunk again, including the three hundred
+and ninety-nine pages that did not change. Pass the index you are replacing:
+
+```ts
+import { ingest } from 'helpdeck'
+
+const index = await ingest({ url: 'https://example.com', previous: existing })
+```
+
+The CLI does it for you. `helpdeck ingest` reads the index already at the output
+path and reports what it skipped:
+
+```
+Indexed 412 documents into 1,840 chunks in 41.2s
+Embedded 6 changed chunks, kept 1834
+```
+
+`--fresh` re-embeds everything, for when you have changed chunker settings and
+the old vectors describe text that no longer exists.
+
+A chunk is carried over when its indexed text is byte-for-byte what it was.
+That is stricter than "same page": an edited paragraph re-embeds, and so does
+one whose heading moved, because the heading is part of what was embedded. It
+is deliberately not matched on the chunk id, which is derived from position, so
+inserting a paragraph high up a page does not re-embed everything below it.
+
+Changing the embedding model ignores the previous index entirely. Vectors from
+two models are not comparable, and half an index from each would rank nonsense
+highly while looking like it worked.
+
 ## Actions that return too much
 
 Whatever an action returns is fed back into the conversation, and again on every

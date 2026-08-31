@@ -32,6 +32,7 @@ Options
   --exclude <a,b>   Skip paths containing these
   --embed           Force embeddings on, fail without a credential
   --no-embed        Keyword-only index, no credentials needed at all
+  --fresh           Re-embed everything, ignoring the index already there
   --embed-url <u>   Any OpenAI-compatible embeddings endpoint, such as a local
                     Ollama on http://localhost:11434/v1
   --embed-model <m> Embedding model on that endpoint  (default nomic-embed-text)
@@ -80,9 +81,14 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
   const out = indexPath(flags)
   const started = Date.now()
 
+  // Unchanged pages keep the vectors the last run paid for, so a re-crawl of
+  // a site that shipped one edit costs one embedding rather than all of them.
+  const previous = flags.fresh === true ? undefined : await readIndexIfPresent(out)
+
   const index = await ingest({
     url,
     path,
+    ...(previous ? { previous } : {}),
     maxPages: num(flags['max-pages'], 50),
     include: list(flags.include),
     exclude: list(flags.exclude),
@@ -102,6 +108,9 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
   process.stdout.write(
     [
       `Indexed ${index.stats.documents} documents into ${index.stats.chunks} chunks in ${seconds}s`,
+      ...(previous && index.stats.embedded !== undefined && index.stats.embedded < index.stats.chunks
+        ? [`Embedded ${index.stats.embedded} changed chunks, kept ${index.stats.chunks - index.stats.embedded}`]
+        : []),
       `Retrieval: ${index.vectors ? 'hybrid (keyword + vectors)' : 'keyword only'}`,
       `Written to ${displayPath(out)} (${(size / 1024).toFixed(0)} KB)`,
       '',
@@ -307,6 +316,22 @@ function embedderFor(storedModel: string, flags: Record<string, string | boolean
     baseURL,
     apiKey: typeof flags['embed-key'] === 'string' ? flags['embed-key'] : undefined,
   })
+}
+
+/**
+ * The index already at that path, when there is one worth reading.
+ *
+ * Every failure here is the same failure: there is nothing usable to carry
+ * over, so the build embeds everything, which is what it did before this
+ * existed. A first run, a deleted file and a half-written one all take that
+ * path, and none of them is worth stopping an ingest for.
+ */
+async function readIndexIfPresent(path: string) {
+  try {
+    return parseIndex(await readFile(path, 'utf8'))
+  } catch {
+    return undefined
+  }
 }
 
 /** One flag for the index path, so ingest and ask can never disagree on it. */
