@@ -139,6 +139,7 @@ the thing you came for.
 | Answer someone who did not write in English | [docs/languages.md](docs/languages.md) |
 | Keep it inside its limits | [docs/safety.md](docs/safety.md) |
 | Keep keys out of the browser and rate limit it | [docs/security.md](docs/security.md) |
+| Cap what it spends, and stop paying to re-embed | [docs/costs.md](docs/costs.md) |
 | Store conversations somewhere that survives | [docs/stores.md](docs/stores.md) |
 | Start conversations, and tell other systems | [docs/reaching-out.md](docs/reaching-out.md) |
 | Wire it to Zapier, ViaSocket, Make or n8n | [docs/automation.md](docs/automation.md) |

@@ -344,6 +344,27 @@ export {
 export { upstashRateLimiter, redisRateLimiter, type RedisLike } from './server/ratelimit-shared.js'
 export type { RateLimiter, RateLimitResult } from './server/ratelimit.js'
 
+export {
+  createBudget,
+  costOf,
+  memoryLedger,
+  redisLedger,
+  PRICES,
+  PRICES_CHECKED,
+} from './budget.js'
+export type {
+  Budget,
+  BudgetOptions,
+  BudgetVerdict,
+  Ledger,
+  ModelPrice,
+  PriceList,
+  Spend,
+  Usage,
+  FloatCounter,
+  RedisLedgerOptions,
+} from './budget.js'
+
 export { describeFailure, logFailure } from './diagnostics.js'
 export type { Diagnostic, FailureReason } from './diagnostics.js'
 

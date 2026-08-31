@@ -13,6 +13,7 @@ import { prepareAttachments, type PrepareOptions } from './attachments-prepare.j
 import { blocks, createClassifier } from './safety/classify.js'
 import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
+import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
 import { describeFailure, logFailure } from './diagnostics.js'
 import {
@@ -79,6 +80,13 @@ export interface AgentOptions {
    * email. An answer half delivered stays half delivered.
    */
   fallbackModel?: LanguageModel
+  /**
+   * A ceiling on what this deployment spends, in tokens or dollars.
+   *
+   * The rate limiter caps one caller. This caps the bill, which is the thing a
+   * public widget on somebody else's provider key actually risks.
+   */
+  budget?: Budget
   /**
    * How much of an action's result is shown to the model.
    *
@@ -284,6 +292,13 @@ export function createAgent(options: AgentOptions) {
     messages: Message[],
     call: StreamOptions,
     onMatches: (matches: Match[]) => void,
+    /**
+     * Called when the turn ended before retrieval: a person has the
+     * conversation, or a spending cap stopped it. Distinct from finding
+     * nothing, which is a hole in the documentation. Only one of the two
+     * belongs on the list of questions to go and answer.
+     */
+    onQuiet: () => void,
     // `answer()` collects the frames and hands back one string, so nothing has
     // reached anybody when a withhold fires partway. The streaming case has to
     // leave the sentences it already sent alone; this one does not, and
@@ -319,6 +334,22 @@ export function createAgent(options: AgentOptions) {
 
     if (screened && blocks(screened)) {
       yield* refuse(screened, { conversationId, channel, contact, question })
+      return
+    }
+
+    // The cap is read before the model rather than after it, because the turn
+    // that crosses the line is precisely the one nobody wanted to pay for.
+    const allowance = options.budget ? await options.budget.check() : { ok: true as const }
+    if (!allowance.ok) {
+      console.warn(`[helpdeck] budget reached, not calling the model: ${allowance.reason ?? 'capped'}`)
+      onQuiet()
+      yield* stayQuiet(allowance.message ?? 'I cannot answer right now. Leave your question and a person will reply.', {
+        conversationId,
+        channel,
+        contact,
+        question,
+        attachments: messages[messages.length - 1]?.attachments ?? [],
+      })
       return
     }
 
@@ -445,8 +476,9 @@ export function createAgent(options: AgentOptions) {
     // at all. A second entry is only ever reached from a clean failure, so the
     // usual path builds a one-element array and never looks at it again.
     const attempts: LanguageModel[] = options.fallbackModel ? [model, options.fallbackModel] : [model]
-    /** Which model produced the answer, for the log. */
+    /** Which model produced the answer, so the budget bills the right one. */
     let spoke: LanguageModel = model
+    let spent: Usage = {}
 
     for (let attempt = 0; attempt < attempts.length; attempt++) {
       spoke = attempts[attempt] as LanguageModel
@@ -553,6 +585,14 @@ export function createAgent(options: AgentOptions) {
       while (pending.length > 0) {
         delivered = true
         yield pending.shift() as StreamFrame
+      }
+
+      // Billed per attempt, not once at the end. An attempt that failed on
+      // the way back still burned its input tokens, and pricing both attempts
+      // as the model that happened to answer would bill one of them wrong.
+      spent = await consumed(result)
+      if (options.budget && (spent.inputTokens || spent.outputTokens)) {
+        await options.budget.record(nameOf(spoke), spent)
       }
 
       if (!failure) break
@@ -713,13 +753,68 @@ export function createAgent(options: AgentOptions) {
     yield { type: 'done' }
   }
 
+  /**
+   * A turn the agent deliberately does not answer.
+   *
+   * A person has taken the conversation, or a spending cap has been reached.
+   * Neither is the customer's fault and neither is a refusal, so this is not
+   * `refuse`: nothing is blocked, no safety verdict is recorded, and the turn
+   * is not counted as a documentation gap.
+   *
+   * What it must still do is store what the customer said. That message is the
+   * entire reason the pause is survivable: the person who took the ticket over
+   * reads it, and the customer does not have to type it twice.
+   */
+  async function* stayQuiet(
+    message: string,
+    turn: {
+      conversationId: string
+      channel: Channel
+      contact?: Contact
+      question: string
+      attachments: Message['attachments']
+    },
+  ): AsyncGenerator<StreamFrame> {
+    yield { type: 'sources', sources: [] }
+    yield { type: 'delta', text: message }
+
+    if (options.store) {
+      const now = new Date().toISOString()
+      const asked: StoredMessage = { id: newId('m'), role: 'user', content: turn.question, createdAt: now }
+      if (turn.attachments?.length) {
+        asked.attachments = turn.attachments.map(({ name, mimeType, bytes }) => ({ name, mimeType, bytes }))
+      }
+
+      await options.store.appendMessage(turn.conversationId, asked, {
+        channel: turn.channel,
+        contact: turn.contact,
+      })
+      await options.store.appendMessage(turn.conversationId, {
+        id: newId('m'),
+        role: 'assistant',
+        content: message,
+        createdAt: now,
+        // Retrieval never ran, so calling this a content gap would put a
+        // question nobody tried to answer at the top of the list to fix.
+        unanswered: false,
+      })
+    }
+
+    yield { type: 'done' }
+  }
+
   /** Streams the answer as frames. Use this wherever a person is waiting. */
   function stream(
     question: string | Message[],
     history: Message[] = [],
     call: StreamOptions = {},
   ): AsyncGenerator<StreamFrame> {
-    return run(toMessages(question, history), call, call.onMatches ?? (() => {}))
+    return run(
+      toMessages(question, history),
+      call,
+      call.onMatches ?? (() => {}),
+      () => {},
+    )
   }
 
   /**
@@ -735,6 +830,7 @@ export function createAgent(options: AgentOptions) {
     let error: string | undefined
     let sources: SourceRef[] = []
     let matches: Match[] = []
+    let searched = true
     const notices: string[] = []
 
     for await (const frame of run(
@@ -742,6 +838,9 @@ export function createAgent(options: AgentOptions) {
       call,
       (found) => {
         matches = found
+      },
+      () => {
+        searched = false
       },
       true,
     )) {
@@ -755,7 +854,9 @@ export function createAgent(options: AgentOptions) {
       text,
       sources: citedOnly(sources, text),
       matches,
-      unanswered: matches.length === 0,
+      // A turn nobody tried to answer is not a documentation gap. Retrieval
+      // never ran, so there is no missing page for this question to name.
+      unanswered: searched && matches.length === 0,
       error,
       notices,
     }
@@ -853,6 +954,23 @@ function withoutPoisoned(matches: Match[], threshold: number): Match[] {
 /** Reasons come from parsers that may or may not punctuate. One stop, not two. */
 function trimStop(reason: string): string {
   return reason.replace(/[.\s]+$/, '')
+}
+
+/**
+ * What the turn actually cost, or nothing when the provider did not say.
+ *
+ * Read after the stream rather than from a `finish` part, because a stream
+ * that failed has no finish part and the totals are still worth having: a
+ * turn can burn its input tokens and then die on the way back.
+ */
+async function consumed(result: { totalUsage: PromiseLike<Usage> }): Promise<Usage> {
+  try {
+    const usage = await result.totalUsage
+    return { inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens }
+  } catch {
+    // Unmetered is better than a turn that throws while tidying up.
+    return {}
+  }
 }
 
 /**
