@@ -13,7 +13,7 @@
 
 import { createRequire } from 'node:module'
 import type { Pool } from 'pg'
-import type { Chunk, VectorHit, VectorSearchOptions, VectorStore } from 'recourse'
+import type { Chunk, VectorHit, VectorSearchOptions, VectorStore } from '@recourse-ai/core'
 
 export interface PgVectorStoreOptions {
   pool?: Pool

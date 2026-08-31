@@ -71,7 +71,7 @@ export function routeFor(project: Project, indexPath: string): string {
   const importPath = importFrom(project.route, indexPath)
 
   if (framework === 'next') {
-    return `import { createChatHandler } from 'recourse/server'
+    return `import { createChatHandler } from '@recourse-ai/core/server'
 import knowledge from '${importPath}'
 
 // One handler for both verbs: the browser sends a preflight before it streams.
@@ -83,7 +83,7 @@ export const OPTIONS = handler
   }
 
   if (framework === 'worker') {
-    return `import { createChatHandler } from 'recourse/server'
+    return `import { createChatHandler } from '@recourse-ai/core/server'
 import knowledge from '${importPath}'
 
 const chat = createChatHandler({ index: knowledge })
@@ -100,7 +100,7 @@ export default {
   }
 
   return `import { createServer } from 'node:http'
-import { createChatHandler } from 'recourse/server'
+import { createChatHandler } from '@recourse-ai/core/server'
 import knowledge from '${importPath}' with { type: 'json' }
 
 const chat = createChatHandler({ index: knowledge })
@@ -135,7 +135,7 @@ async function text(stream: NodeJS.ReadableStream): Promise<string> {
  */
 export function snippetFor(endpoint = '/api/chat'): string {
   return `<script
-  src="https://cdn.jsdelivr.net/npm/@recourse/widget/dist/recourse.min.js"
+  src="https://cdn.jsdelivr.net/npm/@recourse-ai/widget/dist/recourse.min.js"
   data-endpoint="${endpoint}"
   data-title="Ask us anything"
 ></script>`

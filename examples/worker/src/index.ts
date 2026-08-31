@@ -13,12 +13,12 @@
  * to compute, and the bytes never leave Cloudflare's network on the way in.
  */
 
-import { createChatHandler, uploadRoute, downloadRoute } from 'recourse/server'
-import { r2Blobs, type R2Like } from 'recourse/storage'
+import { createChatHandler, uploadRoute, downloadRoute } from '@recourse-ai/core/server'
+import { r2Blobs, type R2Like } from '@recourse-ai/core/storage'
 // Subpaths, not the root export: `recourse` re-exports `ingest`, which reads
 // from disk and so imports `node:fs`. Nothing below touches the filesystem.
-import { models } from 'recourse/models'
-import type { KnowledgeIndex } from 'recourse/agent'
+import { models } from '@recourse-ai/core/models'
+import type { KnowledgeIndex } from '@recourse-ai/core/agent'
 import knowledge from './knowledge.json'
 
 interface Env {

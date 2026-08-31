@@ -1,5 +1,5 @@
 {
-  "name": "@recourse/store-postgres",
+  "name": "@recourse-ai/store-postgres",
   "version": "0.1.0",
   "type": "module",
   "description": "Postgres implementation of the recourse Store. Survives more than one instance.",
@@ -37,13 +37,13 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "recourse": "workspace:*",
+    "@recourse-ai/core": "workspace:*",
     "pg": "^8.13.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
-    "recourse": "workspace:*",
+    "@recourse-ai/core": "workspace:*",
     "pg": "^8.13.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"

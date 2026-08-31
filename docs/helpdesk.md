@@ -5,7 +5,7 @@ numbered, routed to a team by rule, and assigned to whoever is both least busy
 and actually working.
 
 ```ts
-import { createHelpdesk } from 'recourse/helpdesk'
+import { createHelpdesk } from '@recourse-ai/core/helpdesk'
 
 const helpdesk = createHelpdesk({
   store,
@@ -67,7 +67,7 @@ night team does not silently take the day team off the board.
 A procedure can branch on it:
 
 ```ts
-import { createChatHandler } from 'recourse/server'
+import { createChatHandler } from '@recourse-ai/core/server'
 
 createChatHandler({
   index,

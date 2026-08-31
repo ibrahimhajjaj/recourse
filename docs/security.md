@@ -59,7 +59,7 @@ serverless instances hand out N budgets. `rateLimiter` takes a shared one, and
 two ship in the box.
 
 ```ts
-import { createChatHandler, upstashRateLimiter } from 'recourse/server'
+import { createChatHandler, upstashRateLimiter } from '@recourse-ai/core/server'
 
 createChatHandler({
   index,
@@ -98,8 +98,8 @@ They are all measured rather than assumed, which is exactly why none of them
 should be treated as a constant:
 
 ```ts
-import { phraseRule } from 'recourse/safety'
-import { buildInstructions } from 'recourse/server'
+import { phraseRule } from '@recourse-ai/core/safety'
+import { buildInstructions } from '@recourse-ai/core/server'
 
 createChatHandler({
   index,
@@ -134,7 +134,7 @@ weakly than the webhooks do.
 
 
 ```ts
-import { createApiHandler } from 'recourse/api'
+import { createApiHandler } from '@recourse-ai/core/api'
 
 export const GET = createApiHandler({
   store,
@@ -204,7 +204,7 @@ Chats by country is the one analytic that needs something about a person, so it
 is off, and turning it on takes a decision rather than a flag:
 
 ```ts
-import { consented } from 'recourse/server'
+import { consented } from '@recourse-ai/core/server'
 
 createChatHandler({
   agent,

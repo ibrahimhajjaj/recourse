@@ -8,7 +8,7 @@
     "check": "node check-bundle.mjs"
   },
   "dependencies": {
-    "recourse": "workspace:*"
+    "@recourse-ai/core": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

@@ -15,13 +15,13 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
     "ai": "^7.0.84",
-    "recourse": "workspace:*",
+    "@recourse-ai/core": "workspace:*",
     "next": "^16.3.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@recourse/widget": "workspace:*",
+    "@recourse-ai/widget": "workspace:*",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "typescript": "^5.9.3"

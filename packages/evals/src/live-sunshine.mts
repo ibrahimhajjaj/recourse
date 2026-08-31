@@ -22,10 +22,10 @@ import { createServer } from 'node:http'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { buildIndex, createAgent, textSource } from 'recourse'
-import { sunshineChannel } from 'recourse/channels'
-import { memoryStore } from 'recourse/store'
-import { models } from 'recourse/models'
+import { buildIndex, createAgent, textSource } from '@recourse-ai/core'
+import { sunshineChannel } from '@recourse-ai/core/channels'
+import { memoryStore } from '@recourse-ai/core/store'
+import { models } from '@recourse-ai/core/models'
 
 const CREDENTIALS = join(homedir(), '.config/dev-credentials/sunshine.env')
 const PORT = 8791

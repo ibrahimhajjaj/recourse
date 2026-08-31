@@ -60,7 +60,7 @@ describe('the file it writes', () => {
     const project = detect({ manifest: { dependencies: { next: '^15' } }, files: ['app'] })
     const route = routeFor(project, 'recourse/knowledge.json')
 
-    expect(route).toContain("from 'recourse/server'")
+    expect(route).toContain("from '@recourse-ai/core/server'")
     expect(route).toContain('export const POST')
     expect(route).toContain('export const OPTIONS')
     expect(route).toContain('../../../recourse/knowledge.json')
@@ -95,6 +95,6 @@ describe('the snippet', () => {
   })
 
   it('loads the widget under its published name', () => {
-    expect(snippetFor()).toContain('@recourse/widget')
+    expect(snippetFor()).toContain('@recourse-ai/widget')
   })
 })

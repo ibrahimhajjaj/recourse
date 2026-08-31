@@ -1,4 +1,4 @@
-import { createApiHandler } from 'recourse/api'
+import { createApiHandler } from '@recourse-ai/core/api'
 import { helpdesk, store } from '../../../../lib/helpdesk'
 
 /**

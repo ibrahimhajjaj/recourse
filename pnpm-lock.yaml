@@ -17,6 +17,9 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.40
         version: 3.0.40(zod@4.5.1)
+      '@recourse-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       ai:
         specifier: ^7.0.84
         version: 7.0.84(zod@4.5.1)
@@ -29,11 +32,8 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.8(react@19.2.8)
-      recourse:
-        specifier: workspace:*
-        version: link:../../packages/core
     devDependencies:
-      '@recourse/widget':
+      '@recourse-ai/widget':
         specifier: workspace:*
         version: link:../../packages/widget
       '@types/node':
@@ -48,7 +48,7 @@ importers:
 
   examples/worker:
     dependencies:
-      recourse:
+      '@recourse-ai/core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -86,14 +86,14 @@ importers:
 
   packages/evals:
     dependencies:
-      recourse:
+      '@recourse-ai/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.40
         version: 3.0.40(zod@4.5.1)
-      '@recourse/store-postgres':
+      '@recourse-ai/store-postgres':
         specifier: workspace:*
         version: link:../store-postgres
       '@types/node':
@@ -120,12 +120,12 @@ importers:
 
   packages/store-d1:
     devDependencies:
+      '@recourse-ai/core':
+        specifier: workspace:*
+        version: link:../core
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
-      recourse:
-        specifier: workspace:*
-        version: link:../core
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -135,6 +135,9 @@ importers:
 
   packages/store-postgres:
     devDependencies:
+      '@recourse-ai/core':
+        specifier: workspace:*
+        version: link:../core
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
@@ -144,9 +147,6 @@ importers:
       pg:
         specifier: ^8.13.0
         version: 8.23.0
-      recourse:
-        specifier: workspace:*
-        version: link:../core
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

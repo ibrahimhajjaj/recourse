@@ -1,11 +1,11 @@
-# @recourse/widget
+# @recourse-ai/widget
 
 The embeddable chat UI for [recourse](https://github.com/ibrahimhajjaj/recourse).
 15KB minified, no dependencies, isolated in a shadow root.
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@recourse/widget/dist/recourse.min.js"
+  src="https://cdn.jsdelivr.net/npm/@recourse-ai/widget/dist/recourse.min.js"
   data-endpoint="/api/chat"
   data-title="Ask us anything"
   data-accent="#2563eb"
@@ -15,7 +15,7 @@ The embeddable chat UI for [recourse](https://github.com/ibrahimhajjaj/recourse)
 Or mount it yourself:
 
 ```ts
-import { createWidget } from '@recourse/widget'
+import { createWidget } from '@recourse-ai/widget'
 
 const widget = createWidget({
   endpoint: '/api/chat',

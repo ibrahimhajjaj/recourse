@@ -19,8 +19,8 @@
  * closing it is one click.
  */
 
-import { escalate } from 'recourse/actions'
-import { zendesk } from 'recourse/helpdesk'
+import { escalate } from '@recourse-ai/core/actions'
+import { zendesk } from '@recourse-ai/core/helpdesk'
 
 const env = process.env
 const need = (name: string): string => {

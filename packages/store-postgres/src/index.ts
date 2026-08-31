@@ -23,7 +23,7 @@ import type {
   Store,
   Ticket,
   TicketMessage,
-} from 'recourse'
+} from '@recourse-ai/core'
 import { SCHEMA } from './schema.js'
 
 export interface PostgresStoreOptions {

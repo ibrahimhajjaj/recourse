@@ -1,4 +1,4 @@
-import { createChatHandler } from 'recourse/server'
+import { createChatHandler } from '@recourse-ai/core/server'
 import {
   clientAction,
   collectLeads,
@@ -7,9 +7,9 @@ import {
   escalate,
   httpAction,
   suggestedMessages,
-} from 'recourse'
+} from '@recourse-ai/core'
 import { helpdesk, store } from '../../../lib/helpdesk'
-import type { KnowledgeIndex } from 'recourse'
+import type { KnowledgeIndex } from '@recourse-ai/core'
 import knowledge from '../../../lib/knowledge.json'
 import { resolveEmbedder, resolveModel } from '../../../lib/model'
 

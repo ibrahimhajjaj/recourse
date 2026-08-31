@@ -5,8 +5,8 @@ support lead who knows exactly which question the agent keeps failing and
 cannot fix it without asking somebody.
 
 ```ts
-import { createChatHandler } from 'recourse/server'
-import { knowledgeActions, ASSISTANT_PROMPT } from 'recourse'
+import { createChatHandler } from '@recourse-ai/core/server'
+import { knowledgeActions, ASSISTANT_PROMPT } from '@recourse-ai/core'
 
 createChatHandler({
   index,

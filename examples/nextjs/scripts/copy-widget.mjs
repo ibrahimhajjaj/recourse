@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
  * with no network and makes the served file obviously the one you just built.
  */
 const require = createRequire(import.meta.url)
-const dist = dirname(require.resolve('@recourse/widget/package.json'))
+const dist = dirname(require.resolve('@recourse-ai/widget/package.json'))
 
 await mkdir('public', { recursive: true })
 await copyFile(join(dist, 'dist/recourse.min.js'), 'public/recourse.js')

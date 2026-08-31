@@ -5,7 +5,7 @@ same machine, on 2026-08-29: 69 cases across grounding, injection and retrieval
 as those suites stood that day.
 
 ```bash
-pnpm --filter @recourse/evals eval --model <id> --embed
+pnpm --filter @recourse-ai/evals eval --model <id> --embed
 ```
 
 The suites have grown since, to 100 cases including a conduct suite that did not
@@ -68,8 +68,8 @@ provider does not reject the whole request.
 ## Wiring it
 
 ```ts
-import { createChatHandler } from 'recourse/server'
-import { models, embedders } from 'recourse'
+import { createChatHandler } from '@recourse-ai/core/server'
+import { models, embedders } from '@recourse-ai/core'
 
 createChatHandler({
   index,

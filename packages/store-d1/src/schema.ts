@@ -1,7 +1,7 @@
 /**
  * The schema, as SQLite rather than Postgres.
  *
- * The differences from `@recourse/store-postgres` are all forced by D1:
+ * The differences from `@recourse-ai/store-postgres` are all forced by D1:
  *
  * - `INTEGER PRIMARY KEY AUTOINCREMENT` instead of a sequence. It still fixes
  *   the ticket-number race, by a different mechanism: SQLite assigns it inside

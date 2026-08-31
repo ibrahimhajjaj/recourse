@@ -14,8 +14,8 @@ Nothing here needs an account or an API key to get working.
 ## The whole setup
 
 ```bash
-npm install recourse
-npx recourse ingest --url https://their-site.com
+npm install @recourse-ai/core
+npx @recourse-ai/core ingest --url https://their-site.com
 ```
 
 Writes `recourse/knowledge.json`, relative to the working directory. No key
@@ -24,8 +24,8 @@ there is no embedding credential.
 
 ```ts
 // app/api/chat/route.ts
-import { createChatHandler } from 'recourse/server'
-import { models, embedders } from 'recourse'
+import { createChatHandler } from '@recourse-ai/core/server'
+import { models, embedders } from '@recourse-ai/core'
 import knowledge from '@/recourse/knowledge.json'
 
 export const POST = createChatHandler({
@@ -40,7 +40,7 @@ The widget file is in the package. Copy it where the site serves static files,
 and re-copy it when the package updates:
 
 ```bash
-cp node_modules/@recourse/widget/dist/recourse.min.js public/recourse.js
+cp node_modules/@recourse-ai/widget/dist/recourse.min.js public/recourse.js
 ```
 
 ```html
@@ -50,7 +50,7 @@ cp node_modules/@recourse/widget/dist/recourse.min.js public/recourse.js
 Then always:
 
 ```bash
-npx recourse doctor
+npx @recourse-ai/core doctor
 ```
 
 It prints a line per check and exits non-zero if anything is actually broken.
@@ -79,20 +79,20 @@ leaves keyword-only retrieval rather than an error.
 leads and the unanswered-question list:
 
 ```ts
-import { fileStore } from 'recourse/store'
+import { fileStore } from '@recourse-ai/core/store'
 
 createChatHandler({ index: knowledge, store: fileStore({ dir: '.recourse' }) })
 ```
 
 ```ts
 // One machine, or serverless. Anything that scales out needs this instead.
-import { postgresStore } from '@recourse/store-postgres'
+import { postgresStore } from '@recourse-ai/store-postgres'
 
 createChatHandler({ index: knowledge, store: postgresStore({ pool }) })
 ```
 
 `memoryStore()` is the default and dies with the process. `fileStore` assumes
-one writer. `@recourse/store-postgres` and `@recourse/store-d1` are separate
+one writer. `@recourse-ai/store-postgres` and `@recourse-ai/store-d1` are separate
 packages and are what a deployment that scales out wants.
 
 ## Four mistakes to avoid
@@ -113,7 +113,7 @@ instead.
 dies with the process and `fileStore` assumes one writer. Every serverless
 deployment runs more than one instance under load, and the transcripts,
 tickets and sources then scatter across instances that cannot see each other.
-Nothing errors. Use `@recourse/store-postgres` for anything real, and create
+Nothing errors. Use `@recourse-ai/store-postgres` for anything real, and create
 the store **once at module scope**, one per request exhausts the connection
 limit.
 
@@ -130,7 +130,7 @@ gateway id otherwise. The README has a measured comparison; do not guess from
 model size, because the smallest model measured is also the most accurate one.
 
 **Store.** `memoryStore` for development, `fileStore` for one instance,
-`@recourse/store-postgres` for anything that scales out. All three pass the
+`@recourse-ai/store-postgres` for anything that scales out. All three pass the
 same behaviour suite, so swapping is configuration rather than a rewrite.
 
 **Channels.** Ten adapters, each verifying its own webhook signatures. The

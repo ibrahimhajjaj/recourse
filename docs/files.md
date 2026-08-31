@@ -8,8 +8,8 @@ whole thing has to fit in one request body. A `url` you already host works and
 is never fetched by this server. The third is a bucket.
 
 ```ts
-import { s3Blobs } from 'recourse/storage'
-import { uploadRoute } from 'recourse/server'
+import { s3Blobs } from '@recourse-ai/core/storage'
+import { uploadRoute } from '@recourse-ai/core/server'
 
 const blobs = s3Blobs({
   bucket: 'support-attachments',
@@ -26,7 +26,7 @@ Then hand the chat handler the same two things, and a message can carry
 `{ name, mimeType, key, token }` instead of the bytes:
 
 ```ts
-import { createChatHandler } from 'recourse/server'
+import { createChatHandler } from '@recourse-ai/core/server'
 
 createChatHandler({ index, storage: { blobs, secret: process.env.UPLOAD_SECRET! } })
 ```

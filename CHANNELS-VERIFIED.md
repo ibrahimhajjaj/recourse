@@ -729,13 +729,13 @@ now appears at both ends.
 Each live channel has a harness beside the others in `packages/evals/src`:
 
 ```
-pnpm --filter @recourse/evals whatsapp -- --templates
-pnpm --filter @recourse/evals telegram -- --whoami
-pnpm --filter @recourse/evals discord -- --register
-pnpm --filter @recourse/evals slack -- --whoami
-pnpm --filter @recourse/evals elevenlabs -- --check
-pnpm --filter @recourse/evals twilio -- --whoami
-pnpm --filter @recourse/evals teams -- --token
+pnpm --filter @recourse-ai/evals whatsapp -- --templates
+pnpm --filter @recourse-ai/evals telegram -- --whoami
+pnpm --filter @recourse-ai/evals discord -- --register
+pnpm --filter @recourse-ai/evals slack -- --whoami
+pnpm --filter @recourse-ai/evals elevenlabs -- --check
+pnpm --filter @recourse-ai/evals twilio -- --whoami
+pnpm --filter @recourse-ai/evals teams -- --token
 ```
 
 Teams needs one more step than the others: the bot resource stores the endpoint

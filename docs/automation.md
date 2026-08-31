@@ -9,7 +9,7 @@ way to hear about events and a way to ask it questions, and both already exist.
 Every one of these platforms gives you a URL to post to. Paste it in:
 
 ```ts
-import { createWebhooks } from 'recourse'
+import { createWebhooks } from '@recourse-ai/core'
 
 const webhooks = createWebhooks({
   endpoints: [
@@ -58,7 +58,7 @@ The same data, as tools a model can call. Turn it on and the management API
 also speaks Model Context Protocol at `POST /mcp`:
 
 ```ts
-import { createApiHandler } from 'recourse/api'
+import { createApiHandler } from '@recourse-ai/core/api'
 
 createApiHandler({ store, helpdesk, tokens: [process.env.RECOURSE_TOKEN!], mcp: { agent } })
 ```

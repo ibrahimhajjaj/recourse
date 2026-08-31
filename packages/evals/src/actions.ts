@@ -7,8 +7,8 @@
  * every call so `mustCallAction` has something to check.
  */
 
-import { defineAction } from 'recourse'
-import type { Action } from 'recourse'
+import { defineAction } from '@recourse-ai/core'
+import type { Action } from '@recourse-ai/core'
 
 export interface ActionLog {
   actions: Action[]

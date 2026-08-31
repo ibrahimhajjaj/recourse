@@ -1,5 +1,5 @@
 {
-  "name": "@recourse/evals",
+  "name": "@recourse-ai/evals",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     "teams": "tsx src/live-teams.mts"
   },
   "dependencies": {
-    "recourse": "workspace:*"
+    "@recourse-ai/core": "workspace:*"
   },
   "devDependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
@@ -31,7 +31,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7",
-    "@recourse/store-postgres": "workspace:*",
+    "@recourse-ai/store-postgres": "workspace:*",
     "pg": "^8.13.1",
     "@types/pg": "^8.11.10"
   }

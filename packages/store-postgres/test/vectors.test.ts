@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import pg from 'pg'
-import { buildIndex, createRetriever, textSource } from 'recourse'
-import type { Document, Embedder, KnowledgeIndex } from 'recourse'
+import { buildIndex, createRetriever, textSource } from '@recourse-ai/core'
+import type { Document, Embedder, KnowledgeIndex } from '@recourse-ai/core'
 import { pgVectorStore, migrateVectors } from '../src/vectors.js'
 
 /**

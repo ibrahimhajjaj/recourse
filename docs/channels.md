@@ -4,7 +4,7 @@ Eleven adapters. Every one verifies its webhooks, acknowledges before it answers
 and refuses to reply to itself.
 
 ```ts
-import { whatsappChannel } from 'recourse/channels'
+import { whatsappChannel } from '@recourse-ai/core/channels'
 
 export const POST = whatsappChannel({
   agent,
@@ -56,7 +56,7 @@ per-platform work and hands every one of them over in the same envelope, with
 `source.type` saying which channel a message actually arrived on.
 
 ```ts
-import { sunshineChannel } from 'recourse/channels'
+import { sunshineChannel } from '@recourse-ai/core/channels'
 
 export const POST = sunshineChannel({
   agent,
@@ -134,7 +134,7 @@ no avatar with a label. The message is the only surface, so the disclosure has
 to be a message.
 
 ```ts
-import { defaultDisclosure, telegramChannel } from 'recourse/channels'
+import { defaultDisclosure, telegramChannel } from '@recourse-ai/core/channels'
 
 telegramChannel({ agent, botToken, secretToken, disclosure: defaultDisclosure })
 ```
@@ -153,7 +153,7 @@ text. A messaging channel gets a string, so without help the customer reads a
 footnote marker with no footnote.
 
 ```ts
-import { slackChannel } from 'recourse/channels'
+import { slackChannel } from '@recourse-ai/core/channels'
 
 slackChannel({ agent, signingSecret, botToken, citations: 'list' })
 ```

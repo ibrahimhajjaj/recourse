@@ -1,5 +1,5 @@
 {
-  "name": "recourse",
+  "name": "@recourse-ai/core",
   "version": "0.1.0",
   "type": "module",
   "description": "A support agent trained on your own site. No API keys, no database, no vendor.",

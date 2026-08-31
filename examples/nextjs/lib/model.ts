@@ -1,6 +1,6 @@
-import { models, embedders } from 'recourse'
+import { models, embedders } from '@recourse-ai/core'
 import type { LanguageModel } from 'ai'
-import type { Embedder } from 'recourse'
+import type { Embedder } from '@recourse-ai/core'
 
 /**
  * Picks the model to answer with.

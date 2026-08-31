@@ -4,11 +4,11 @@ A customer support agent that learns your own website and answers from it, with
 citations. No API keys to create, no database, no vendor.
 
 ```bash
-npx recourse ingest --url https://your-site.com
+npx @recourse-ai/core ingest --url https://your-site.com
 ```
 
 ```ts
-import { createChatHandler } from 'recourse/server'
+import { createChatHandler } from '@recourse-ai/core/server'
 import knowledge from './recourse/knowledge.json'
 
 export const POST = createChatHandler({ index: knowledge })

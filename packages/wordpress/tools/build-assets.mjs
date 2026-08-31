@@ -16,7 +16,7 @@ const built = join(root, '..', 'widget', 'dist')
 const assets = join(root, 'assets')
 
 if (!existsSync(join(built, 'recourse.min.js'))) {
-  console.error('No widget build found. Run `pnpm --filter @recourse/widget build` first.')
+  console.error('No widget build found. Run `pnpm --filter @recourse-ai/widget build` first.')
   process.exit(1)
 }
 
@@ -41,7 +41,7 @@ function newestSource(directory) {
 const source = join(root, '..', 'widget', 'src')
 if (existsSync(source) && newestSource(source) > statSync(join(built, 'recourse.min.js')).mtimeMs) {
   console.error('The widget build is older than the widget source.')
-  console.error('Run `pnpm --filter @recourse/widget build` first, or the plugin ships the previous version.')
+  console.error('Run `pnpm --filter @recourse-ai/widget build` first, or the plugin ships the previous version.')
   process.exit(1)
 }
 

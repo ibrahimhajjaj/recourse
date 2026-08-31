@@ -10,13 +10,13 @@ which is a different question and the one customers actually experience.
 
 ```sh
 # Retrieval only. No model, no credential, no network. This is the CI run.
-pnpm --filter @recourse/evals eval
+pnpm --filter @recourse-ai/evals eval
 
 # Everything, against a local Ollama model.
-pnpm --filter @recourse/evals eval --model qwen3:4b --embed --save
+pnpm --filter @recourse-ai/evals eval --model qwen3:4b --embed --save
 
 # One suite.
-pnpm --filter @recourse/evals eval --suite injection --model qwen3:4b
+pnpm --filter @recourse-ai/evals eval --suite injection --model qwen3:4b
 ```
 
 ### A local run is the whole machine

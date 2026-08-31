@@ -1,5 +1,5 @@
 {
-  "name": "@recourse/store-d1",
+  "name": "@recourse-ai/store-d1",
   "version": "0.1.0",
   "type": "module",
   "description": "Cloudflare D1 implementation of the recourse Store. Runs on Workers.",
@@ -30,11 +30,11 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "recourse": "workspace:*"
+    "@recourse-ai/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
-    "recourse": "workspace:*",
+    "@recourse-ai/core": "workspace:*",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   }

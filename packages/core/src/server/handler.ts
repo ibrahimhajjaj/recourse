@@ -62,7 +62,7 @@ export interface ChatHandlerOptions {
    * banner was shown or what the visitor agreed to. `consented('analytics')`
    * covers the common case of a consent manager that sets a header.
    *
-   *     import { consented } from 'recourse/server'
+   *     import { consented } from '@recourse-ai/core/server'
    *
    *     analytics: { country: consented('analytics') }
    *

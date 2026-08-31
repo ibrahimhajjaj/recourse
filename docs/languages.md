@@ -6,8 +6,8 @@ customer cannot read.
 ## Reading a ticket written in a language nobody speaks
 
 ```ts
-import { createHelpdesk } from 'recourse/helpdesk'
-import { models } from 'recourse/models'
+import { createHelpdesk } from '@recourse-ai/core/helpdesk'
+import { models } from '@recourse-ai/core/models'
 
 createHelpdesk({
   store,
@@ -48,7 +48,7 @@ The refusal messages are the one part of the safety layer a customer reads, and
 they ship in English.
 
 ```ts
-import { translateCategories } from 'recourse/safety'
+import { translateCategories } from '@recourse-ai/core/safety'
 
 classifier: {
   categories: translateCategories({

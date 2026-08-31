@@ -13,7 +13,7 @@ No account, no API key, no model, no database. Point it at some content and ask
 it something:
 
 ```bash
-npx recourse@latest init
+npx @recourse-ai/core@latest init
 ```
 
 It looks at what you have, learns the content you point it at, writes the chat
@@ -21,8 +21,8 @@ endpoint for your framework and hands you the widget snippet. Or do the two
 steps by hand:
 
 ```bash
-npx recourse ingest --path ./docs
-npx recourse ask "how do I get a refund?"
+npx @recourse-ai/core ingest --path ./docs
+npx @recourse-ai/core ask "how do I get a refund?"
 ```
 
 ```
@@ -50,7 +50,7 @@ Nothing degrades to an error. Without an embedder the index is keyword-only and
 says so; without a model `ask` shows you the passages it found and says why.
 
 ```bash
-npx recourse ingest --url https://your-site.com
+npx @recourse-ai/core ingest --url https://your-site.com
 ```
 
 ## No keys to create
@@ -70,13 +70,13 @@ account involved at any point.
 ## 60 seconds
 
 ```bash
-npm install recourse
-npx recourse ingest --url https://your-site.com
+npm install @recourse-ai/core
+npx @recourse-ai/core ingest --url https://your-site.com
 ```
 
 ```ts
 // app/api/chat/route.ts
-import { createChatHandler } from 'recourse/server'
+import { createChatHandler } from '@recourse-ai/core/server'
 import knowledge from '../../../recourse/knowledge.json'
 
 const handler = createChatHandler({ index: knowledge })
@@ -86,7 +86,7 @@ export const OPTIONS = handler
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@recourse/widget/dist/recourse.min.js"
+  src="https://cdn.jsdelivr.net/npm/@recourse-ai/widget/dist/recourse.min.js"
   data-endpoint="/api/chat"
   data-title="Ask us anything"
 ></script>

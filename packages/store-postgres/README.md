@@ -1,13 +1,13 @@
-# @recourse/store-postgres
+# @recourse-ai/store-postgres
 
 The recourse `Store`, backed by Postgres.
 
 ```sh
-npm install @recourse/store-postgres pg
+npm install @recourse-ai/store-postgres pg
 ```
 
 ```ts
-import { postgresStore } from '@recourse/store-postgres'
+import { postgresStore } from '@recourse-ai/store-postgres'
 
 const store = postgresStore({ connectionString: process.env.DATABASE_URL })
 
@@ -67,7 +67,7 @@ roughly twenty thousand chunks. Past that it is the file that hurts before the
 scan does. `pgVectorStore` moves that half into Postgres:
 
 ```ts
-import { pgVectorStore } from '@recourse/store-postgres'
+import { pgVectorStore } from '@recourse-ai/store-postgres'
 
 const vectors = pgVectorStore({ pool, dimensions: 768 })
 

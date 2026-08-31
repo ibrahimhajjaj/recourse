@@ -10,7 +10,7 @@
  */
 
 import { Pool } from 'pg'
-import { pgVectorStore, migrateVectors } from '@recourse/store-postgres'
+import { pgVectorStore, migrateVectors } from '@recourse-ai/store-postgres'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) {

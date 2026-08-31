@@ -18,10 +18,10 @@
  */
 
 import { createConnection } from 'node:net'
-import { buildIndex, createAgent, textSource } from 'recourse'
-import { emailChannel } from 'recourse/channels'
-import { memoryStore } from 'recourse/store'
-import { models } from 'recourse/models'
+import { buildIndex, createAgent, textSource } from '@recourse-ai/core'
+import { emailChannel } from '@recourse-ai/core/channels'
+import { memoryStore } from '@recourse-ai/core/store'
+import { models } from '@recourse-ai/core/models'
 
 const SMTP = { host: '127.0.0.1', port: 1025 }
 const API = 'http://127.0.0.1:8025/api/v1'

@@ -21,11 +21,11 @@
  */
 
 import { createServer } from 'node:http'
-import { buildIndex, createAgent, textSource } from 'recourse'
-import { signTwilio, twilioChannel } from 'recourse/channels'
+import { buildIndex, createAgent, textSource } from '@recourse-ai/core'
+import { signTwilio, twilioChannel } from '@recourse-ai/core/channels'
 
-import { memoryStore } from 'recourse/store'
-import { models } from 'recourse/models'
+import { memoryStore } from '@recourse-ai/core/store'
+import { models } from '@recourse-ai/core/models'
 
 const env = process.env
 const need = (name: string): string => {

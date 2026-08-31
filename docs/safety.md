@@ -24,8 +24,8 @@ rendering backwards.
 ## Tier 2: a small model, asked one question with one word for an answer
 
 ```ts
-import { createChatHandler } from 'recourse/server'
-import { modelClassifier } from 'recourse/safety'
+import { createChatHandler } from '@recourse-ai/core/server'
+import { modelClassifier } from '@recourse-ai/core/safety'
 
 createChatHandler({
   index,
@@ -103,7 +103,7 @@ the reply streaming while leaving nothing unchecked in front of the customer.
 Two other settings, for the two directions you might want to move:
 
 ```ts
-import { createAgent } from 'recourse'
+import { createAgent } from '@recourse-ai/core'
 
 createAgent({ index, classifier: { output: 'buffer' } })
 ```
@@ -148,7 +148,7 @@ and tested rather than taken on trust.
 ## Tier 3: a second look where a miss is not a wrong answer
 
 ```ts
-import { crisisWatch } from 'recourse/safety'
+import { crisisWatch } from '@recourse-ai/core/safety'
 ```
 
 Opt in, for the one category where a false negative is not a bad reply but a

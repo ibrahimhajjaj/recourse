@@ -16,10 +16,10 @@
  */
 
 import { createServer } from 'node:http'
-import { buildIndex, createAgent, textSource } from 'recourse'
-import { elevenLabsSystemPrompt, elevenLabsToolRoute } from 'recourse/channels'
-import { memoryStore } from 'recourse/store'
-import { models } from 'recourse/models'
+import { buildIndex, createAgent, textSource } from '@recourse-ai/core'
+import { elevenLabsSystemPrompt, elevenLabsToolRoute } from '@recourse-ai/core/channels'
+import { memoryStore } from '@recourse-ai/core/store'
+import { models } from '@recourse-ai/core/models'
 
 const env = process.env
 const mode = process.argv.find((argument) => argument.startsWith('--')) ?? '--check'

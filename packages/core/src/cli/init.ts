@@ -87,7 +87,7 @@ export async function init(options: InitOptions): Promise<number> {
     options.write(
       '\nNo package.json here, so there is nothing to wire the endpoint into yet.\n' +
         'The index is written and works on its own:\n\n' +
-        `  npx recourse ask "your question" --index ${options.index}\n\n` +
+        `  npx @recourse-ai/core ask "your question" --index ${options.index}\n\n` +
         'Come back and run init again inside a Next.js, Worker or Node project.\n',
     )
     return 0

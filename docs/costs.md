@@ -10,7 +10,7 @@ Everything here is off by default and none of it needs another service.
 ## A ceiling on what you spend
 
 ```ts
-import { createAgent, createBudget } from 'recourse'
+import { createAgent, createBudget } from '@recourse-ai/core'
 
 const budget = createBudget({
   dailyTokens: 2_000_000,
@@ -99,7 +99,7 @@ failure that matters most, a loop billing for hours, so it is the default.
 When the cap is the point, share it:
 
 ```ts
-import { createBudget, redisLedger } from 'recourse'
+import { createBudget, redisLedger } from '@recourse-ai/core'
 
 createBudget({ monthlyUsd: 50, ledger: redisLedger({ client: redis }) })
 ```
@@ -128,7 +128,7 @@ Re-crawling a site pays to embed every chunk again, including the three hundred
 and ninety-nine pages that did not change. Pass the index you are replacing:
 
 ```ts
-import { ingest } from 'recourse'
+import { ingest } from '@recourse-ai/core'
 
 const index = await ingest({ url: 'https://example.com', previous: existing })
 ```

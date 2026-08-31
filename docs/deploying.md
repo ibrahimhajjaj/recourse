@@ -13,7 +13,7 @@ That is asserted in CI rather than claimed. `examples/worker` has the whole
 setup and a bundle guard that fails the build if a Node built-in reaches the
 serving path.
 
-`@recourse/store-d1` puts the conversations in D1, reached through a binding:
+`@recourse-ai/store-d1` puts the conversations in D1, reached through a binding:
 no connection pool, no credential, nothing to exhaust. It passes the same
 behaviour suite as the memory, file and Postgres stores. Watch the free tier's
 **50 queries per invocation**, which is per request rather than per day.
@@ -37,7 +37,7 @@ which is the right shape and has one cost: nothing validates it until a webhook
 arrives and fails. A wrong Slack signing secret looks exactly like silence.
 
 ```bash
-npx recourse doctor
+npx @recourse-ai/core doctor
 ```
 
 ```

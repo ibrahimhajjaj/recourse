@@ -13,8 +13,15 @@ const pages = existsSync(docs)
   : [join(repo, 'README.md')]
 
 const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as {
+  name: string
   exports: Record<string, unknown>
 }
+
+// Taken from the manifest rather than written out, so a rename shows up as the
+// examples failing to match anything real instead of as this file quietly
+// looking for a name nothing uses any more.
+const self = pkg.name
+const selfPattern = self.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** Everything the source makes available under any name. */
 function exportedNames(): Set<string> {
@@ -55,7 +62,9 @@ describe('the examples in the documentation', () => {
 
   const imports = pages.flatMap((page) => {
     const text = readFileSync(page, 'utf8')
-    return [...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*'(recourse[^']*)'/g)].flatMap((m) =>
+    const from = new RegExp(`import\\s*\\{([^}]+)\\}\\s*from\\s*'(${selfPattern}[^']*)'`, 'g')
+
+    return [...text.matchAll(from)].flatMap((m) =>
       (m[1] as string)
         .split(',')
         .map((name) => name.trim())
@@ -67,7 +76,7 @@ describe('the examples in the documentation', () => {
   it('import from entry points the package really has', () => {
     const wrong = imports
       .filter(({ entry }) => {
-        const key = entry === 'recourse' ? '.' : `./${entry.replace('recourse/', '')}`
+        const key = entry === self ? '.' : `./${entry.slice(self.length + 1)}`
         return !(key in pkg.exports)
       })
       .map(({ page, entry }) => `${page}: ${entry}`)

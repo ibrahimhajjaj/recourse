@@ -1,4 +1,4 @@
-import { createHelpdesk, memoryStore } from 'recourse'
+import { createHelpdesk, memoryStore } from '@recourse-ai/core'
 
 /**
  * One store and one help desk, shared by the chat endpoint and the management

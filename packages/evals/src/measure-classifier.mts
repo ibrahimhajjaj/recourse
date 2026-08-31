@@ -11,8 +11,8 @@
  */
 
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { modelClassifier } from 'recourse/safety'
-import { runRules, INPUT_RULES } from 'recourse/safety'
+import { modelClassifier } from '@recourse-ai/core/safety'
+import { runRules, INPUT_RULES } from '@recourse-ai/core/safety'
 
 const provider = createOpenAICompatible({ name: 'ollama', baseURL: 'http://localhost:11434/v1', apiKey: 'ollama' })
 const model = provider.chatModel('qwen3:4b')

@@ -14,9 +14,9 @@
  * which takes seconds and is the provider's to answer for.
  */
 
-import { buildIndex, createRetriever, textSource } from 'recourse'
-import { createClassifier } from 'recourse/safety'
-import { memoryStore } from 'recourse/store'
+import { buildIndex, createRetriever, textSource } from '@recourse-ai/core'
+import { createClassifier } from '@recourse-ai/core/safety'
+import { memoryStore } from '@recourse-ai/core/store'
 
 const flag = (name: string, fallback: number): number => {
   const at = process.argv.indexOf(`--${name}`)
