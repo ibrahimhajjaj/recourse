@@ -30,6 +30,15 @@ platform needs to prove the request came from it.
 | SMS | `twilioChannel` | HMAC over the exact URL |
 | Phone | `voiceChannel`, `gatherVoiceChannel`, `elevenLabsToolRoute` | HMAC over the exact URL, or a bearer token |
 | Email | `emailChannel` | a shared secret, since providers rarely sign |
+| Intercom | `intercomChannel` | `X-Hub-Signature`, SHA-1, which is their choice |
+
+Intercom appears twice in this repository and they are different things. The
+connector in [docs/escalation.md](escalation.md) opens a ticket and walks away.
+`intercomChannel` is a conversation: the customer types in the Intercom
+messenger on your site, the agent answers there, and the thread stays where
+your team already works. It needs an `adminId`, because Intercom attributes
+every admin reply to somebody, so make an admin for the agent rather than
+borrowing a colleague's name.
 
 `parseCommonEmail` reads the shapes Postmark, SendGrid, Mailgun, Cloudflare Email
 Routing and Brevo send, which is five ways of naming the same six facts. Brevo

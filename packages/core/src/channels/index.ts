@@ -74,3 +74,4 @@ export {
   type SendTemplateOptions,
 } from './whatsapp-templates.js'
 export { sunshineChannel, type SunshineOptions } from './sunshine.js'
+export { intercomChannel, type IntercomOptions } from './intercom.js'

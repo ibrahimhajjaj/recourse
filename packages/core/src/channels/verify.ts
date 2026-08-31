@@ -103,6 +103,29 @@ export async function verifyTwilio(options: TwilioVerification): Promise<boolean
 }
 
 /** Signing helpers, so tests and outbound calls can produce real signatures. */
+/**
+ * Intercom, which signs the way Meta's older webhooks did.
+ *
+ * `X-Hub-Signature: sha1=<hex>` over the raw body with the app's client
+ * secret. SHA-1 is their choice and not one this library gets to make; it is
+ * a signature over a body, not a password hash, and the comparison below is
+ * still constant time.
+ */
+export async function verifyIntercom(
+  rawBody: string,
+  header: string | null,
+  clientSecret: string,
+): Promise<boolean> {
+  if (!header) return false
+
+  const expected = `sha1=${toHex(await hmac(clientSecret, rawBody, 'SHA-1'))}`
+  return safeEqual(expected, header.trim())
+}
+
+export async function signIntercom(rawBody: string, clientSecret: string): Promise<string> {
+  return `sha1=${toHex(await hmac(clientSecret, rawBody, 'SHA-1'))}`
+}
+
 export async function signMeta(rawBody: string, appSecret: string): Promise<string> {
   return `sha256=${toHex(await hmac(appSecret, rawBody, 'SHA-256'))}`
 }
