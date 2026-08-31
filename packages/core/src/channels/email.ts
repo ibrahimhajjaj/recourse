@@ -113,9 +113,46 @@ export function emailChannel(options: EmailOptions) {
   }
 }
 
-/** Handles the field names Postmark, SendGrid, Mailgun and Cloudflare use. */
+/**
+ * Brevo nests, where the others are flat.
+ *
+ * One POST can carry several emails under `items`, and the addresses are
+ * objects rather than the "Name <address>" strings everybody else sends. This
+ * flattens the first one into the shape the rest of the parser reads, so there
+ * is one parser rather than two.
+ */
+function brevo(body: unknown): Record<string, unknown> | null {
+  const items = (body as { items?: unknown[] } | null)?.items
+  const first = Array.isArray(items) ? (items[0] as Record<string, any> | undefined) : undefined
+  if (!first?.From?.Address) return null
+
+  return {
+    From: first.From.Address,
+    FromName: first.From.Name,
+    Subject: first.Subject,
+    // The markdown extraction is Brevo's own reply stripping, which is the
+    // same job this library does on the other providers' raw bodies, so it is
+    // preferred where it exists.
+    TextBody: first.ExtractedMarkdownMessage ?? first.RawTextBody,
+    MessageID: first.MessageId,
+    'In-Reply-To': first.InReplyTo,
+    To: (Array.isArray(first.To) ? first.To : [])
+      .map((one: { Address?: string }) => one?.Address)
+      .filter(Boolean)
+      .join(', '),
+    Headers: first.Headers,
+  }
+}
+
+/**
+ * Handles the shapes Postmark, SendGrid, Mailgun, Cloudflare and Brevo use.
+ *
+ * Every one of them invented its own field names for the same six facts. This
+ * covers the ones that can be told apart from the body alone; anything else is
+ * a `parse` of your own, which is why that option exists.
+ */
 export function parseCommonEmail(body: unknown): InboundEmail | null {
-  const raw = body as Record<string, unknown>
+  const raw = brevo(body) ?? (body as Record<string, unknown>)
   if (!raw) return null
 
   const from = pick(raw, ['From', 'from', 'sender', 'FromFull.Email'])

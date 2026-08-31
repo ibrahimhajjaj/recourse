@@ -30,6 +30,12 @@ platform needs to prove the request came from it.
 | SMS | `twilioChannel` | HMAC over the exact URL |
 | Phone | `voiceChannel`, `gatherVoiceChannel`, `elevenLabsToolRoute` | HMAC over the exact URL, or a bearer token |
 | Email | `emailChannel` | a shared secret, since providers rarely sign |
+
+`parseCommonEmail` reads the shapes Postmark, SendGrid, Mailgun, Cloudflare Email
+Routing and Brevo send, which is five ways of naming the same six facts. Brevo
+is the one that nests, posting an array under `items` with addresses as objects
+rather than as `Name <address>` strings. Anything else is a `parse` of your own,
+which is a dozen lines and the reason that option exists.
 | Sunshine | `sunshineChannel` | a shared secret, since Zendesk signs nothing |
 
 ## One adapter, eight channels

@@ -738,6 +738,41 @@ describe('email', () => {
     expect(parseCommonEmail({ from: 'a@b.co', text: 'hi', subject: 'S' })?.text).toBe('hi')
   })
 
+  it('reads the one that nests, where every other one is flat', () => {
+    // Brevo posts an array of emails and sends addresses as objects rather
+    // than as "Name <address>" strings, so it cannot be read by field name
+    // alone the way the other four can.
+    const parsed = parseCommonEmail({
+      items: [
+        {
+          From: { Address: 'sam@example.com', Name: 'Sam Fletcher' },
+          To: [{ Address: 'sales@shop.example' }, { Address: 'support@shop.example' }],
+          Subject: 'Where is my order',
+          ExtractedMarkdownMessage: 'It has not arrived.',
+          RawTextBody: 'It has not arrived.\n\nOn Tuesday, support wrote:\n> hello',
+          MessageId: '<abc@mail.example>',
+          InReplyTo: '<earlier@shop.example>',
+        },
+      ],
+    })
+
+    expect(parsed?.from).toBe('sam@example.com')
+    expect(parsed?.fromName).toBe('Sam Fletcher')
+    expect(parsed?.subject).toBe('Where is my order')
+    expect(parsed?.messageId).toBe('<abc@mail.example>')
+    expect(parsed?.inReplyTo).toBe('<earlier@shop.example>')
+    // Every recipient, so the loop check still sees a support address that is
+    // not the first one.
+    expect(parsed?.to).toEqual(['sales@shop.example', 'support@shop.example'])
+    // Their own reply stripping is preferred over the raw body, since it is
+    // the same job done upstream.
+    expect(parsed?.text).toBe('It has not arrived.')
+  })
+
+  it('is not confused by a body that merely has items in it', () => {
+    expect(parseCommonEmail({ items: ['a', 'b'], from: 'a@b.co', text: 'hi' })?.from).toBe('a@b.co')
+  })
+
   it('returns null when there is nothing to answer', () => {
     expect(parseCommonEmail({ Subject: 'no body' })).toBeNull()
   })
