@@ -85,10 +85,10 @@ Each site in a network has its own settings and its own index. Uninstalling remo
 
 == Screenshots ==
 
-1. The chat window answering a visitor's question, with a numbered citation under the answer pointing at the page it came from.
-2. The settings screen: model endpoint, the post types to index, and the tone the assistant answers in.
-3. Rebuilding the index, which reports how many documents it holds and how large it is.
-4. Test Connection, which checks the model endpoint before a visitor does.
+1. A visitor's question answered from the site's own Shipping page, with a numbered citation under the answer naming the page and the section it came from.
+2. The same conversation asking something the site does not document. The assistant says so and hands over an email address instead of inventing an answer.
+3. The settings screen: which post types to index, the persona and tone, the model endpoint, and the accent colour.
+4. Rebuilding the index, which reports how many documents it holds and how large it is.
 
 == Changelog ==
 
