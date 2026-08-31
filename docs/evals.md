@@ -57,8 +57,43 @@ round.
 
 On a laptop with other work running, the two settings cannot be told apart:
 the difference between them is smaller than the spread within either. That is
-the useful answer about screening every sentence being the default, and it is
 reported as an overlap rather than dressed up as a number.
+
+It is also the wrong instrument for the question, which is worth saying because
+the numbers look authoritative. A turn there takes a few hundred milliseconds,
+and almost all of it is the test double streaming sixty words through the frame
+machinery rather than anything the library decides. For what a turn actually
+costs, measure the pieces:
+
+```bash
+pnpm --filter @helpdeck/evals exec tsx src/bench-parts.mts --docs 500
+```
+
+Each one is sub-millisecond and taken as a median of thousands, so a scheduler
+hiccup lands in the tail instead of the middle. On an M1 laptop with other work
+running:
+
+| Piece | Median | p99 |
+| --- | --- | --- |
+| Retrieval over 500 pages | 68µs | 236µs |
+| Screening the question | 2µs | 5µs |
+| Screening one sentence | 4µs | 14µs |
+| Writing the turn to the store | 1µs | 1µs |
+
+A turn is one of each plus a screen per sentence, so about 0.08ms, or twelve
+thousand turns a second on one core before the model. A model answering in two
+seconds is a thousand times that. What a deployment runs out of is provider
+concurrency, not this.
+
+That also settles the cost of screening every sentence properly: four
+microseconds each, where the concurrency test could only say the difference was
+too small to see.
+
+The one thing that grows is retrieval, linearly, because the keyword index is a
+scan: 4,000 pages costs 577µs against 68µs for 500. Fine well past the size
+most support corpora reach, and the point at which it stops being fine is the
+point the Postgres vector store is for, which is benchmarked separately at
+50,000 chunks.
 
 ## A grade is only as good as its case
 
