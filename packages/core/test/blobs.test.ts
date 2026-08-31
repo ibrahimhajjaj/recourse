@@ -59,9 +59,9 @@ blobBehaviour('r2 binding', () => r2Blobs(fakeBucket()))
  * way it would against R2 instead of passing against a fixture that agrees
  * with whatever this code does.
  *
- *   docker run -d --name helpdeck-minio -p 59000:9000 \
- *     -e MINIO_ROOT_USER=helpdeck -e MINIO_ROOT_PASSWORD=helpdeck-secret \
- *     --entrypoint sh minio/minio -c "mkdir -p /data/helpdeck-attachments && exec minio server /data"
+ *   docker run -d --name recourse-minio -p 59000:9000 \
+ *     -e MINIO_ROOT_USER=recourse -e MINIO_ROOT_PASSWORD=recourse-secret \
+ *     --entrypoint sh minio/minio -c "mkdir -p /data/recourse-attachments && exec minio server /data"
  */
 const MINIO = 'http://127.0.0.1:59000'
 
@@ -73,10 +73,10 @@ const minioUp = await fetch(`${MINIO}/minio/health/live`, {
 
 function minio(): Blobs {
   return s3Blobs({
-    bucket: 'helpdeck-attachments',
+    bucket: 'recourse-attachments',
     endpoint: MINIO,
-    accessKeyId: 'helpdeck',
-    secretAccessKey: 'helpdeck-secret',
+    accessKeyId: 'recourse',
+    secretAccessKey: 'recourse-secret',
     region: 'us-east-1',
   })
 }
@@ -142,9 +142,9 @@ describe.skipIf(!minioUp)('s3 against minio', () => {
 
   it('names the S3 error code rather than only the status', async () => {
     const wrong = s3Blobs({
-      bucket: 'helpdeck-attachments',
+      bucket: 'recourse-attachments',
       endpoint: MINIO,
-      accessKeyId: 'helpdeck',
+      accessKeyId: 'recourse',
       secretAccessKey: 'not-the-password',
       region: 'us-east-1',
     })

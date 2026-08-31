@@ -24,7 +24,7 @@ let created = 0
 async function freshStore() {
   if (!pool) throw new Error('no database')
 
-  const schema = `helpdeck_test_${process.pid}_${created++}`
+  const schema = `recourse_test_${process.pid}_${created++}`
   await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`)
 
   const scoped = new pg.Pool({
@@ -182,7 +182,7 @@ describe.skipIf(!CONNECTION)('postgres', () => {
 
   it('is safe to migrate twice, and from two stores at once', async () => {
     if (!pool) return
-    const schema = `helpdeck_test_migrate_${process.pid}`
+    const schema = `recourse_test_migrate_${process.pid}`
     await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`)
 
     const scoped = new pg.Pool({ connectionString: CONNECTION, max: 4, options: `-c search_path=${schema}` })

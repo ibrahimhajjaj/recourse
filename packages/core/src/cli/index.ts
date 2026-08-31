@@ -11,17 +11,17 @@ import type { ProgressEvent } from '../types.js'
 import { list, num, parseArgs } from './args.js'
 import { checkCredentials, checkModel, checkStorage, exitCodeFor, formatChecks, type Check } from './doctor.js'
 
-const DEFAULT_OUT = 'helpdeck/knowledge.json'
+const DEFAULT_OUT = 'recourse/knowledge.json'
 
 const HELP = `
-helpdeck: a support agent trained on your own content
+recourse: a support agent trained on your own content
 
 Usage
-  helpdeck ingest --url <site>        Learn a website and write the knowledge index
-  helpdeck ingest --path <dir>        Learn a folder of markdown instead
-  helpdeck ask "<question>"           Ask the index a question from the terminal
-  helpdeck stats                      Show what is in the index
-  helpdeck doctor                     Check the index, the model and any
+  recourse ingest --url <site>        Learn a website and write the knowledge index
+  recourse ingest --path <dir>        Learn a folder of markdown instead
+  recourse ask "<question>"           Ask the index a question from the terminal
+  recourse stats                      Show what is in the index
+  recourse doctor                     Check the index, the model and any
                                       credentials you pass, before a customer
                                       finds the problem for you
 
@@ -115,7 +115,7 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
       `Written to ${displayPath(out)} (${(size / 1024).toFixed(0)} KB)`,
       '',
       'Next:',
-      `helpdeck ask "how do I get a refund?" --retrieve-only${flagSuffix(flags)}`,
+      `recourse ask "how do I get a refund?" --retrieve-only${flagSuffix(flags)}`,
       '',
     ].join('\n'),
   )
@@ -131,7 +131,7 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
 
 async function runAsk(question: string, flags: Record<string, string | boolean>): Promise<number> {
   if (!question.trim()) {
-    process.stderr.write('ask needs a question: helpdeck ask "how do I cancel?"\n')
+    process.stderr.write('ask needs a question: recourse ask "how do I cancel?"\n')
     return 1
   }
 
@@ -215,7 +215,7 @@ async function runDoctor(flags: Record<string, string | boolean>): Promise<numbe
       name: 'index',
       status: 'fail',
       detail: (error as NodeJS.ErrnoException).code === 'ENOENT' ? `nothing at ${displayPath(path)}` : String(error),
-      fix: 'run `helpdeck ingest --url <site>` first',
+      fix: 'run `recourse ingest --url <site>` first',
     })
   }
 
@@ -346,7 +346,7 @@ async function loadIndex(flags: Record<string, string | boolean>) {
     return parseIndex(await readFile(path, 'utf8'))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error(`no index at ${displayPath(path)}. Run \`helpdeck ingest --url <site>\` first.`)
+      throw new Error(`no index at ${displayPath(path)}. Run \`recourse ingest --url <site>\` first.`)
     }
     throw error
   }

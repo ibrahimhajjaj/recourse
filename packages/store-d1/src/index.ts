@@ -26,7 +26,7 @@ import type {
   Store,
   Ticket,
   TicketMessage,
-} from 'helpdeck'
+} from 'recourse'
 import { SCHEMA } from './schema.js'
 
 /**

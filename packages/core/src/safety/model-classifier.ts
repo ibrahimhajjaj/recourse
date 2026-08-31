@@ -174,7 +174,7 @@ export function modelClassifier(options: ModelClassifierOptions) {
         // is the difference between a classifier that is off and a classifier
         // that looks on and is not.
         console.warn(
-          '[helpdeck] the classifier answered with an unfinished thought rather than a category. ' +
+          '[recourse] the classifier answered with an unfinished thought rather than a category. ' +
             'A reasoning model needs maxOutputTokens raised.',
         )
         return []
@@ -195,7 +195,7 @@ export function modelClassifier(options: ModelClassifierOptions) {
       ]
     } catch (error) {
       console.warn(
-        `[helpdeck] the classifier could not run: ${error instanceof Error ? error.message : String(error)}`,
+        `[recourse] the classifier could not run: ${error instanceof Error ? error.message : String(error)}`,
       )
       return []
     }

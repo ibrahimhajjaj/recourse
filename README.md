@@ -1,4 +1,4 @@
-# helpdeck
+# recourse
 
 A customer support agent that learns your own content, answers with citations,
 and does the things a support agent has to do: capture a lead, look up an order,
@@ -8,7 +8,7 @@ It is the self-hosted shape of what Chatbase sells, with two differences: you ow
 the code, and there is nothing to sign up for to get it working.
 
 ```bash
-npx helpdeck ingest --url https://your-site.com
+npx recourse ingest --url https://your-site.com
 ```
 
 That command needs no account and no API key.
@@ -30,14 +30,14 @@ account involved at any point.
 ## 60 seconds
 
 ```bash
-npm install helpdeck
-npx helpdeck ingest --url https://your-site.com
+npm install recourse
+npx recourse ingest --url https://your-site.com
 ```
 
 ```ts
 // app/api/chat/route.ts
-import { createChatHandler } from 'helpdeck/server'
-import knowledge from '../../../helpdeck/knowledge.json'
+import { createChatHandler } from 'recourse/server'
+import knowledge from '../../../recourse/knowledge.json'
 
 const handler = createChatHandler({ index: knowledge })
 export const POST = handler
@@ -46,7 +46,7 @@ export const OPTIONS = handler
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@helpdeck/widget/dist/helpdeck.min.js"
+  src="https://cdn.jsdelivr.net/npm/@recourse/widget/dist/recourse.min.js"
   data-endpoint="/api/chat"
   data-title="Ask us anything"
 ></script>
@@ -58,7 +58,7 @@ No database to provision, no vector store to configure, no background job.
 
 ```bash
 pnpm install
-pnpm --filter helpdeck-example-nextjs ingest
+pnpm --filter recourse-example-nextjs ingest
 pnpm example
 ```
 
@@ -70,7 +70,7 @@ of the page, lead capture, escalation into the help desk, and the admin page at
 ## Setting it up with a coding agent
 
 ```bash
-npx skills add ibrahimhajjaj/helpdeck
+npx skills add ibrahimhajjaj/recourse
 ```
 
 Installs a `SKILL.md` into whichever coding agent you use: Claude Code, Codex,
@@ -171,4 +171,10 @@ not exist yet is a database behind it.
 
 ## Licence
 
-MIT
+MIT, for the library, the widget and the store adapters. Self-host it, change
+it, run it commercially, no conditions beyond keeping the notice.
+
+The WordPress plugin in `packages/wordpress` is a separate work under
+GPL-2.0-or-later, which is what the wordpress.org directory requires. It talks
+to the rest over HTTP rather than bundling it, so the two licences never meet
+in one binary. MIT is GPL-compatible, so a site running both is fine.

@@ -55,7 +55,7 @@ are asserted now.
 
 The index format is the core's, version and all, so a shop that outgrows the
 plugin can take its index to the Node service, and an index built by
-`helpdeck ingest` can be dropped in here.
+`recourse ingest` can be dropped in here.
 
 ## PHP 7.4, decided from the numbers
 
@@ -105,7 +105,7 @@ filter, so a site adds one from its own plugin without knowing anything about
 this one:
 
 ```php
-add_filter( 'helpdeck_actions', function ( $actions ) {
+add_filter( 'recourse_actions', function ( $actions ) {
 	$actions['book_a_call'] = array(
 		'description' => 'Book a call with the team. Use when somebody asks to speak to a person about a quote.',
 		'fields'      => array(
@@ -125,7 +125,7 @@ add_filter( 'helpdeck_actions', function ( $actions ) {
 Four ship in the box. `create_support_request` and
 `capture_lead` write to a private post type, so a handoff and a sales enquiry
 both have somewhere to go on a site with no help desk and no CRM, and each
-fires an action (`helpdeck_ticket_created`, `helpdeck_lead_captured`) for a site
+fires an action (`recourse_ticket_created`, `recourse_lead_captured`) for a site
 that has one. `look_up_order` and `check_stock` appear only when WooCommerce is
 active.
 
@@ -150,14 +150,14 @@ rather than reimplemented.
 
 **The Abilities API, core since 6.9** (about 76% of installs). It is a registry
 of callable things with a JSON Schema and a permission callback, which is
-exactly the shape a model wants. This plugin registers `helpdeck/answer` and
-`helpdeck/search` there, both annotated `readonly`, so any other agent on the
-site can use them. `helpdeck/search` needs no model and no credential at all.
+exactly the shape a model wants. This plugin registers `recourse/answer` and
+`recourse/search` there, both annotated `readonly`, so any other agent on the
+site can use them. `recourse/search` needs no model and no credential at all.
 
 It reads from the registry too, but only what the site names:
 
 ```php
-add_filter( 'helpdeck_allowed_abilities', function () {
+add_filter( 'recourse_allowed_abilities', function () {
 	return array( 'woocommerce/products-query' );
 } );
 ```

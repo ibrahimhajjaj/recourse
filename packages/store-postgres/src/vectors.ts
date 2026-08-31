@@ -13,7 +13,7 @@
 
 import { createRequire } from 'node:module'
 import type { Pool } from 'pg'
-import type { Chunk, VectorHit, VectorSearchOptions, VectorStore } from 'helpdeck'
+import type { Chunk, VectorHit, VectorSearchOptions, VectorStore } from 'recourse'
 
 export interface PgVectorStoreOptions {
   pool?: Pool
@@ -23,7 +23,7 @@ export interface PgVectorStoreOptions {
    * baked into the column type, so changing it means a new table.
    */
   dimensions: number
-  /** Defaults to `helpdeck_vectors`. */
+  /** Defaults to `recourse_vectors`. */
   table?: string
   /** Creates the table and index on first use. */
   migrate?: boolean
@@ -37,7 +37,7 @@ export interface PgVectorStoreOptions {
   searchListSize?: number
 }
 
-const DEFAULT_TABLE = 'helpdeck_vectors'
+const DEFAULT_TABLE = 'recourse_vectors'
 
 export function pgVectorStore(options: PgVectorStoreOptions): VectorStore {
   const pool = resolvePool(options)

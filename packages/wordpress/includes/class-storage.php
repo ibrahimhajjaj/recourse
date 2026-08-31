@@ -20,10 +20,10 @@
  * back to reading and writing the file directly. Failing the chat instead would
  * be the wrong trade.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -40,7 +40,7 @@ class Storage {
 	 * `get_option`, and a name assembled from a constant is invisible to it,
 	 * which turns a correctly prefixed option into a review finding.
 	 */
-	const SECRET_OPTION = 'helpdeck_storage_key';
+	const SECRET_OPTION = 'recourse_storage_key';
 
 	/**
 	 * The parsed index, kept for the life of the request.
@@ -100,7 +100,7 @@ class Storage {
 			return null;
 		}
 
-		$path = trailingslashit( $uploads['basedir'] ) . 'helpdeck-' . self::secret() . '/';
+		$path = trailingslashit( $uploads['basedir'] ) . 'recourse-' . self::secret() . '/';
 
 		if ( ! is_dir( $path ) ) {
 			wp_mkdir_p( $path );
@@ -117,11 +117,11 @@ class Storage {
 	 * @return string
 	 */
 	private static function secret() {
-		$secret = get_option( 'helpdeck_storage_key' );
+		$secret = get_option( 'recourse_storage_key' );
 
 		if ( ! is_string( $secret ) || 8 > strlen( $secret ) ) {
 			$secret = wp_generate_password( 16, false, false );
-			update_option( 'helpdeck_storage_key', $secret, false );
+			update_option( 'recourse_storage_key', $secret, false );
 		}
 
 		return $secret;
@@ -368,13 +368,13 @@ class Storage {
 			return;
 		}
 
-		$secret = get_option( 'helpdeck_storage_key' );
+		$secret = get_option( 'recourse_storage_key' );
 
 		if ( ! is_string( $secret ) || '' === $secret ) {
 			return;
 		}
 
-		$path = trailingslashit( $uploads['basedir'] ) . 'helpdeck-' . $secret . '/';
+		$path = trailingslashit( $uploads['basedir'] ) . 'recourse-' . $secret . '/';
 
 		if ( ! is_dir( $path ) ) {
 			return;

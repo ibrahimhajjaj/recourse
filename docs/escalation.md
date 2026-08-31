@@ -4,8 +4,8 @@ Nine desks are wired in, so the agent opens a real ticket in the system your
 team already lives in rather than a second one they have to remember to check.
 
 ```ts
-import { escalate } from 'helpdeck/actions'
-import { intercom } from 'helpdeck/helpdesk'
+import { escalate } from 'recourse/actions'
+import { intercom } from 'recourse/helpdesk'
 
 escalate({
   createTicket: intercom({
@@ -56,7 +56,7 @@ Worse, the agent contradicts them: it does not know what the human just
 promised.
 
 ```ts
-import { createAgent } from 'helpdeck'
+import { createAgent } from 'recourse'
 
 createAgent({ index, store, takeover: true })
 ```
@@ -74,7 +74,7 @@ wherever escalation reaches a person who will actually reply.
 Hand it back when they are finished:
 
 ```ts
-import { resumeAgent } from 'helpdeck'
+import { resumeAgent } from 'recourse'
 
 await resumeAgent(store, conversationId)
 ```

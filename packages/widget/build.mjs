@@ -21,8 +21,8 @@ const module = {
 }
 
 const builds = [
-  { ...embed, outfile: 'dist/helpdeck.js' },
-  { ...embed, outfile: 'dist/helpdeck.min.js', minify: true },
+  { ...embed, outfile: 'dist/recourse.js' },
+  { ...embed, outfile: 'dist/recourse.min.js', minify: true },
   module,
 ]
 
@@ -36,10 +36,10 @@ if (process.argv.includes('--watch')) {
   // The demo and the landing page serve the bundle from their own public
   // folders. Copying here rather than by hand is the only way they stay in
   // step: a stale copy shows visitors a widget that is months old.
-  for (const destination of ['../../public/helpdeck.js', '../../examples/nextjs/public/helpdeck.js']) {
+  for (const destination of ['../../public/recourse.js', '../../examples/nextjs/public/recourse.js']) {
     const folder = destination.slice(0, destination.lastIndexOf('/'))
-    if (existsSync(folder)) copyFileSync('dist/helpdeck.js', destination)
+    if (existsSync(folder)) copyFileSync('dist/recourse.js', destination)
   }
 
-  console.log(`helpdeck.min.js  ${(statSync('dist/helpdeck.min.js').size / 1024).toFixed(1)} KB`)
+  console.log(`recourse.min.js  ${(statSync('dist/recourse.min.js').size / 1024).toFixed(1)} KB`)
 }

@@ -2,7 +2,7 @@
 	"core": null,
 	"plugins": [ "https://downloads.wordpress.org/plugin/plugin-check.zip" ],
 	"mappings": {
-		"wp-content/plugins/helpdeck": "./dist/helpdeck"
+		"wp-content/plugins/recourse": "./dist/recourse"
 	},
 	"config": {
 		"WP_DEBUG": true,

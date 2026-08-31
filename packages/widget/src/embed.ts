@@ -4,12 +4,12 @@ import type { WidgetOptions } from './types.js'
 /**
  * The script-tag entry point. Reads its own <script> element's data attributes
  * so dropping the widget onto a site is one line of HTML with no JavaScript to
- * write. `window.helpdeck` is left behind for anyone who wants to drive it.
+ * write. `window.recourse` is left behind for anyone who wants to drive it.
  */
 declare global {
   interface Window {
-    helpdeck?: ReturnType<typeof createWidget>
-    helpdeckConfig?: Partial<WidgetOptions>
+    recourse?: ReturnType<typeof createWidget>
+    recourseConfig?: Partial<WidgetOptions>
   }
 }
 
@@ -17,9 +17,9 @@ function readConfig(): WidgetOptions | null {
   const script = document.currentScript as HTMLScriptElement | null
   const data = script?.dataset ?? {}
 
-  const endpoint = data.endpoint ?? window.helpdeckConfig?.endpoint
+  const endpoint = data.endpoint ?? window.recourseConfig?.endpoint
   if (!endpoint) {
-    console.warn('[helpdeck] no data-endpoint on the script tag, widget not mounted')
+    console.warn('[recourse] no data-endpoint on the script tag, widget not mounted')
     return null
   }
 
@@ -41,7 +41,7 @@ function readConfig(): WidgetOptions | null {
     theme: data.theme === 'dark' || data.theme === 'light' ? data.theme : 'auto',
     open: data.open === 'true',
     persist: data.persist !== 'false',
-    // `data-deep-link="false"` stops the widget reading `?helpdeck_q=` out of
+    // `data-deep-link="false"` stops the widget reading `?recourse_q=` out of
     // the page URL.
     deepLink: data.deepLink !== 'false',
     // `data-attachments="true"` turns the paperclip on; a number caps the size
@@ -62,7 +62,7 @@ function readConfig(): WidgetOptions | null {
     // a string and everything else here reads one.
     copy: data.copy !== 'false',
     allowDelete: data.delete === 'true',
-    ...window.helpdeckConfig,
+    ...window.recourseConfig,
     ...(target ? { target } : {}),
   }
 }
@@ -82,7 +82,7 @@ const config = readConfig()
 
 if (config) {
   const mount = () => {
-    window.helpdeck = createWidget(config)
+    window.recourse = createWidget(config)
   }
   // `document.currentScript` is read above, so this must happen after the read.
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true })

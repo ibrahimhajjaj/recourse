@@ -16,8 +16,8 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_PASSWORD: helpdeck
-          POSTGRES_DB: helpdeck
+          POSTGRES_PASSWORD: recourse
+          POSTGRES_DB: recourse
         ports:
           - 5432:5432
         options: >-
@@ -27,7 +27,7 @@ jobs:
           --health-retries 5
 
     env:
-      TEST_DATABASE_URL: postgres://postgres:helpdeck@localhost:5432/helpdeck
+      TEST_DATABASE_URL: postgres://postgres:recourse@localhost:5432/recourse
 
     steps:
       - uses: actions/checkout@v5
@@ -51,13 +51,13 @@ jobs:
       # silently undoing the last one. The suites that need a model are run by
       # hand, because CI has no GPU and a hosted one would cost money per push.
       - name: retrieval evals
-        run: pnpm --filter @helpdeck/evals eval -- --suite retrieval
+        run: pnpm --filter @recourse/evals eval -- --suite retrieval
 
       # Fails if anything Node-only reaches the serving path. A test cannot
       # catch that; only a bundle can.
       - name: worker bundle guard
-        run: pnpm --filter helpdeck-example-worker check
+        run: pnpm --filter recourse-example-worker check
 
       # The example is the deployable demo, so a broken build is a broken demo.
       - name: build the example
-        run: pnpm --filter helpdeck-example-nextjs build
+        run: pnpm --filter recourse-example-nextjs build

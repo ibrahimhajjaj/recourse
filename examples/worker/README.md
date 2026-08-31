@@ -1,12 +1,12 @@
-# helpdeck on Cloudflare Workers
+# recourse on Cloudflare Workers
 
 The chat handler is a `Request -> Response` function, which is what a Worker
 is. No adapter, no polyfills, and no `nodejs_compat`.
 
 ```bash
-pnpm --filter helpdeck-example-worker dev      # wrangler dev
-pnpm --filter helpdeck-example-worker check    # bundle guard
-pnpm --filter helpdeck-example-worker deploy   # needs a Cloudflare account
+pnpm --filter recourse-example-worker dev      # wrangler dev
+pnpm --filter recourse-example-worker check    # bundle guard
+pnpm --filter recourse-example-worker deploy   # needs a Cloudflare account
 ```
 
 ## The bundle guard
@@ -15,10 +15,10 @@ pnpm --filter helpdeck-example-worker deploy   # needs a Cloudflare account
 or if it grows past 200 KB. That is not decoration: it caught two real problems
 the first time it ran.
 
-**Import subpaths, not the root.** `helpdeck` re-exports `ingest` and the
+**Import subpaths, not the root.** `recourse` re-exports `ingest` and the
 local-file source, which read from disk and so import `node:fs`. On a Worker
-use `helpdeck/server`, `helpdeck/models`, `helpdeck/agent`, `helpdeck/actions`,
-`helpdeck/channels`, `helpdeck/safety` or `helpdeck/store`, none of which
+use `recourse/server`, `recourse/models`, `recourse/agent`, `recourse/actions`,
+`recourse/channels`, `recourse/safety` or `recourse/store`, none of which
 touch the filesystem.
 
 **There is no `process`.** Reading it throws rather than returning undefined,
@@ -67,8 +67,8 @@ Bundle: 117.9 KB including a 44 KB knowledge index, zero Node built-ins.
 with local storage until you create the real one:
 
 ```bash
-wrangler r2 bucket create helpdeck-attachments
-wrangler secret put HELPDECK_UPLOAD_SECRET   # any long random string
+wrangler r2 bucket create recourse-attachments
+wrangler secret put RECOURSE_UPLOAD_SECRET   # any long random string
 ```
 
 Two routes appear when both are present, and neither exists without them:

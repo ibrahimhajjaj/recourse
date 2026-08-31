@@ -2,12 +2,12 @@ import type { Agent } from '../agent.js'
 import type { Store } from '../store/types.js'
 
 /**
- * helpdeck as the knowledge backend for an ElevenLabs voice agent.
+ * recourse as the knowledge backend for an ElevenLabs voice agent.
  *
  * The fourth way to answer a phone, and the one that needs no Twilio at all.
  * ElevenLabs Agents own the call: their number, their turn-taking, their
  * barge-in, and voices that are the reason anyone picks them. What they do not
- * own is your documentation, so this exposes helpdeck as a webhook tool their
+ * own is your documentation, so this exposes recourse as a webhook tool their
  * agent calls mid-conversation.
  *
  * The division of labour is the point. Their agent is told, in its system
@@ -47,7 +47,7 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
     if (options.token) {
       const presented =
         request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ??
-        request.headers.get('x-helpdeck-token')
+        request.headers.get('x-recourse-token')
 
       if (presented !== options.token) {
         return json({ error: 'unauthorized' }, 401)
@@ -114,7 +114,7 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
         sources: result.sources.map((source) => source.title),
       })
     } catch (error) {
-      console.error('[helpdeck] elevenlabs tool call failed', error)
+      console.error('[recourse] elevenlabs tool call failed', error)
       // A 200 with an honest message beats a 500: the agent can say something
       // useful, where an error leaves it improvising or silent.
       return json({ answer: 'I could not look that up just now.', found: false, sources: [] }, 200)

@@ -58,7 +58,7 @@ export interface ApiOptions {
    * This endpoint hands back whole transcripts, so it is the one worth
    * recording.
    *
-   *     onAccess: (event) => logger.info('helpdeck.api', event)
+   *     onAccess: (event) => logger.info('recourse.api', event)
    *
    * `actor` names which credential was used without revealing it: the first
    * twelve characters of the token's SHA-256, which is stable across requests.
@@ -101,7 +101,7 @@ export function createApiHandler(options: ApiOptions) {
   // warning rather than a refusal.
   if (!options.tokens?.length) {
     console.warn(
-      '[helpdeck] the management API is mounted with no tokens, so anything that can reach it can ' +
+      '[recourse] the management API is mounted with no tokens, so anything that can reach it can ' +
         'read every conversation, lead and ticket. Pass `tokens` unless it is on a network only you can reach.',
     )
   }
@@ -148,7 +148,7 @@ export function createApiHandler(options: ApiOptions) {
     // page that holds nothing.
     router.get('/admin/preview', async (request) => {
       const asked = new URL(request.url).searchParams
-      const source = asked.get('src') ?? '/helpdeck.js'
+      const source = asked.get('src') ?? '/recourse.js'
 
       // Only the attributes the widget documents, and only from a fixed list.
       // This page reflects a query string into markup, so what may appear is
@@ -545,7 +545,7 @@ export function createApiHandler(options: ApiOptions) {
       } catch (error) {
         // A log that cannot be written must not take the API down with it, and
         // refusing to answer is not the safer failure here.
-        console.error('[helpdeck] onAccess threw', error)
+        console.error('[recourse] onAccess threw', error)
       }
 
       return response
@@ -578,7 +578,7 @@ export function createApiHandler(options: ApiOptions) {
       return recorded(withCors(await matched.handler(request, matched.params), cors))
     } catch (error) {
       // The message stays server-side; a stack trace is not a client's business.
-      console.error('[helpdeck] api error', error)
+      console.error('[recourse] api error', error)
       return recorded(withCors(fail('internal_error', 'the request could not be completed', 500), cors))
     }
   }
@@ -603,7 +603,7 @@ function escapeAttribute(value: string): string {
  * page says so rather than rendering a tag that silently never runs.
  */
 function sameOrigin(source: string): string {
-  return /^\/[^/\\]/.test(source) ? source : '/helpdeck.js'
+  return /^\/[^/\\]/.test(source) ? source : '/recourse.js'
 }
 
 /**

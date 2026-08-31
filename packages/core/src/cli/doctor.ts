@@ -291,8 +291,8 @@ export async function checkCredentials(credentials: Credentials, signal?: AbortS
  * under a name nothing else will use.
  */
 export async function checkStorage(blobs: Blobs): Promise<Check[]> {
-  const key = `helpdeck-doctor/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.txt`
-  const payload = new TextEncoder().encode('helpdeck doctor')
+  const key = `recourse-doctor/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.txt`
+  const payload = new TextEncoder().encode('recourse doctor')
 
   return [
     await attempt('storage', async () => {

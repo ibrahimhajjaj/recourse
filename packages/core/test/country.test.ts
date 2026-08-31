@@ -33,8 +33,8 @@ describe('consent, which is the host to decide', () => {
   const analytics = consented('analytics')
 
   it('agrees only when the purpose was named', () => {
-    expect(analytics(asking({ 'x-helpdeck-consent': 'analytics' }))).toBe(true)
-    expect(analytics(asking({ 'x-helpdeck-consent': 'necessary, Analytics , ads' }))).toBe(true)
+    expect(analytics(asking({ 'x-recourse-consent': 'analytics' }))).toBe(true)
+    expect(analytics(asking({ 'x-recourse-consent': 'necessary, Analytics , ads' }))).toBe(true)
   })
 
   it('treats a missing header as no', () => {
@@ -42,7 +42,7 @@ describe('consent, which is the host to decide', () => {
     // fall in: the cost of getting it wrong the other way is a lawful basis
     // nobody has.
     expect(analytics(asking({}))).toBe(false)
-    expect(analytics(asking({ 'x-helpdeck-consent': '' }))).toBe(false)
-    expect(analytics(asking({ 'x-helpdeck-consent': 'necessary' }))).toBe(false)
+    expect(analytics(asking({ 'x-recourse-consent': '' }))).toBe(false)
+    expect(analytics(asking({ 'x-recourse-consent': 'necessary' }))).toBe(false)
   })
 })

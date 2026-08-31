@@ -24,8 +24,8 @@ rendering backwards.
 ## Tier 2: a small model, asked one question with one word for an answer
 
 ```ts
-import { createChatHandler } from 'helpdeck/server'
-import { modelClassifier } from 'helpdeck/safety'
+import { createChatHandler } from 'recourse/server'
+import { modelClassifier } from 'recourse/safety'
 
 createChatHandler({
   index,
@@ -103,7 +103,7 @@ the reply streaming while leaving nothing unchecked in front of the customer.
 Two other settings, for the two directions you might want to move:
 
 ```ts
-import { createAgent } from 'helpdeck'
+import { createAgent } from 'recourse'
 
 createAgent({ index, classifier: { output: 'buffer' } })
 ```
@@ -148,7 +148,7 @@ and tested rather than taken on trust.
 ## Tier 3: a second look where a miss is not a wrong answer
 
 ```ts
-import { crisisWatch } from 'helpdeck/safety'
+import { crisisWatch } from 'recourse/safety'
 ```
 
 Opt in, for the one category where a false negative is not a bad reply but a

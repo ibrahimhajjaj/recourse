@@ -129,7 +129,7 @@ export function logFailure(diagnostic: Diagnostic, error: unknown, extra: Record
     .map(([key, value]) => `${key}=${value}`)
     .join(' ')
 
-  console.error(`[helpdeck] model call failed ${fields}`, error)
+  console.error(`[recourse] model call failed ${fields}`, error)
 }
 
 /** Short and unique enough that a customer can quote it back the same day. */

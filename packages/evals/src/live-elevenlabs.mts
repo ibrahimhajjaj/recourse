@@ -16,15 +16,15 @@
  */
 
 import { createServer } from 'node:http'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
-import { elevenLabsSystemPrompt, elevenLabsToolRoute } from 'helpdeck/channels'
-import { memoryStore } from 'helpdeck/store'
-import { models } from 'helpdeck/models'
+import { buildIndex, createAgent, textSource } from 'recourse'
+import { elevenLabsSystemPrompt, elevenLabsToolRoute } from 'recourse/channels'
+import { memoryStore } from 'recourse/store'
+import { models } from 'recourse/models'
 
 const env = process.env
 const mode = process.argv.find((argument) => argument.startsWith('--')) ?? '--check'
 const port = Number(env.PORT ?? 8797)
-const token = env.ELEVENLABS_TOOL_TOKEN ?? 'helpdeck-dev-tool-token'
+const token = env.ELEVENLABS_TOOL_TOKEN ?? 'recourse-dev-tool-token'
 
 const index = await buildIndex({
   sources: [
@@ -51,7 +51,7 @@ const handle = elevenLabsToolRoute({
     embedder: false,
     store: memoryStore(),
     model: models.fromEnvironment(env as Record<string, string | undefined>),
-    persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.HELPDECK_TONE as 'plain') ?? 'warm' },
+    persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.RECOURSE_TONE as 'plain') ?? 'warm' },
   }),
   token,
 })

@@ -10,7 +10,7 @@ Everything here is off by default and none of it needs another service.
 ## A ceiling on what you spend
 
 ```ts
-import { createAgent, createBudget } from 'helpdeck'
+import { createAgent, createBudget } from 'recourse'
 
 const budget = createBudget({
   dailyTokens: 2_000_000,
@@ -99,7 +99,7 @@ failure that matters most, a loop billing for hours, so it is the default.
 When the cap is the point, share it:
 
 ```ts
-import { createBudget, redisLedger } from 'helpdeck'
+import { createBudget, redisLedger } from 'recourse'
 
 createBudget({ monthlyUsd: 50, ledger: redisLedger({ client: redis }) })
 ```
@@ -128,12 +128,12 @@ Re-crawling a site pays to embed every chunk again, including the three hundred
 and ninety-nine pages that did not change. Pass the index you are replacing:
 
 ```ts
-import { ingest } from 'helpdeck'
+import { ingest } from 'recourse'
 
 const index = await ingest({ url: 'https://example.com', previous: existing })
 ```
 
-The CLI does it for you. `helpdeck ingest` reads the index already at the output
+The CLI does it for you. `recourse ingest` reads the index already at the output
 path and reports what it skipped:
 
 ```

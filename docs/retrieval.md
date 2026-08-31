@@ -15,7 +15,7 @@ Adding embeddings fixes it, and they can be local:
 
 ```bash
 # Anything OpenAI-compatible, including Ollama on your own machine.
-npx helpdeck ingest --url https://your-site.com \
+npx recourse ingest --url https://your-site.com \
   --embed-url http://localhost:11434/v1 --embed-model nomic-embed-text
 ```
 
@@ -31,8 +31,8 @@ file is what hurts: it is parsed on every cold start and the vectors are most
 of its weight.
 
 ```ts
-import { ingest } from 'helpdeck/ingest'
-import { pgVectorStore } from '@helpdeck/store-postgres'
+import { ingest } from 'recourse/ingest'
+import { pgVectorStore } from '@recourse/store-postgres'
 
 await ingest({ url: 'https://shop.example', vectorStore: pgVectorStore({ pool }) })
 ```

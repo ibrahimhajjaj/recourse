@@ -16,7 +16,7 @@ import { callerKey, createRateLimiter, type RateLimiter, type RateLimitOptions }
 import { resolveIdentity, type IdentityClaim, type IdentityOptions } from '../identity.js'
 
 export interface ChatHandlerOptions {
-  /** The index from `helpdeck ingest`. Pass the imported JSON or its text. */
+  /** The index from `recourse ingest`. Pass the imported JSON or its text. */
   index: KnowledgeIndex | string
   /**
    * A model id string routed through the Vercel AI Gateway, or a model instance
@@ -62,7 +62,7 @@ export interface ChatHandlerOptions {
    * banner was shown or what the visitor agreed to. `consented('analytics')`
    * covers the common case of a consent manager that sets a header.
    *
-   *     import { consented } from 'helpdeck/server'
+   *     import { consented } from 'recourse/server'
    *
    *     analytics: { country: consented('analytics') }
    *

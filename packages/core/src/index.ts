@@ -7,13 +7,13 @@
  * built-ins will refuse it.
  *
  * On those runtimes import the subpaths instead, none of which touch the
- * filesystem: `helpdeck/server`, `helpdeck/agent`, `helpdeck/models`,
- * `helpdeck/actions`, `helpdeck/channels`, `helpdeck/safety`, `helpdeck/store`.
+ * filesystem: `recourse/server`, `recourse/agent`, `recourse/models`,
+ * `recourse/actions`, `recourse/channels`, `recourse/safety`, `recourse/store`.
  * `examples/worker` does exactly that and asserts it in its build.
  */
 
 /**
- * helpdeck: a support agent that learns your site and plugs into any app.
+ * recourse: a support agent that learns your site and plugs into any app.
  *
  * Two moving parts. `ingest` turns content into a knowledge index at build
  * time; `createChatHandler` serves answers from it at request time. Everything

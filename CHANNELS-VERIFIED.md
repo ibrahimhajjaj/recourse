@@ -615,7 +615,7 @@ extract. The channel had been read several times.
 
 ## Teams, through the Bot Connector, 2026-08-30
 
-Azure Bot `helpdeck-dev-testing` on the free F0 tier, on an Azure for Students
+Azure Bot `recourse-dev-testing` on the free F0 tier, on an Azure for Students
 subscription. Nothing spent.
 
 The row says "via Bot Connector" because that is what was proved. Installing
@@ -634,7 +634,7 @@ POST /api/messages -> 200 [serviceUrl https://directline.botframework.com/]
   -> Yes, we ship to Ireland with delivery taking 3-5 working days. [1]
 
 what the customer saw:
-  helpdeck-dev-testing: Yes, we ship to Ireland with delivery taking 3-5 working
+  recourse-dev-testing: Yes, we ship to Ireland with delivery taking 3-5 working
                         days. [1]
                         [1] Shipping: https://shop.example/shipping
 ```
@@ -729,13 +729,13 @@ now appears at both ends.
 Each live channel has a harness beside the others in `packages/evals/src`:
 
 ```
-pnpm --filter @helpdeck/evals whatsapp -- --templates
-pnpm --filter @helpdeck/evals telegram -- --whoami
-pnpm --filter @helpdeck/evals discord -- --register
-pnpm --filter @helpdeck/evals slack -- --whoami
-pnpm --filter @helpdeck/evals elevenlabs -- --check
-pnpm --filter @helpdeck/evals twilio -- --whoami
-pnpm --filter @helpdeck/evals teams -- --token
+pnpm --filter @recourse/evals whatsapp -- --templates
+pnpm --filter @recourse/evals telegram -- --whoami
+pnpm --filter @recourse/evals discord -- --register
+pnpm --filter @recourse/evals slack -- --whoami
+pnpm --filter @recourse/evals elevenlabs -- --check
+pnpm --filter @recourse/evals twilio -- --whoami
+pnpm --filter @recourse/evals teams -- --token
 ```
 
 Teams needs one more step than the others: the bot resource stores the endpoint

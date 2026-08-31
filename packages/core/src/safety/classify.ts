@@ -68,7 +68,7 @@ export function createClassifier(policy: ClassifierPolicy = {}): Classifier {
         // it. Failing open is the right default for a support agent: the
         // system prompt and the rules above are still standing.
         console.warn(
-          `[helpdeck] classifier failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`,
+          `[recourse] classifier failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`,
         )
       }
     }

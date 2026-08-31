@@ -1,65 +1,65 @@
-# helpdeck
+# recourse
 
 A customer support agent that learns your own website and answers from it, with
 citations. No API keys to create, no database, no vendor.
 
 ```bash
-npx helpdeck ingest --url https://your-site.com
+npx recourse ingest --url https://your-site.com
 ```
 
 ```ts
-import { createChatHandler } from 'helpdeck/server'
-import knowledge from './helpdeck/knowledge.json'
+import { createChatHandler } from 'recourse/server'
+import knowledge from './recourse/knowledge.json'
 
 export const POST = createChatHandler({ index: knowledge })
 ```
 
-Full documentation: https://github.com/ibrahimhajjaj/helpdeck
+Full documentation: https://github.com/ibrahimhajjaj/recourse
 
 Each topic has its own page rather than one long file: [choosing a
-model](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/models.md),
+model](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/models.md),
 [getting your content
-in](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/retrieval.md),
-[actions](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/actions.md),
-[channels](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/channels.md),
+in](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/retrieval.md),
+[actions](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/actions.md),
+[channels](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/channels.md),
 [the help
-desk](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/helpdesk.md),
-[security](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/security.md),
-[stores](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/stores.md),
-[evals](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/evals.md),
-[deploying](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/deploying.md),
-[files](https://github.com/ibrahimhajjaj/helpdeck/blob/main/docs/files.md).
+desk](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/helpdesk.md),
+[security](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/security.md),
+[stores](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/stores.md),
+[evals](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/evals.md),
+[deploying](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/deploying.md),
+[files](https://github.com/ibrahimhajjaj/recourse/blob/main/docs/files.md).
 
 ## Exports
 
 | Entry | What it gives you |
 | --- | --- |
-| `helpdeck` | Everything below, re-exported |
-| `helpdeck/server` | `createChatHandler`, a `Request` to `Response` function |
-| `helpdeck/agent` | `createAgent`, the agent with no transport attached |
-| `helpdeck/actions` | Lead capture, escalation, HTTP actions, commerce, handoff |
-| `helpdeck/procedures` | Multi-step flows with branches and variables |
-| `helpdeck/channels` | WhatsApp, Messenger, Instagram, Slack, Teams, Telegram, Discord, SMS, voice, email, Sunshine |
-| `helpdeck/helpdesk` | Tickets, routing, assignment, triggers, saved views, and connectors for nine outside desks |
-| `helpdeck/api` | Management API, admin page, public help page |
-| `helpdeck/store` | Conversation, lead, ticket and source persistence |
-| `helpdeck/store/conformance` | The suite a store of your own has to pass |
-| `helpdeck/webhooks` | Signed outbound events |
-| `helpdeck/outbound` | Campaigns, with consent enforced |
-| `helpdeck/tool` | `knowledgeTool`, for the AI SDK, eve, or anything built on them |
-| `helpdeck/ingest` | `ingest` and `writeIndex`, for build scripts |
-| `helpdeck/attachments` | Validating and reading files a visitor sends |
-| `helpdeck/safety` | Classifier with per-category sensitivity and actions |
-| `helpdeck/models` | `models` and `embedders`, including one picked from the environment |
-| `helpdeck/storage` | S3, R2 and local blobs for what a visitor uploads |
+| `recourse` | Everything below, re-exported |
+| `recourse/server` | `createChatHandler`, a `Request` to `Response` function |
+| `recourse/agent` | `createAgent`, the agent with no transport attached |
+| `recourse/actions` | Lead capture, escalation, HTTP actions, commerce, handoff |
+| `recourse/procedures` | Multi-step flows with branches and variables |
+| `recourse/channels` | WhatsApp, Messenger, Instagram, Slack, Teams, Telegram, Discord, SMS, voice, email, Sunshine |
+| `recourse/helpdesk` | Tickets, routing, assignment, triggers, saved views, and connectors for nine outside desks |
+| `recourse/api` | Management API, admin page, public help page |
+| `recourse/store` | Conversation, lead, ticket and source persistence |
+| `recourse/store/conformance` | The suite a store of your own has to pass |
+| `recourse/webhooks` | Signed outbound events |
+| `recourse/outbound` | Campaigns, with consent enforced |
+| `recourse/tool` | `knowledgeTool`, for the AI SDK, eve, or anything built on them |
+| `recourse/ingest` | `ingest` and `writeIndex`, for build scripts |
+| `recourse/attachments` | Validating and reading files a visitor sends |
+| `recourse/safety` | Classifier with per-category sensitivity and actions |
+| `recourse/models` | `models` and `embedders`, including one picked from the environment |
+| `recourse/storage` | S3, R2 and local blobs for what a visitor uploads |
 
 ## CLI
 
 ```
-helpdeck ingest --url <site>     Learn a website
-helpdeck ingest --path <dir>     Learn a folder of markdown
-helpdeck ask "<question>"        Ask the index from the terminal
-helpdeck stats                   Show what is in the index
+recourse ingest --url <site>     Learn a website
+recourse ingest --path <dir>     Learn a folder of markdown
+recourse ask "<question>"        Ask the index from the terminal
+recourse stats                   Show what is in the index
 ```
 
 MIT

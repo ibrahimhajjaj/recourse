@@ -8,12 +8,12 @@
  *
  * A post type rather than a table, so a site with no help desk still has a list
  * to read, a search box that works, and an export that already exists. A site
- * that does have one hooks `helpdeck_ticket_created` and forwards it.
+ * that does have one hooks `recourse_ticket_created` and forwards it.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -25,7 +25,7 @@ class Tickets {
 	/**
 	 * The post type name.
 	 */
-	const POST_TYPE = 'helpdeck_ticket';
+	const POST_TYPE = 'recourse_ticket';
 
 	/**
 	 * Registers the post type and the action.
@@ -34,7 +34,7 @@ class Tickets {
 	 */
 	public static function register() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
-		add_filter( 'helpdeck_actions', array( __CLASS__, 'add_action' ) );
+		add_filter( 'recourse_actions', array( __CLASS__, 'add_action' ) );
 	}
 
 	/**
@@ -50,11 +50,11 @@ class Tickets {
 			self::POST_TYPE,
 			array(
 				'labels'              => array(
-					'name'          => __( 'Support requests', 'helpdeck' ),
-					'singular_name' => __( 'Support request', 'helpdeck' ),
-					'menu_name'     => __( 'Support requests', 'helpdeck' ),
-					'search_items'  => __( 'Search support requests', 'helpdeck' ),
-					'not_found'     => __( 'No support requests yet.', 'helpdeck' ),
+					'name'          => __( 'Support requests', 'recourse' ),
+					'singular_name' => __( 'Support request', 'recourse' ),
+					'menu_name'     => __( 'Support requests', 'recourse' ),
+					'search_items'  => __( 'Search support requests', 'recourse' ),
+					'not_found'     => __( 'No support requests yet.', 'recourse' ),
 				),
 				'public'              => false,
 				'publicly_queryable'  => false,
@@ -137,7 +137,7 @@ class Tickets {
 	 * Deliberately not written into Contact Form 7, Gravity Forms or WPForms.
 	 * Each stores entries differently, two of them not at all by default, and a
 	 * plugin that writes into another plugin's tables breaks the week that
-	 * plugin changes them. `helpdeck_lead_captured` is the seam instead: a site
+	 * plugin changes them. `recourse_lead_captured` is the seam instead: a site
 	 * that wants a lead in its CRM hooks it and puts it there.
 	 *
 	 * @param array<string, mixed> $input   Arguments from the model.
@@ -165,14 +165,14 @@ class Tickets {
 				'post_type'    => self::POST_TYPE,
 				'post_status'  => 'publish',
 				/* translators: %s: the visitor's name or email address. */
-				'post_title'   => sprintf( __( 'Lead: %s', 'helpdeck' ), '' !== $name ? $name : $email ),
+				'post_title'   => sprintf( __( 'Lead: %s', 'recourse' ), '' !== $name ? $name : $email ),
 				'post_content' => $interest,
 				'meta_input'   => array(
-					'helpdeck_email'        => $email,
-					'helpdeck_name'         => $name,
-					'helpdeck_phone'        => $phone,
-					'helpdeck_kind'         => 'lead',
-					'helpdeck_conversation' => isset( $context['conversation'] ) ? (string) $context['conversation'] : '',
+					'recourse_email'        => $email,
+					'recourse_name'         => $name,
+					'recourse_phone'        => $phone,
+					'recourse_kind'         => 'lead',
+					'recourse_conversation' => isset( $context['conversation'] ) ? (string) $context['conversation'] : '',
 				),
 			),
 			true
@@ -193,7 +193,7 @@ class Tickets {
 		 * @param array<string, mixed> $context Conversation context.
 		 */
 		do_action(
-			'helpdeck_lead_captured',
+			'recourse_lead_captured',
 			$id,
 			array(
 				'email'    => $email,
@@ -237,13 +237,13 @@ class Tickets {
 				'post_type'    => self::POST_TYPE,
 				'post_status'  => 'publish',
 				/* translators: %s: the customer's email address. */
-				'post_title'   => sprintf( __( 'Request from %s', 'helpdeck' ), '' !== $name ? $name : $email ),
+				'post_title'   => sprintf( __( 'Request from %s', 'recourse' ), '' !== $name ? $name : $email ),
 				'post_content' => $summary,
 				'meta_input'   => array(
-					'helpdeck_email'        => $email,
-					'helpdeck_name'         => $name,
-					'helpdeck_kind'         => 'support',
-					'helpdeck_conversation' => isset( $context['conversation'] ) ? (string) $context['conversation'] : '',
+					'recourse_email'        => $email,
+					'recourse_name'         => $name,
+					'recourse_kind'         => 'support',
+					'recourse_conversation' => isset( $context['conversation'] ) ? (string) $context['conversation'] : '',
 				),
 			),
 			true
@@ -264,7 +264,7 @@ class Tickets {
 		 * @param array<string, mixed> $context Conversation context.
 		 */
 		do_action(
-			'helpdeck_ticket_created',
+			'recourse_ticket_created',
 			$id,
 			array(
 				'email'   => $email,

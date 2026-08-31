@@ -10,10 +10,10 @@
  * support bots come from. A model with no sanctioned way to say "I don't know"
  * will invent something instead.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 

@@ -82,8 +82,8 @@ describe('markdown the model actually produces', () => {
   })
 
   it('keeps a fenced code block verbatim', () => {
-    const host = render('```\nnpm i helpdeck\n```')
-    expect(host.querySelector('pre code')?.textContent).toBe('npm i helpdeck')
+    const host = render('```\nnpm i recourse\n```')
+    expect(host.querySelector('pre code')?.textContent).toBe('npm i recourse')
   })
 
   it('does not treat a list marker inside a code fence as a list', () => {

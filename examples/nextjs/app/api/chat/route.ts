@@ -1,4 +1,4 @@
-import { createChatHandler } from 'helpdeck/server'
+import { createChatHandler } from 'recourse/server'
 import {
   clientAction,
   collectLeads,
@@ -7,9 +7,9 @@ import {
   escalate,
   httpAction,
   suggestedMessages,
-} from 'helpdeck'
+} from 'recourse'
 import { helpdesk, store } from '../../../lib/helpdesk'
-import type { KnowledgeIndex } from 'helpdeck'
+import type { KnowledgeIndex } from 'recourse'
 import knowledge from '../../../lib/knowledge.json'
 import { resolveEmbedder, resolveModel } from '../../../lib/model'
 
@@ -109,7 +109,7 @@ const handler = createChatHandler({
   rateLimit: { limit: 20, windowMs: 60_000 },
 
   onConversation({ question, unanswered }) {
-    if (unanswered) console.log('[helpdeck] no sources matched:', question)
+    if (unanswered) console.log('[recourse] no sources matched:', question)
   },
 })
 

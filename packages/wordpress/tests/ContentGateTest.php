@@ -8,15 +8,15 @@
  * rests on this gate: if a draft reaches the index, the agent will quote it to
  * anybody who asks the right question, and nothing will report that it did.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
 declare(strict_types=1);
 
-use Helpdeck\Content;
+use Recourse\Content;
 use PHPUnit\Framework\TestCase;
 
-require_once __DIR__ . '/class-helpdeck-fake-post.php';
+require_once __DIR__ . '/class-recourse-fake-post.php';
 
 /**
  * The gate that decides what may be indexed.
@@ -31,7 +31,7 @@ final class ContentGateTest extends TestCase {
 	public function test_nothing_unpublished_becomes_a_document(): void {
 		foreach ( array( 'draft', 'pending', 'private', 'future', 'trash', 'auto-draft', 'inherit' ) as $status ) {
 			$this->assertNull(
-				Content::to_document( new Helpdeck_Fake_Post( $status ) ),
+				Content::to_document( new Recourse_Fake_Post( $status ) ),
 				"a {$status} post was allowed into the index"
 			);
 		}
@@ -44,7 +44,7 @@ final class ContentGateTest extends TestCase {
 	 * @return void
 	 */
 	public function test_a_password_protected_post_is_refused_even_when_published(): void {
-		$this->assertNull( Content::to_document( new Helpdeck_Fake_Post( 'publish', 'secret' ) ) );
+		$this->assertNull( Content::to_document( new Recourse_Fake_Post( 'publish', 'secret' ) ) );
 	}
 
 	/**
@@ -63,7 +63,7 @@ final class ContentGateTest extends TestCase {
 		// outside the try, or a failed assertion would be caught as the very
 		// throwable it is looking for and the test would pass either way.
 		try {
-			$refused = null === Content::to_document( new Helpdeck_Fake_Post( 'publish' ) );
+			$refused = null === Content::to_document( new Recourse_Fake_Post( 'publish' ) );
 		} catch ( \Throwable $error ) {
 			$refused = false;
 		}

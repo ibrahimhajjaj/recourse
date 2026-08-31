@@ -9,7 +9,7 @@
  * hand-copying an approximation of these assertions and hoping.
  *
  * ```ts
- * import { storeConformance } from 'helpdeck/store/conformance'
+ * import { storeConformance } from 'recourse/store/conformance'
  *
  * storeConformance({ name: 'dynamodb', make: () => myStore() })
  * ```

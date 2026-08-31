@@ -595,7 +595,7 @@ describe('voice providers', () => {
   })
 })
 
-describe('helpdeck as an ElevenLabs agent tool', () => {
+describe('recourse as an ElevenLabs agent tool', () => {
   async function route(extra: Record<string, unknown> = {}) {
     const agent = createAgent({
       index: await index(),

@@ -7,7 +7,7 @@ conduct, grounding, injection resistance and retrieval, graded
 deterministically. The cases that need no model run in CI on every push.
 
 ```bash
-pnpm --filter @helpdeck/evals eval --suite injection --model qwen3:4b
+pnpm --filter @recourse/evals eval --suite injection --model qwen3:4b
 ```
 
 The harness asks for `temperature: 0`, which `createAgent` accepts and passes
@@ -45,7 +45,7 @@ repository is answerable for: retrieval, the classifier on the way in and on
 every sentence on the way out, and the store write.
 
 ```bash
-pnpm --filter @helpdeck/evals exec tsx src/bench-load.mts --clients 8 --rounds 5
+pnpm --filter @recourse/evals exec tsx src/bench-load.mts --clients 8 --rounds 5
 ```
 
 It alternates screening on and off and reports a median of rounds rather than
@@ -66,7 +66,7 @@ machinery rather than anything the library decides. For what a turn actually
 costs, measure the pieces:
 
 ```bash
-pnpm --filter @helpdeck/evals exec tsx src/bench-parts.mts --docs 500
+pnpm --filter @recourse/evals exec tsx src/bench-parts.mts --docs 500
 ```
 
 Each one is sub-millisecond and taken as a median of thousands, so a scheduler

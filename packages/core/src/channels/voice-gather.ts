@@ -150,7 +150,7 @@ export function gatherVoiceChannel(options: GatherVoiceOptions) {
         local.set(conversationId, thread.slice(-maxHistory * 2))
       }
     } catch (error) {
-      console.error('[helpdeck] gather voice turn failed', error)
+      console.error('[recourse] gather voice turn failed', error)
       answer = 'Sorry, something went wrong on my side.'
     }
 
@@ -199,7 +199,7 @@ async function speak(options: GatherVoiceOptions, text: string): Promise<string>
     const base = options.tts.publicBaseUrl.replace(/\/+$/, '')
     return `<Play>${escapeXml(`${base}/${id}`)}</Play>`
   } catch (error) {
-    console.error('[helpdeck] falling back to Twilio Say', error)
+    console.error('[recourse] falling back to Twilio Say', error)
     return say(options, text)
   }
 }

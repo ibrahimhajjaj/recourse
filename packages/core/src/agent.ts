@@ -28,7 +28,7 @@ import {
 } from './server/prompt.js'
 
 export interface AgentOptions {
-  /** The index from `helpdeck ingest`. */
+  /** The index from `recourse ingest`. */
   index: KnowledgeIndex | string
   /** A Gateway model id, or any provider instance. */
   model?: LanguageModel
@@ -276,7 +276,7 @@ export function createAgent(options: AgentOptions) {
   const unlocked = unlockedBy(procedures)
 
   for (const { name, missing } of dropped) {
-    console.warn(`[helpdeck] procedure "${name}" disabled: no action named ${missing.join(', ')}`)
+    console.warn(`[recourse] procedure "${name}" disabled: no action named ${missing.join(', ')}`)
   }
 
   /**
@@ -370,7 +370,7 @@ export function createAgent(options: AgentOptions) {
     // that crosses the line is precisely the one nobody wanted to pay for.
     const allowance = options.budget ? await options.budget.check() : { ok: true as const }
     if (!allowance.ok) {
-      console.warn(`[helpdeck] budget reached, not calling the model: ${allowance.reason ?? 'capped'}`)
+      console.warn(`[recourse] budget reached, not calling the model: ${allowance.reason ?? 'capped'}`)
       onQuiet()
       yield* stayQuiet(allowance.message ?? 'I cannot answer right now. Leave your question and a person will reply.', {
         conversationId,
@@ -634,7 +634,7 @@ export function createAgent(options: AgentOptions) {
       const diagnosis = describeFailure(failure, prepared !== null)
       if (!another || delivered || ran.length > 0 || !diagnosis.fallbackWorthTrying) break
 
-      console.warn(`[helpdeck] first model failed (${diagnosis.reason}); trying the fallback model.`)
+      console.warn(`[recourse] first model failed (${diagnosis.reason}); trying the fallback model.`)
     }
 
     if (checksOutput && !withheld && answered.length > released) {
@@ -668,7 +668,7 @@ export function createAgent(options: AgentOptions) {
       }
 
       console.warn(
-        `[helpdeck] answer withheld: ${withheld.matched?.reason ?? withheld.action}`,
+        `[recourse] answer withheld: ${withheld.matched?.reason ?? withheld.action}`,
       )
     }
 
@@ -967,7 +967,7 @@ function withoutPoisoned(matches: Match[], threshold: number): Match[] {
       // Loud on purpose. A poisoned knowledge base is something the business
       // has to go and fix; quietly dropping the page hides an intrusion.
       console.warn(
-        `[helpdeck] ignoring a retrieved passage from "${match.chunk.title}": ` +
+        `[recourse] ignoring a retrieved passage from "${match.chunk.title}": ` +
           `${signals.find((signal) => signal.score === worst)?.reason}. ` +
           'Check this page for text aimed at the agent rather than the reader.',
       )

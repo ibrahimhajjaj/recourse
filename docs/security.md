@@ -33,7 +33,7 @@ I could not answer that. Try again in a minute. (reference k3n8fa)
 ```
 
 ```
-[helpdeck] model call failed conversation=c_8f2 model=openai/gpt-4o ref=k3n8fa reason=rate_limited …
+[recourse] model call failed conversation=c_8f2 model=openai/gpt-4o ref=k3n8fa reason=rate_limited …
 ```
 
 The two are joined by that reference rather than by copying the text into both,
@@ -59,7 +59,7 @@ serverless instances hand out N budgets. `rateLimiter` takes a shared one, and
 two ship in the box.
 
 ```ts
-import { createChatHandler, upstashRateLimiter } from 'helpdeck/server'
+import { createChatHandler, upstashRateLimiter } from 'recourse/server'
 
 createChatHandler({
   index,
@@ -98,8 +98,8 @@ They are all measured rather than assumed, which is exactly why none of them
 should be treated as a constant:
 
 ```ts
-import { phraseRule } from 'helpdeck/safety'
-import { buildInstructions } from 'helpdeck/server'
+import { phraseRule } from 'recourse/safety'
+import { buildInstructions } from 'recourse/server'
 
 createChatHandler({
   index,
@@ -134,13 +134,13 @@ weakly than the webhooks do.
 
 
 ```ts
-import { createApiHandler } from 'helpdeck/api'
+import { createApiHandler } from 'recourse/api'
 
 export const GET = createApiHandler({
   store,
   helpdesk,
   knowledge,
-  tokens: [process.env.HELPDECK_API_TOKEN!],
+  tokens: [process.env.RECOURSE_API_TOKEN!],
   admin: true,
 })
 ```
@@ -171,8 +171,8 @@ worth recording access to:
 ```ts
 createApiHandler({
   store,
-  tokens: [process.env.HELPDECK_ADMIN_TOKEN as string],
-  onAccess: (event) => logger.info('helpdeck.api', event),
+  tokens: [process.env.RECOURSE_ADMIN_TOKEN as string],
+  onAccess: (event) => logger.info('recourse.api', event),
 })
 ```
 
@@ -204,7 +204,7 @@ Chats by country is the one analytic that needs something about a person, so it
 is off, and turning it on takes a decision rather than a flag:
 
 ```ts
-import { consented } from 'helpdeck/server'
+import { consented } from 'recourse/server'
 
 createChatHandler({
   agent,
@@ -222,7 +222,7 @@ else works the same.
 It is a function rather than `true` because consent is the one thing a library
 cannot decide. It cannot know whether a banner was shown, what it said, or what
 the visitor agreed to, and under the GDPR the lawful basis has to exist before
-the data does. `consented('analytics')` reads `X-Helpdeck-Consent`, which is the
+the data does. `consented('analytics')` reads `X-Recourse-Consent`, which is the
 shape a consent manager already holds, and a missing header is a no. Pass your
 own predicate if your consent lives somewhere else.
 

@@ -118,7 +118,7 @@ export function elevenLabsVoice(options: ElevenLabsVoiceOptions): Voice {
 
       if (!response.ok) {
         // The body can carry the key's permissions; keep it in the log only.
-        console.error('[helpdeck] elevenlabs tts failed', response.status, await response.text().catch(() => ''))
+        console.error('[recourse] elevenlabs tts failed', response.status, await response.text().catch(() => ''))
         throw new Error(`speech synthesis failed (${response.status})`)
       }
 
@@ -164,7 +164,7 @@ export function openAiCompatibleVoice(options: OpenAiVoiceOptions = {}): Voice {
       })
 
       if (!response.ok) {
-        console.error('[helpdeck] tts failed', response.status, await response.text().catch(() => ''))
+        console.error('[recourse] tts failed', response.status, await response.text().catch(() => ''))
         throw new Error(`speech synthesis failed (${response.status})`)
       }
 

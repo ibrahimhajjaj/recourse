@@ -19,8 +19,8 @@
  * closing it is one click.
  */
 
-import { escalate } from 'helpdeck/actions'
-import { zendesk } from 'helpdeck/helpdesk'
+import { escalate } from 'recourse/actions'
+import { zendesk } from 'recourse/helpdesk'
 
 const env = process.env
 const need = (name: string): string => {
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   const accessToken = need('ZENDESK_ACCESS_TOKEN')
 
   const createTicket = zendesk({ subdomain, accessToken })
-  const marker = `helpdeck live check ${new Date().toISOString()}`
+  const marker = `recourse live check ${new Date().toISOString()}`
 
   // Through the action rather than the connector alone, because the action is
   // what a deployment actually calls and it does its own field handling on the
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   const result = (await action.execute?.(
     {
       subject: marker,
-      body: 'Opened by the helpdeck live verification. Safe to close.',
+      body: 'Opened by the recourse live verification. Safe to close.',
       priority: 'low',
       email: 'sam@example.com',
       name: 'Sam Fletcher',

@@ -17,10 +17,10 @@
  * anonymous member of the public. An allowlist is the only defensible default,
  * and an ability annotated as destructive is refused even when named.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -32,7 +32,7 @@ class Abilities {
 	/**
 	 * The category this plugin's abilities live in.
 	 */
-	const CATEGORY = 'helpdeck';
+	const CATEGORY = 'recourse';
 
 	/**
 	 * Whether this WordPress has the Abilities API.
@@ -72,8 +72,8 @@ class Abilities {
 		wp_register_ability_category(
 			self::CATEGORY,
 			array(
-				'label'       => __( 'Support assistant', 'helpdeck' ),
-				'description' => __( 'Answering visitor questions from the site\'s own content.', 'helpdeck' ),
+				'label'       => __( 'Support assistant', 'recourse' ),
+				'description' => __( 'Answering visitor questions from the site\'s own content.', 'recourse' ),
 			)
 		);
 	}
@@ -89,17 +89,17 @@ class Abilities {
 	 */
 	public static function register_abilities() {
 		wp_register_ability(
-			'helpdeck/answer',
+			'recourse/answer',
 			array(
-				'label'               => __( 'Answer from the site content', 'helpdeck' ),
-				'description'         => __( 'Answer a question using the site\'s published pages, and return the answer with the sources it came from.', 'helpdeck' ),
+				'label'               => __( 'Answer from the site content', 'recourse' ),
+				'description'         => __( 'Answer a question using the site\'s published pages, and return the answer with the sources it came from.', 'recourse' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'       => 'object',
 					'properties' => array(
 						'question' => array(
 							'type'        => 'string',
-							'description' => __( 'The question to answer.', 'helpdeck' ),
+							'description' => __( 'The question to answer.', 'recourse' ),
 						),
 					),
 					'required'   => array( 'question' ),
@@ -127,17 +127,17 @@ class Abilities {
 		);
 
 		wp_register_ability(
-			'helpdeck/search',
+			'recourse/search',
 			array(
-				'label'               => __( 'Search the site content', 'helpdeck' ),
-				'description'         => __( 'Find the passages of published content that match a question, without calling a model.', 'helpdeck' ),
+				'label'               => __( 'Search the site content', 'recourse' ),
+				'description'         => __( 'Find the passages of published content that match a question, without calling a model.', 'recourse' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'       => 'object',
 					'properties' => array(
 						'query' => array(
 							'type'        => 'string',
-							'description' => __( 'What to search for.', 'helpdeck' ),
+							'description' => __( 'What to search for.', 'recourse' ),
 						),
 					),
 					'required'   => array( 'query' ),
@@ -166,13 +166,13 @@ class Abilities {
 		$question = isset( $input['question'] ) ? sanitize_text_field( (string) $input['question'] ) : '';
 
 		if ( '' === $question ) {
-			return new \WP_Error( 'helpdeck_no_question', __( 'A question is required.', 'helpdeck' ) );
+			return new \WP_Error( 'recourse_no_question', __( 'A question is required.', 'recourse' ) );
 		}
 
 		$index = Storage::load();
 
 		if ( null === $index ) {
-			return new \WP_Error( 'helpdeck_no_index', __( 'The index has not been built.', 'helpdeck' ) );
+			return new \WP_Error( 'recourse_no_index', __( 'The index has not been built.', 'recourse' ) );
 		}
 
 		$matches  = Retriever::retrieve( $index, $question );
@@ -190,7 +190,7 @@ class Abilities {
 		);
 
 		if ( ! $result['ok'] ) {
-			return new \WP_Error( 'helpdeck_no_answer', $result['error'] );
+			return new \WP_Error( 'recourse_no_answer', $result['error'] );
 		}
 
 		return array(
@@ -209,13 +209,13 @@ class Abilities {
 		$query = isset( $input['query'] ) ? sanitize_text_field( (string) $input['query'] ) : '';
 
 		if ( '' === $query ) {
-			return new \WP_Error( 'helpdeck_no_query', __( 'A query is required.', 'helpdeck' ) );
+			return new \WP_Error( 'recourse_no_query', __( 'A query is required.', 'recourse' ) );
 		}
 
 		$index = Storage::load();
 
 		if ( null === $index ) {
-			return new \WP_Error( 'helpdeck_no_index', __( 'The index has not been built.', 'helpdeck' ) );
+			return new \WP_Error( 'recourse_no_index', __( 'The index has not been built.', 'recourse' ) );
 		}
 
 		$passages = array();
@@ -251,7 +251,7 @@ class Abilities {
 		 *
 		 * @param array<int, string> $names Ability names.
 		 */
-		$allowed = apply_filters( 'helpdeck_allowed_abilities', array() );
+		$allowed = apply_filters( 'recourse_allowed_abilities', array() );
 
 		if ( ! is_array( $allowed ) || empty( $allowed ) ) {
 			return array();
@@ -322,7 +322,7 @@ class Abilities {
 			$ability = function_exists( 'wp_get_ability' ) ? wp_get_ability( $name ) : null;
 
 			if ( null === $ability ) {
-				return new \WP_Error( 'helpdeck_missing_ability', 'that is not available' );
+				return new \WP_Error( 'recourse_missing_ability', 'that is not available' );
 			}
 
 			return $ability->execute( $input );

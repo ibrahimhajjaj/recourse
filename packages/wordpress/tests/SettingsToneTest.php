@@ -7,15 +7,15 @@
  * nothing, or rejected and vanishes, and either way the box is cleared on the
  * next page load with nothing said.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
 declare(strict_types=1);
 
-namespace Helpdeck\Tests;
+namespace Recourse\Tests;
 
-use Helpdeck\Prompt;
-use Helpdeck\Settings;
+use Recourse\Prompt;
+use Recourse\Settings;
 use PHPUnit\Framework\TestCase;
 
 /**

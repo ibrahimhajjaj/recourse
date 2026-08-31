@@ -55,7 +55,7 @@ describe('the examples in the documentation', () => {
 
   const imports = pages.flatMap((page) => {
     const text = readFileSync(page, 'utf8')
-    return [...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*'(helpdeck[^']*)'/g)].flatMap((m) =>
+    return [...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*'(recourse[^']*)'/g)].flatMap((m) =>
       (m[1] as string)
         .split(',')
         .map((name) => name.trim())
@@ -67,7 +67,7 @@ describe('the examples in the documentation', () => {
   it('import from entry points the package really has', () => {
     const wrong = imports
       .filter(({ entry }) => {
-        const key = entry === 'helpdeck' ? '.' : `./${entry.replace('helpdeck/', '')}`
+        const key = entry === 'recourse' ? '.' : `./${entry.replace('recourse/', '')}`
         return !(key in pkg.exports)
       })
       .map(({ page, entry }) => `${page}: ${entry}`)

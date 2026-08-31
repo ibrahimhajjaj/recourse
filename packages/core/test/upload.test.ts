@@ -306,10 +306,10 @@ const minioUp = await fetch(`${MINIO}/minio/health/live`, { signal: AbortSignal.
 describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
   it('uploads through the route, then reads it back as an attachment', async () => {
     const blobs = s3Blobs({
-      bucket: 'helpdeck-attachments',
+      bucket: 'recourse-attachments',
       endpoint: MINIO,
-      accessKeyId: 'helpdeck',
-      secretAccessKey: 'helpdeck-secret',
+      accessKeyId: 'recourse',
+      secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
     })
 
@@ -334,10 +334,10 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
 
   it('issues a signed url the browser uploads to, and resolves what lands', async () => {
     const blobs = s3Blobs({
-      bucket: 'helpdeck-attachments',
+      bucket: 'recourse-attachments',
       endpoint: MINIO,
-      accessKeyId: 'helpdeck',
-      secretAccessKey: 'helpdeck-secret',
+      accessKeyId: 'recourse',
+      secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
     })
 
@@ -371,10 +371,10 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
 
   it('hands an image to the model as a signed link rather than as bytes', async () => {
     const blobs = s3Blobs({
-      bucket: 'helpdeck-attachments',
+      bucket: 'recourse-attachments',
       endpoint: MINIO,
-      accessKeyId: 'helpdeck',
-      secretAccessKey: 'helpdeck-secret',
+      accessKeyId: 'recourse',
+      secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
     })
 
@@ -397,10 +397,10 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
 
   it('sends an image as bytes when asked to, for a model that cannot fetch', async () => {
     const blobs = s3Blobs({
-      bucket: 'helpdeck-attachments',
+      bucket: 'recourse-attachments',
       endpoint: MINIO,
-      accessKeyId: 'helpdeck',
-      secretAccessKey: 'helpdeck-secret',
+      accessKeyId: 'recourse',
+      secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
     })
 
@@ -422,10 +422,10 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
     // The token is issued before the bytes arrive, so this is the case that
     // decides whether an abandoned upload becomes a confusing answer.
     const blobs = s3Blobs({
-      bucket: 'helpdeck-attachments',
+      bucket: 'recourse-attachments',
       endpoint: MINIO,
-      accessKeyId: 'helpdeck',
-      secretAccessKey: 'helpdeck-secret',
+      accessKeyId: 'recourse',
+      secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
     })
 

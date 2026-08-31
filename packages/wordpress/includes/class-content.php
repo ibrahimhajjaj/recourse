@@ -12,10 +12,10 @@
  * things the site has decided a visitor cannot see, and an index is a way to
  * leak every one of them in an answer.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -125,7 +125,7 @@ class Content {
 		 * @param bool     $include Whether to index it.
 		 * @param \WP_Post $post    The post.
 		 */
-		if ( ! apply_filters( 'helpdeck_index_post', true, $post ) ) {
+		if ( ! apply_filters( 'recourse_index_post', true, $post ) ) {
 			return null;
 		}
 
@@ -165,6 +165,6 @@ class Content {
 		 * @param array<string, mixed> $document The document.
 		 * @param \WP_Post             $post     The post.
 		 */
-		return apply_filters( 'helpdeck_document', $document, $post );
+		return apply_filters( 'recourse_document', $document, $post );
 	}
 }

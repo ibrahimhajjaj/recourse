@@ -44,7 +44,7 @@ export default function Home() {
       <p className="note">
         The agent answers only from <code>examples/nextjs/content</code>, retrieved at request
         time and cited under each reply. Point it at a real site instead with{' '}
-        <code>helpdeck ingest --url https://your-site.com</code>.
+        <code>recourse ingest --url https://your-site.com</code>.
       </p>
     </div>
   )

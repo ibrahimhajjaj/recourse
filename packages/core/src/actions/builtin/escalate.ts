@@ -185,7 +185,7 @@ export function escalate(options: EscalateOptions): Action {
         } catch (error) {
           // The ticket exists and the customer has been told. Failing the
           // whole action over the flag would lose both.
-          console.warn(`[helpdeck] could not mark the conversation as taken over: ${String(error)}`)
+          console.warn(`[recourse] could not mark the conversation as taken over: ${String(error)}`)
         }
       }
 

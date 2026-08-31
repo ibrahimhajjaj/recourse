@@ -50,7 +50,7 @@ describe('reading the environment', () => {
     // traffic somewhere the operator did not intend.
     process.env.OPENAI_COMPATIBLE_BASE_URL = 'http://localhost:11434/v1'
     delete process.env.OPENAI_COMPATIBLE_MODEL
-    delete process.env.HELPDECK_MODEL
+    delete process.env.RECOURSE_MODEL
 
     expect(models.fromEnvironment()).toBe('openai/gpt-4o-mini')
   })
@@ -59,10 +59,10 @@ describe('reading the environment', () => {
     delete process.env.OPENAI_COMPATIBLE_BASE_URL
     delete process.env.OPENAI_COMPATIBLE_MODEL
 
-    process.env.HELPDECK_MODEL = 'anthropic/claude-haiku-4-5'
+    process.env.RECOURSE_MODEL = 'anthropic/claude-haiku-4-5'
     expect(models.fromEnvironment()).toBe('anthropic/claude-haiku-4-5')
 
-    delete process.env.HELPDECK_MODEL
+    delete process.env.RECOURSE_MODEL
     expect(models.fromEnvironment(undefined, 'openai/gpt-5')).toBe('openai/gpt-5')
   })
 
@@ -85,7 +85,7 @@ describe('reading the environment', () => {
     try {
       // @ts-expect-error deliberately removing it, the way a Worker has none
       delete globalThis.process
-      expect(models.fromEnvironment({ HELPDECK_MODEL: 'openai/gpt-4o-mini' })).toBe('openai/gpt-4o-mini')
+      expect(models.fromEnvironment({ RECOURSE_MODEL: 'openai/gpt-4o-mini' })).toBe('openai/gpt-4o-mini')
       expect(embedders.fromEnvironment({})).toBeUndefined()
     } finally {
       globalThis.process = original

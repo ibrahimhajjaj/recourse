@@ -116,7 +116,7 @@ export function toneRules(tone: string | undefined): string[] {
   // notices the agent ignoring a rule they are certain they wrote down.
   if (written.length > MAX_TONE_RULES) {
     console.warn(
-      `[helpdeck] this tone has ${written.length} rules and only the first ${MAX_TONE_RULES} are used. ` +
+      `[recourse] this tone has ${written.length} rules and only the first ${MAX_TONE_RULES} are used. ` +
         'A tone shapes a sentence rather than the answer, and a long one starts winning arguments ' +
         'against the rules that keep answers true. Anything that has to hold belongs in the prompt.',
     )

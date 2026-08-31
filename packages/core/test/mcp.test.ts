@@ -48,7 +48,7 @@ describe('the protocol handshake', () => {
 
     expect(answer?.jsonrpc).toBe('2.0')
     expect(result.protocolVersion).toBe(MCP_PROTOCOLS[0])
-    expect(result.serverInfo.name).toBe('helpdeck')
+    expect(result.serverInfo.name).toBe('recourse')
     expect(result.capabilities.tools).toBeDefined()
   })
 

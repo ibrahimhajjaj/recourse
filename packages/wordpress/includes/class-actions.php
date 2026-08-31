@@ -10,7 +10,7 @@
  * what a WordPress developer expects and because it means a site can add one
  * from a snippet in its own plugin without knowing anything about this one.
  *
- *     add_filter( 'helpdeck_actions', function ( $actions ) {
+ *     add_filter( 'recourse_actions', function ( $actions ) {
  *         $actions['check_stock'] = array(
  *             'description' => 'Look up whether a product is in stock. Use when
  *                               the customer asks about availability.',
@@ -31,10 +31,10 @@
  * `wp_json_encode` can handle. What it returns goes back to the model as the
  * result, so return facts rather than sentences.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -63,7 +63,7 @@ class Actions {
 		 *
 		 * @param array<string, array<string, mixed>> $actions Keyed by action name.
 		 */
-		$actions = apply_filters( 'helpdeck_actions', Abilities::as_actions() );
+		$actions = apply_filters( 'recourse_actions', Abilities::as_actions() );
 
 		if ( ! is_array( $actions ) ) {
 			return array();
@@ -228,7 +228,7 @@ class Actions {
 			$result = call_user_func( $action['callback'], $input, $context );
 		} catch ( \Throwable $error ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( '[helpdeck] action ' . $name . ' failed: ' . $error->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[recourse] action ' . $name . ' failed: ' . $error->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			}
 
 			return array( 'error' => 'that lookup did not work' );
@@ -267,7 +267,7 @@ class Actions {
 			// of "I have access to X, Y and Z" leaves a sentence that reads
 			// like a redaction, which tells the reader there was something to
 			// redact.
-			return __( 'I can look things up and pass you to a person when you need one. What can I help you with?', 'helpdeck' );
+			return __( 'I can look things up and pass you to a person when you need one. What can I help you with?', 'recourse' );
 		}
 
 		return $text;

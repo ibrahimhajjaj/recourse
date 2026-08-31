@@ -1,5 +1,5 @@
 {
-  "name": "helpdeck-example-worker",
+  "name": "recourse-example-worker",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "check": "node check-bundle.mjs"
   },
   "dependencies": {
-    "helpdeck": "workspace:*"
+    "recourse": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

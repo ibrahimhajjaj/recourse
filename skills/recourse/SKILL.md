@@ -1,9 +1,9 @@
 ---
-name: helpdeck
+name: recourse
 description: Add a self-hosted customer support agent to a project. Use when someone wants a support bot, a docs chatbot, an AI help desk, or a Chatbase alternative they own. Covers ingesting content, the chat endpoint, the widget, actions, channels, and choosing a store and a model.
 ---
 
-# helpdeck
+# recourse
 
 A support agent that learns a site's own content, answers with citations, and
 does the things support has to do: capture a lead, look up an order, open a
@@ -14,19 +14,19 @@ Nothing here needs an account or an API key to get working.
 ## The whole setup
 
 ```bash
-npm install helpdeck
-npx helpdeck ingest --url https://their-site.com
+npm install recourse
+npx recourse ingest --url https://their-site.com
 ```
 
-Writes `helpdeck/knowledge.json`, relative to the working directory. No key
+Writes `recourse/knowledge.json`, relative to the working directory. No key
 required: the crawler is keyless and the index falls back to keyword-only when
 there is no embedding credential.
 
 ```ts
 // app/api/chat/route.ts
-import { createChatHandler } from 'helpdeck/server'
-import { models, embedders } from 'helpdeck'
-import knowledge from '@/helpdeck/knowledge.json'
+import { createChatHandler } from 'recourse/server'
+import { models, embedders } from 'recourse'
+import knowledge from '@/recourse/knowledge.json'
 
 export const POST = createChatHandler({
   index: knowledge,
@@ -40,17 +40,17 @@ The widget file is in the package. Copy it where the site serves static files,
 and re-copy it when the package updates:
 
 ```bash
-cp node_modules/@helpdeck/widget/dist/helpdeck.min.js public/helpdeck.js
+cp node_modules/@recourse/widget/dist/recourse.min.js public/recourse.js
 ```
 
 ```html
-<script src="/helpdeck.js" data-endpoint="/api/chat" defer></script>
+<script src="/recourse.js" data-endpoint="/api/chat" defer></script>
 ```
 
 Then always:
 
 ```bash
-npx helpdeck doctor
+npx recourse doctor
 ```
 
 It prints a line per check and exits non-zero if anything is actually broken.
@@ -64,7 +64,7 @@ using keyword search, through the Vercel AI Gateway if it finds a credential.
 | Variable | What it does |
 | --- | --- |
 | `AI_GATEWAY_API_KEY` | Routes the model through the Vercel AI Gateway |
-| `HELPDECK_MODEL` | The model id for that path, such as `openai/gpt-4o-mini` |
+| `RECOURSE_MODEL` | The model id for that path, such as `openai/gpt-4o-mini` |
 | `OPENAI_COMPATIBLE_BASE_URL` | Any OpenAI-compatible endpoint, including a local Ollama |
 | `OPENAI_COMPATIBLE_API_KEY` | Its key, if it wants one |
 | `OPENAI_COMPATIBLE_MODEL` | The chat model on that endpoint |
@@ -79,20 +79,20 @@ leaves keyword-only retrieval rather than an error.
 leads and the unanswered-question list:
 
 ```ts
-import { fileStore } from 'helpdeck/store'
+import { fileStore } from 'recourse/store'
 
-createChatHandler({ index: knowledge, store: fileStore({ dir: '.helpdeck' }) })
+createChatHandler({ index: knowledge, store: fileStore({ dir: '.recourse' }) })
 ```
 
 ```ts
 // One machine, or serverless. Anything that scales out needs this instead.
-import { postgresStore } from '@helpdeck/store-postgres'
+import { postgresStore } from '@recourse/store-postgres'
 
 createChatHandler({ index: knowledge, store: postgresStore({ pool }) })
 ```
 
 `memoryStore()` is the default and dies with the process. `fileStore` assumes
-one writer. `@helpdeck/store-postgres` and `@helpdeck/store-d1` are separate
+one writer. `@recourse/store-postgres` and `@recourse/store-d1` are separate
 packages and are what a deployment that scales out wants.
 
 ## Four mistakes to avoid
@@ -101,7 +101,7 @@ These are the ones that cost hours, and none of them announces itself.
 
 **1. Rebuilding the index with a different embedding model.** A query vector
 from one model against vectors stored by another is not comparable. There is no
-error, the answers just get worse. `helpdeck doctor` catches it. If the
+error, the answers just get worse. `recourse doctor` catches it. If the
 embedding model changes, re-run `ingest`.
 
 **2. Putting a provider key in the widget.** The widget is a browser bundle.
@@ -113,7 +113,7 @@ instead.
 dies with the process and `fileStore` assumes one writer. Every serverless
 deployment runs more than one instance under load, and the transcripts,
 tickets and sources then scatter across instances that cannot see each other.
-Nothing errors. Use `@helpdeck/store-postgres` for anything real, and create
+Nothing errors. Use `@recourse/store-postgres` for anything real, and create
 the store **once at module scope**, one per request exhausts the connection
 limit.
 
@@ -130,7 +130,7 @@ gateway id otherwise. The README has a measured comparison; do not guess from
 model size, because the smallest model measured is also the most accurate one.
 
 **Store.** `memoryStore` for development, `fileStore` for one instance,
-`@helpdeck/store-postgres` for anything that scales out. All three pass the
+`@recourse/store-postgres` for anything that scales out. All three pass the
 same behaviour suite, so swapping is configuration rather than a rewrite.
 
 **Channels.** Ten adapters, each verifying its own webhook signatures. The
@@ -164,4 +164,4 @@ const { text, sources, unanswered } = await agent.answer('where is my order?')
   they change.
 - `packages/evals` for whether a change made answers better or worse.
   `pnpm eval --suite retrieval` needs no model and runs in a second.
-- `helpdeck doctor` before declaring anything finished.
+- `recourse doctor` before declaring anything finished.

@@ -1,7 +1,7 @@
 /**
  * Object storage: the seam, and the backends that fill it.
  *
- * Imported from `helpdeck/storage` so a deployment that keeps attachments
+ * Imported from `recourse/storage` so a deployment that keeps attachments
  * inline never pulls any of it in.
  */
 

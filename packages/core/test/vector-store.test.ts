@@ -64,7 +64,7 @@ describe('the vectors inside the index file', () => {
 
   it('refuses to be written to, since ingest builds it', async () => {
     const store = indexVectorStore(await index()) as VectorStore
-    await expect(store.upsert([])).rejects.toThrow(/helpdeck ingest/)
+    await expect(store.upsert([])).rejects.toThrow(/recourse ingest/)
   })
 
   it('is absent when the index has no vectors', async () => {

@@ -23,7 +23,7 @@
 
 import { createServer } from 'node:http'
 import { createHmac, generateKeyPairSync, sign } from 'node:crypto'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
+import { buildIndex, createAgent, textSource } from 'recourse'
 import {
   slackChannel,
   telegramChannel,
@@ -32,8 +32,8 @@ import {
   whatsappChannel,
   messengerChannel,
   emailChannel,
-} from 'helpdeck/channels'
-import { memoryStore } from 'helpdeck/store'
+} from 'recourse/channels'
+import { memoryStore } from 'recourse/store'
 
 const SECRETS = {
   slackSigning: 'slack-signing-secret-for-the-harness',

@@ -13,16 +13,16 @@
  * Regenerate with `node tools/generate-parity-fixtures.mjs` after any change
  * to the tokeniser, the chunker or BM25 on either side.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck\Tests;
+namespace Recourse\Tests;
 
-use Helpdeck\Bm25;
-use Helpdeck\Chunker;
-use Helpdeck\Index;
-use Helpdeck\Retriever;
-use Helpdeck\Tokenizer;
+use Recourse\Bm25;
+use Recourse\Chunker;
+use Recourse\Index;
+use Recourse\Retriever;
+use Recourse\Tokenizer;
 use PHPUnit\Framework\TestCase;
 
 /**

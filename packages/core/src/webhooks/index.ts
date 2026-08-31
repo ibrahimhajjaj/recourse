@@ -117,15 +117,15 @@ export function createWebhooks(options: WebhookOptions) {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-Helpdeck-Event': delivery.event,
+      'X-Recourse-Event': delivery.event,
       // Receivers deduplicate on this, because a retried delivery is a
       // successful delivery whose acknowledgement got lost.
-      'X-Helpdeck-Delivery': delivery.id,
+      'X-Recourse-Delivery': delivery.id,
       ...endpoint.headers,
     }
 
     if (secret) {
-      headers['X-Helpdeck-Signature'] = await signWebhook(body, secret, Math.floor(Date.now() / 1000))
+      headers['X-Recourse-Signature'] = await signWebhook(body, secret, Math.floor(Date.now() / 1000))
     }
 
     const response = await fetchWithRetry(endpoint.url, { method: 'POST', headers, body }, { attempts })
@@ -160,13 +160,13 @@ export function createWebhooks(options: WebhookOptions) {
           subscribed.map((endpoint) =>
             deliver(endpoint, delivery).catch((error: unknown) => {
               options.onError?.(error, { url: endpoint.url, event })
-              console.error(`[helpdeck] webhook to ${endpoint.url} failed`, error)
+              console.error(`[recourse] webhook to ${endpoint.url} failed`, error)
             }),
           ),
         )
       })().catch((error: unknown) => {
         options.onError?.(error, { url: 'endpoints', event })
-        console.error('[helpdeck] could not read the webhook endpoints', error)
+        console.error('[recourse] could not read the webhook endpoints', error)
       })
 
       if (options.waitUntil) options.waitUntil(work)

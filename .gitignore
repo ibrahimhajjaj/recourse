@@ -15,4 +15,4 @@ coverage/
 *.tsbuildinfo
 
 # Copied from the widget build by the example prebuild step.
-examples/nextjs/public/helpdeck.js
+examples/nextjs/public/recourse.js

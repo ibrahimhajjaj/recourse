@@ -7,7 +7,7 @@
  * bumped header with a stale tag ships the old code to everybody and nothing
  * anywhere reports an error.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
 declare(strict_types=1);
@@ -37,19 +37,19 @@ final class ReleaseTest extends TestCase {
 		$root = $this->plugin_root();
 
 		$readme = file_get_contents( $root . '/readme.txt' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a file on disk, in a test that does not load WordPress.
-		$php    = file_get_contents( $root . '/helpdeck.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a file on disk, in a test that does not load WordPress.
+		$php    = file_get_contents( $root . '/recourse.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a file on disk, in a test that does not load WordPress.
 		$pkg    = json_decode( file_get_contents( $root . '/package.json' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a file on disk, in a test that does not load WordPress.
 
 		preg_match( '/^Stable tag:\s*(\S+)/m', $readme, $tag );
 		preg_match( '/^\s*\*\s*Version:\s*(\S+)/m', $php, $header );
-		preg_match( "/define\(\s*'HELPDECK_VERSION',\s*'([^']+)'/", $php, $constant );
+		preg_match( "/define\(\s*'RECOURSE_VERSION',\s*'([^']+)'/", $php, $constant );
 
 		$this->assertNotEmpty( $tag, 'readme.txt has no Stable tag' );
 		$this->assertNotEmpty( $header, 'the plugin header has no Version' );
-		$this->assertNotEmpty( $constant, 'HELPDECK_VERSION is not defined' );
+		$this->assertNotEmpty( $constant, 'RECOURSE_VERSION is not defined' );
 
 		$this->assertSame( $header[1], $tag[1], 'readme.txt Stable tag and the plugin header disagree' );
-		$this->assertSame( $header[1], $constant[1], 'the plugin header and HELPDECK_VERSION disagree' );
+		$this->assertSame( $header[1], $constant[1], 'the plugin header and RECOURSE_VERSION disagree' );
 		$this->assertSame( $header[1], $pkg['version'], 'the plugin header and package.json disagree' );
 	}
 

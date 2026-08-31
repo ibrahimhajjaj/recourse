@@ -14,12 +14,12 @@
  * so these assert containment rather than ordering, and the exceptions the
  * patches added are gone.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck\Tests;
+namespace Recourse\Tests;
 
-use Helpdeck\Prompt;
+use Recourse\Prompt;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -205,7 +205,7 @@ class PromptTest extends TestCase {
 
 		$built = array(
 			'bare'        => Prompt::instructions( array() ),
-			'withActions' => Prompt::instructions( array(), array(), true ) . \Helpdeck\Actions::instructions( $actions ),
+			'withActions' => Prompt::instructions( array(), array(), true ) . \Recourse\Actions::instructions( $actions ),
 			'brisk'       => Prompt::instructions( array(), array( 'tone' => 'brisk' ) ),
 		);
 

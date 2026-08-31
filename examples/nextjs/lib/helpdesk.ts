@@ -1,4 +1,4 @@
-import { createHelpdesk, memoryStore } from 'helpdeck'
+import { createHelpdesk, memoryStore } from 'recourse'
 
 /**
  * One store and one help desk, shared by the chat endpoint and the management
@@ -17,6 +17,6 @@ export const helpdesk = createHelpdesk({
     { name: 'Billing disputes', teamId: 'billing', when: { contains: ['refund', 'charged', 'invoice', 'payment'] } },
   ],
   onTicketOpened(ticket) {
-    console.log(`[helpdeck] ticket #${ticket.ticketNumber} -> ${ticket.teamId}/${ticket.assigneeId ?? 'unassigned'}`)
+    console.log(`[recourse] ticket #${ticket.ticketNumber} -> ${ticket.teamId}/${ticket.assigneeId ?? 'unassigned'}`)
   },
 })

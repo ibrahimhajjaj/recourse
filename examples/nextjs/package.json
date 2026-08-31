@@ -1,11 +1,11 @@
 {
-  "name": "helpdeck-example-nextjs",
+  "name": "recourse-example-nextjs",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "ingest": "helpdeck ingest --path ./content --index ./lib/knowledge.json",
-    "ingest:site": "helpdeck ingest --index ./lib/knowledge.json",
+    "ingest": "recourse ingest --path ./content --index ./lib/knowledge.json",
+    "ingest:site": "recourse ingest --index ./lib/knowledge.json",
     "prebuild": "node scripts/copy-widget.mjs",
     "predev": "node scripts/copy-widget.mjs",
     "dev": "next dev",
@@ -15,13 +15,13 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
     "ai": "^7.0.84",
-    "helpdeck": "workspace:*",
+    "recourse": "workspace:*",
     "next": "^16.3.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@helpdeck/widget": "workspace:*",
+    "@recourse/widget": "workspace:*",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "typescript": "^5.9.3"

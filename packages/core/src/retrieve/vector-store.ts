@@ -75,7 +75,7 @@ export function indexVectorStore(index: KnowledgeIndex): VectorStore | null {
 
     async upsert() {
       throw new Error(
-        'the index vector store is built by `helpdeck ingest` and cannot be written to at runtime. ' +
+        'the index vector store is built by `recourse ingest` and cannot be written to at runtime. ' +
           'Configure a vectorStore if you need that.',
       )
     },

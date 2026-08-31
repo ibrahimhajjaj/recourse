@@ -192,7 +192,7 @@ export interface RedisLedgerOptions {
  * whichever instance wrote it.
  */
 export function redisLedger(options: RedisLedgerOptions): Ledger {
-  const prefix = options.prefix ?? 'helpdeck:spend'
+  const prefix = options.prefix ?? 'recourse:spend'
   const ttl = (key: string) => (key.includes(':m:') ? 45 * 86_400_000 : 2 * 86_400_000)
 
   return {
@@ -303,7 +303,7 @@ export function createBudget(options: BudgetOptions = {}): Budget {
     if (age > STALE_AFTER_MS) {
       const months = Math.floor(age / (30 * 86_400_000))
       console.warn(
-        `[helpdeck] the built-in model prices were last checked ${PRICES_CHECKED}, about ${months} months ago, ` +
+        `[recourse] the built-in model prices were last checked ${PRICES_CHECKED}, about ${months} months ago, ` +
           'and a dollar cap is only as good as they are. Pass your own `prices`, or cap in tokens instead.',
       )
     }
@@ -345,7 +345,7 @@ export function createBudget(options: BudgetOptions = {}): Budget {
 
         const reason = `${name} reached: ${round(used)} of ${cap}`
         if (!pauses) {
-          console.warn(`[helpdeck] ${reason}. Still answering, because onExceeded is "warn".`)
+          console.warn(`[recourse] ${reason}. Still answering, because onExceeded is "warn".`)
           continue
         }
         return { ok: false, reason, message: options.message ?? DEFAULT_MESSAGE }
@@ -367,7 +367,7 @@ export function createBudget(options: BudgetOptions = {}): Budget {
       if (usd === undefined && !unpriced.has(model)) {
         unpriced.add(model)
         console.warn(
-          `[helpdeck] no price for model "${model}", so it counts towards token caps but not spend caps. ` +
+          `[recourse] no price for model "${model}", so it counts towards token caps but not spend caps. ` +
             `Pass prices: { "${model}": { input: 0, output: 0 } } to declare it free, ` +
             'or its real rates per million tokens if you cap in dollars.',
         )

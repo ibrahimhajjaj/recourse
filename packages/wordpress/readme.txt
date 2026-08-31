@@ -1,4 +1,4 @@
-=== Helpdeck Support Agent ===
+=== Recourse Support Agent ===
 Contributors: ibrahimhajjaj
 Tags: support, chat, search, answers, chatbot
 Requires at least: 6.0
@@ -12,19 +12,19 @@ Answers visitor questions from your own published content, with citations back t
 
 == Description ==
 
-Helpdeck reads your published posts, pages and any public custom post types, builds a keyword index from them, and answers visitors' questions out of that index. Every answer carries numbered citations pointing at the pages it came from, so a visitor can check it and you can see where a wrong answer came from.
+Recourse reads your published posts, pages and any public custom post types, builds a keyword index from them, and answers visitors' questions out of that index. Every answer carries numbered citations pointing at the pages it came from, so a visitor can check it and you can see where a wrong answer came from.
 
-Nothing is indexed that a visitor could not already read. Drafts, private posts, password-protected posts and post types you did not tick are all left out, and a `helpdeck_index_post` filter is there for anything else your site needs to exclude.
+Nothing is indexed that a visitor could not already read. Drafts, private posts, password-protected posts and post types you did not tick are all left out, and a `recourse_index_post` filter is there for anything else your site needs to exclude.
 
 Retrieval runs on your own server and needs no account and no credential. Generating the answer text does: you supply an OpenAI-compatible endpoint and its key, and you pay whatever that provider charges. Until you do, the plugin makes no external request at all.
 
 The key belongs in `wp-config.php` rather than the database if you would rather it did not travel in a backup:
 
-`define( 'HELPDECK_API_KEY', 'your-key' );`
+`define( 'RECOURSE_API_KEY', 'your-key' );`
 
 == External services ==
 
-Helpdeck needs an OpenAI-compatible chat completions endpoint to write an answer. None ships with the plugin and none is contacted until you enter a base URL under Settings, so an unconfigured install makes no external request. Because you supply the base URL and the key, the service contacted is whichever one you choose, for example OpenAI, Groq, OpenRouter, or a model you host yourself. That provider's own terms of service and privacy policy govern the data you send it.
+Recourse needs an OpenAI-compatible chat completions endpoint to write an answer. None ships with the plugin and none is contacted until you enter a base URL under Settings, so an unconfigured install makes no external request. Because you supply the base URL and the key, the service contacted is whichever one you choose, for example OpenAI, Groq, OpenRouter, or a model you host yourself. That provider's own terms of service and privacy policy govern the data you send it.
 
 *   When it is called: on each visitor question submitted through the chat widget, and once each time an administrator presses Test Connection on the settings screen.
 *   What is sent: the visitor's question, up to twelve previous turns of the same conversation, the persona text you configured, your business name (your site title unless you change it), and the passages, titles and permalinks from your published content that matched the question. Nothing is sent from drafts, private posts, or post types you did not tick.
@@ -46,18 +46,18 @@ endpoint or a key here at all.
 The chat window says "Automated assistant. Answers can be wrong." under the
 assistant's name. The EU AI Act has required that disclosure of visitor-facing
 chatbots since 2 August 2026, and the duty falls on the site rather than on the
-plugin, so the wording is yours to change through the `helpdeck_ai_disclosure`
+plugin, so the wording is yours to change through the `recourse_ai_disclosure`
 filter. It is there by default rather than absent.
 
 == Source code ==
 
-The widget script shipped as `assets/helpdeck.min.js` is built from the TypeScript sources at https://github.com/ibrahimhajjaj/helpdeck, under `packages/widget/src`. The readable build is shipped alongside it as `assets/helpdeck.js`. Build it yourself with `npm install && npm run build` in that directory.
+The widget script shipped as `assets/recourse.min.js` is built from the TypeScript sources at https://github.com/ibrahimhajjaj/recourse, under `packages/widget/src`. The readable build is shipped alongside it as `assets/recourse.js`. Build it yourself with `npm install && npm run build` in that directory.
 
 == Installation ==
 
-1. Upload the plugin to `/wp-content/plugins/helpdeck`, or install it through the plugins screen.
+1. Upload the plugin to `/wp-content/plugins/recourse`, or install it through the plugins screen.
 2. Activate it.
-3. Go to Settings, then Helpdeck. Enter your model endpoint and key, and tick the post types to index.
+3. Go to Settings, then Recourse. Enter your model endpoint and key, and tick the post types to index.
 4. Press Rebuild Index. A large site is indexed in batches in the background.
 5. Tick Enable the assistant.
 
@@ -73,7 +73,7 @@ The passages that matched the question, the question, the recent conversation, a
 
 = Can I hide the widget on some pages? =
 
-Yes. Return false from the `helpdeck_show_widget` filter.
+Yes. Return false from the `recourse_show_widget` filter.
 
 = How large a site can it index? =
 

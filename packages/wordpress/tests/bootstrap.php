@@ -14,10 +14,10 @@
  * an exit code of zero. A suite that silently runs nothing is worse than a
  * suite that fails.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-define( 'HELPDECK_TESTING', true );
+define( 'RECOURSE_TESTING', true );
 
 // Every class opens with the guard the plugin directory's scanner looks for,
 // `defined( 'ABSPATH' ) || exit;`. Defining it here means the guard can be the
@@ -113,13 +113,13 @@ function get_post_types( $args = array(), $output = 'names' ) { // phpcs:ignore 
 	foreach ( array(
 		'post' => 'Posts',
 		'page' => 'Pages',
-	) as $helpdeck_name => $helpdeck_label ) {
+	) as $recourse_name => $recourse_label ) {
 		$type               = new \stdClass();
-		$type->name         = $helpdeck_name;
+		$type->name         = $recourse_name;
 		$type->labels       = new \stdClass();
-		$type->labels->name = $helpdeck_label;
+		$type->labels->name = $recourse_label;
 
-		$types[ $helpdeck_name ] = $type;
+		$types[ $recourse_name ] = $type;
 	}
 
 	return $types;
@@ -138,7 +138,7 @@ function get_option( $name, $fallback = false ) { // phpcs:ignore WordPress.Nami
 	return $fallback;
 }
 
-$helpdeck_testable = array(
+$recourse_testable = array(
 	'tokenizer',
 	'bm25',
 	'chunker',
@@ -169,8 +169,8 @@ function apply_filters( $hook, $value ) { // phpcs:ignore WordPress.NamingConven
 	return $value;
 }
 
-foreach ( $helpdeck_testable as $helpdeck_class ) {
-	require_once __DIR__ . '/../includes/class-' . $helpdeck_class . '.php';
+foreach ( $recourse_testable as $recourse_class ) {
+	require_once __DIR__ . '/../includes/class-' . $recourse_class . '.php';
 }
 
-unset( $helpdeck_testable, $helpdeck_class );
+unset( $recourse_testable, $recourse_class );

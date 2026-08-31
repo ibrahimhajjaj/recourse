@@ -188,7 +188,7 @@ describe('managing sources at runtime', () => {
 
 describe('sources survive a restart', () => {
   it('reads back the records and their status', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'helpdeck-kb-'))
+    const dir = await mkdtemp(join(tmpdir(), 'recourse-kb-'))
     dirs.push(dir)
 
     const first = createKnowledgeBase({ store: fileStore({ dir }) })

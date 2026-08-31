@@ -8,7 +8,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { buildIndex, createAgent, createEmbedder, createRetriever, textSource, parseIndex } from 'helpdeck'
+import { buildIndex, createAgent, createEmbedder, createRetriever, textSource, parseIndex } from 'recourse'
 import type { Document, KnowledgeIndex, LanguageModel } from './types.js'
 import { citationsIn, grade, isRefusal, type Observed } from './grade.js'
 import { parseSuite, type CaseResult, type EvalCase } from './case.js'

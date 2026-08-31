@@ -6,12 +6,12 @@
  * here is the layout core has no class for.
  */
 
-.helpdeck-status-box ul {
+.recourse-status-box ul {
 	list-style: disc;
 	margin: 0 0 0.5em 1.5em;
 }
 
-.helpdeck-tools {
+.recourse-tools {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 10px;

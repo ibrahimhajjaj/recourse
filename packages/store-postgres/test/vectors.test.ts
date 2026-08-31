@@ -1,16 +1,16 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import pg from 'pg'
-import { buildIndex, createRetriever, textSource } from 'helpdeck'
-import type { Document, Embedder, KnowledgeIndex } from 'helpdeck'
+import { buildIndex, createRetriever, textSource } from 'recourse'
+import type { Document, Embedder, KnowledgeIndex } from 'recourse'
 import { pgVectorStore, migrateVectors } from '../src/vectors.js'
 
 /**
  * Runs against a real pgvector, and skips cleanly without one.
  *
  * ```
- * docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=helpdeck -e POSTGRES_DB=helpdeck \
+ * docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=recourse -e POSTGRES_DB=recourse \
  *   pgvector/pgvector:pg16
- * TEST_DATABASE_URL=postgres://postgres:helpdeck@localhost:55432/helpdeck pnpm test
+ * TEST_DATABASE_URL=postgres://postgres:recourse@localhost:55432/recourse pnpm test
  * ```
  */
 const CONNECTION = process.env.TEST_DATABASE_URL
@@ -90,7 +90,7 @@ const pools: pg.Pool[] = []
 /** A table of its own per test, so counts and contents are predictable. */
 async function freshStore(dimensions = DIMENSIONS) {
   if (!pool) throw new Error('no database')
-  const table = `helpdeck_vec_${process.pid}_${created++}`
+  const table = `recourse_vec_${process.pid}_${created++}`
   const scoped = new pg.Pool({ connectionString: CONNECTION, max: 4 })
   pools.push(scoped)
   await migrateVectors(scoped, table, dimensions)
@@ -181,7 +181,7 @@ describe.skipIf(!CONNECTION)('pgvector', () => {
 
   it('is safe to migrate from two places at once', async () => {
     if (!pool) return
-    const table = `helpdeck_vec_race_${process.pid}`
+    const table = `recourse_vec_race_${process.pid}`
     const scoped = new pg.Pool({ connectionString: CONNECTION, max: 4 })
     pools.push(scoped)
 
@@ -194,7 +194,7 @@ describe.skipIf(!CONNECTION)('pgvector', () => {
     if (!pool) return
     // A table name cannot be a bound parameter, so it is quoted. Without
     // doubling the embedded quote this is an injection.
-    const hostile = `helpdeck_vec_"; DROP TABLE helpdeck_vec_${process.pid}_0; --`
+    const hostile = `recourse_vec_"; DROP TABLE recourse_vec_${process.pid}_0; --`
     const scoped = new pg.Pool({ connectionString: CONNECTION, max: 2 })
     pools.push(scoped)
 

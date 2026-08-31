@@ -39,7 +39,7 @@ export interface UpstashRateLimitOptions {
 export function upstashRateLimiter(options: UpstashRateLimitOptions): RateLimiter {
   const limit = options.limit ?? 30
   const windowMs = options.windowMs ?? 60_000
-  const prefix = options.prefix ?? 'helpdeck:rl'
+  const prefix = options.prefix ?? 'recourse:rl'
   const root = options.url.replace(/\/+$/, '')
 
   return {
@@ -125,7 +125,7 @@ export interface RedisRateLimitOptions {
 export function redisRateLimiter(options: RedisRateLimitOptions): RateLimiter {
   const limit = options.limit ?? 30
   const windowMs = options.windowMs ?? 60_000
-  const prefix = options.prefix ?? 'helpdeck:rl'
+  const prefix = options.prefix ?? 'recourse:rl'
 
   return {
     async check(key: string): Promise<RateLimitResult> {

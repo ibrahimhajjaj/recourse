@@ -336,7 +336,7 @@ export function createVoiceSession(options: VoiceSessionOptions) {
     } catch (error) {
       if (signal.aborted) return
       options.onError?.(error, { channel: 'phone', conversationId: state.conversationId ?? '' })
-      console.error('[helpdeck] voice turn failed', error)
+      console.error('[recourse] voice turn failed', error)
       options.send({ type: 'text', token: 'Sorry, I could not do that just now.', last: true })
     } finally {
       touch()
@@ -395,7 +395,7 @@ export function createVoiceSession(options: VoiceSessionOptions) {
         }
 
         case 'error': {
-          console.error('[helpdeck] conversation relay error:', message.description)
+          console.error('[recourse] conversation relay error:', message.description)
           return
         }
       }

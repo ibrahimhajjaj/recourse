@@ -18,10 +18,10 @@
  * to the browser as one event, which costs the typewriter effect and nothing
  * else. The widget renders either the same way.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -128,7 +128,7 @@ class Model {
 		return array(
 			'ok'    => false,
 			'text'  => '',
-			'error' => __( 'That took too long to work out. Try asking a simpler question.', 'helpdeck' ),
+			'error' => __( 'That took too long to work out. Try asking a simpler question.', 'recourse' ),
 			'used'  => $used,
 		);
 	}
@@ -181,7 +181,7 @@ class Model {
 			return array(
 				'ok'    => false,
 				'text'  => '',
-				'error' => __( 'The assistant is not configured yet.', 'helpdeck' ),
+				'error' => __( 'The assistant is not configured yet.', 'recourse' ),
 				'used'  => array(),
 			);
 		}
@@ -207,7 +207,7 @@ class Model {
 		$name = isset( $config['model'] ) ? trim( $config['model'] ) : '';
 
 		if ( '' === $base || '' === $name ) {
-			return self::failure( __( 'The assistant is not configured yet.', 'helpdeck' ) );
+			return self::failure( __( 'The assistant is not configured yet.', 'recourse' ) );
 		}
 
 		$payload = array(
@@ -245,7 +245,7 @@ class Model {
 			// the endpoint and, on some hosts, the proxy's own credentials.
 			self::log( 'request failed: ' . $response->get_error_message() );
 
-			return self::failure( __( 'The assistant could not be reached just now.', 'helpdeck' ) );
+			return self::failure( __( 'The assistant could not be reached just now.', 'recourse' ) );
 		}
 
 		$status = (int) wp_remote_retrieve_response_code( $response );
@@ -258,13 +258,13 @@ class Model {
 			// Translated for the customer, specific in the log. A provider's
 			// raw JSON in a chat bubble is how a key ends up in a screenshot.
 			if ( 401 === $status || 403 === $status ) {
-				return self::failure( __( 'The assistant is not configured correctly.', 'helpdeck' ) );
+				return self::failure( __( 'The assistant is not configured correctly.', 'recourse' ) );
 			}
 			if ( 429 === $status ) {
-				return self::failure( __( 'The assistant is busy. Try again in a moment.', 'helpdeck' ) );
+				return self::failure( __( 'The assistant is busy. Try again in a moment.', 'recourse' ) );
 			}
 
-			return self::failure( __( 'The assistant could not answer just now.', 'helpdeck' ) );
+			return self::failure( __( 'The assistant could not answer just now.', 'recourse' ) );
 		}
 
 		$message = isset( $body['choices'][0]['message'] ) && is_array( $body['choices'][0]['message'] )
@@ -279,7 +279,7 @@ class Model {
 		if ( '' === trim( $text ) && empty( $calls ) ) {
 			self::log( 'the model returned an empty answer' );
 
-			return self::failure( __( 'The assistant had nothing to say. Try rephrasing.', 'helpdeck' ) );
+			return self::failure( __( 'The assistant had nothing to say. Try rephrasing.', 'recourse' ) );
 		}
 
 		return array(
@@ -363,7 +363,7 @@ class Model {
 	 */
 	private static function log( $message ) {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( '[helpdeck] ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[recourse] ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
 	}
 }

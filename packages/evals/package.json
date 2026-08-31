@@ -1,11 +1,11 @@
 {
-  "name": "@helpdeck/evals",
+  "name": "@recourse/evals",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Scored suites for answer quality, retrieval and injection resistance. Not published.",
   "bin": {
-    "helpdeck-eval": "./src/cli.ts"
+    "recourse-eval": "./src/cli.ts"
   },
   "scripts": {
     "lint": "tsc -p tsconfig.json --noEmit",
@@ -22,7 +22,7 @@
     "teams": "tsx src/live-teams.mts"
   },
   "dependencies": {
-    "helpdeck": "workspace:*"
+    "recourse": "workspace:*"
   },
   "devDependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
@@ -31,7 +31,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7",
-    "@helpdeck/store-postgres": "workspace:*",
+    "@recourse/store-postgres": "workspace:*",
     "pg": "^8.13.1",
     "@types/pg": "^8.11.10"
   }

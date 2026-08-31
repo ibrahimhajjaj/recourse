@@ -21,11 +21,11 @@ import type {
  * origin) keep separate transcripts instead of reading each other's.
  */
 function storageKey(endpoint: string): string {
-  return `helpdeck:transcript:${endpoint}`
+  return `recourse:transcript:${endpoint}`
 }
 
 function inviteKey(endpoint: string): string {
-  return `helpdeck:invite:${endpoint}`
+  return `recourse:invite:${endpoint}`
 }
 
 const ICONS = {
@@ -54,12 +54,12 @@ const ACCEPTED_TYPES = [
 
 /** Mounts the widget. Returns handles so the host page can drive it. */
 export function createWidget(options: WidgetOptions) {
-  if (!options.endpoint) throw new Error('helpdeck: an `endpoint` is required')
+  if (!options.endpoint) throw new Error('recourse: an `endpoint` is required')
 
   const strings = resolveStrings(options.strings)
   const inline = Boolean(options.target)
   const host = document.createElement('div')
-  host.setAttribute('data-helpdeck', '')
+  host.setAttribute('data-recourse', '')
   if (inline) host.setAttribute('data-inline', 'true')
   // Deliberately not `all: initial` here. The :host rule already does that and
   // then re-declares the widget's own font and colours; setting it inline would
@@ -72,7 +72,7 @@ export function createWidget(options: WidgetOptions) {
   sheet.textContent = styles
   root.appendChild(sheet)
 
-  if (options.accent) host.style.setProperty('--hd-accent', options.accent)
+  if (options.accent) host.style.setProperty('--rc-accent', options.accent)
   applyTheme(host, options.theme ?? 'auto')
 
   const side = options.position === 'bottom-left' ? 'pos-left' : 'pos-right'
@@ -105,7 +105,7 @@ export function createWidget(options: WidgetOptions) {
         ;(listener as (value: WidgetEvents[K]) => void)(payload)
       } catch (error) {
         // A broken host listener must not take the conversation down.
-        console.error(`[helpdeck] listener for "${name}" threw`, error)
+        console.error(`[recourse] listener for "${name}" threw`, error)
       }
     }
   }

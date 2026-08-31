@@ -15,15 +15,15 @@
  */
 
 import { createServer } from 'node:http'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
+import { buildIndex, createAgent, textSource } from 'recourse'
 import {
   listTemplates,
   sendTemplate,
   whatsappChannel,
   type MessageTemplate,
-} from 'helpdeck/channels'
-import { memoryStore } from 'helpdeck/store'
-import { models } from 'helpdeck/models'
+} from 'recourse/channels'
+import { memoryStore } from 'recourse/store'
+import { models } from 'recourse/models'
 
 const env = process.env
 const need = (name: string): string => {
@@ -133,7 +133,7 @@ if (mode === '--serve') {
       embedder: false,
       store,
       model: models.fromEnvironment(env as Record<string, string | undefined>),
-      persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.HELPDECK_TONE as 'plain') ?? 'warm' },
+      persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.RECOURSE_TONE as 'plain') ?? 'warm' },
     }),
     appSecret: need('META_APP_SECRET'),
     verifyToken: need('META_VERIFY_TOKEN'),

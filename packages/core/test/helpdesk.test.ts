@@ -269,7 +269,7 @@ describe('finding tickets', () => {
 
 describe('tickets survive a restart', () => {
   it('reads back the ticket, its thread and the next number', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'helpdeck-hd-'))
+    const dir = await mkdtemp(join(tmpdir(), 'recourse-hd-'))
     dirs.push(dir)
 
     const first = createHelpdesk({ store: fileStore({ dir }), teams: TEAMS, routing: ROUTING })

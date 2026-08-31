@@ -1,4 +1,4 @@
-import { createApiHandler } from 'helpdeck/api'
+import { createApiHandler } from 'recourse/api'
 import { helpdesk, store } from '../../../../lib/helpdesk'
 
 /**
@@ -13,7 +13,7 @@ const handler = createApiHandler({
   helpdesk,
   basePath: '/api/admin',
   admin: true,
-  tokens: process.env.HELPDECK_API_TOKEN ? [process.env.HELPDECK_API_TOKEN] : undefined,
+  tokens: process.env.RECOURSE_API_TOKEN ? [process.env.RECOURSE_API_TOKEN] : undefined,
 })
 
 export const GET = handler

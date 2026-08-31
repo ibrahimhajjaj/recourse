@@ -7,12 +7,12 @@
  * the right order of reliance. A rule a model can decline to follow is not a
  * control.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck\Tests;
+namespace Recourse\Tests;
 
-use Helpdeck\Actions;
+use Recourse\Actions;
 use PHPUnit\Framework\TestCase;
 
 /**

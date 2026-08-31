@@ -69,7 +69,7 @@ export function elevenLabsTranscriber(options: ElevenLabsTranscriberOptions): Tr
 
       if (!response.ok) {
         // The body can name the key's permissions, so it stays in the log.
-        console.warn(`[helpdeck] ElevenLabs transcription failed: ${response.status} ${await response.text()}`)
+        console.warn(`[recourse] ElevenLabs transcription failed: ${response.status} ${await response.text()}`)
         throw new Error('transcription failed')
       }
 
@@ -114,7 +114,7 @@ export function openAiCompatibleTranscriber(options: OpenAiTranscriberOptions = 
       })
 
       if (!response.ok) {
-        console.warn(`[helpdeck] transcription failed: ${response.status} ${await response.text()}`)
+        console.warn(`[recourse] transcription failed: ${response.status} ${await response.text()}`)
         throw new Error('transcription failed')
       }
 

@@ -138,7 +138,7 @@ export async function detectAndTranslate(
     const parsed = parse(raw)
 
     if (!parsed) {
-      console.warn('[helpdeck] the translation model did not return usable JSON')
+      console.warn('[recourse] the translation model did not return usable JSON')
       return { language: 'unknown', skipped: true }
     }
 
@@ -150,7 +150,7 @@ export async function detectAndTranslate(
 
     return { language: parsed.language, translation: parsed.translation, skipped: false }
   } catch (error) {
-    console.warn(`[helpdeck] translation failed: ${error instanceof Error ? error.message : String(error)}`)
+    console.warn(`[recourse] translation failed: ${error instanceof Error ? error.message : String(error)}`)
     return { language: 'unknown', skipped: true }
   }
 }

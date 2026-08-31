@@ -8,8 +8,8 @@ import { dirname, join } from 'node:path'
  * with no network and makes the served file obviously the one you just built.
  */
 const require = createRequire(import.meta.url)
-const dist = dirname(require.resolve('@helpdeck/widget/package.json'))
+const dist = dirname(require.resolve('@recourse/widget/package.json'))
 
 await mkdir('public', { recursive: true })
-await copyFile(join(dist, 'dist/helpdeck.min.js'), 'public/helpdeck.js')
-console.log('copied widget to public/helpdeck.js')
+await copyFile(join(dist, 'dist/recourse.min.js'), 'public/recourse.js')
+console.log('copied widget to public/recourse.js')

@@ -81,7 +81,7 @@ export const models = {
       })
     }
 
-    return env.HELPDECK_MODEL ?? fallback
+    return env.RECOURSE_MODEL ?? fallback
   },
 }
 

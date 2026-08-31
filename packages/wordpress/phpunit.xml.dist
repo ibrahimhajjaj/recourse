@@ -7,7 +7,7 @@
 	convertWarningsToExceptions="true"
 	beStrictAboutTestsThatDoNotTestAnything="true">
 	<testsuites>
-		<testsuite name="helpdeck">
+		<testsuite name="recourse">
 			<directory suffix="Test.php">tests</directory>
 		</testsuite>
 	</testsuites>

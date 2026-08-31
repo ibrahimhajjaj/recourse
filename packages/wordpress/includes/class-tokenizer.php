@@ -11,10 +11,10 @@
  * Anything changed here has to be changed in `knowledge/tokenize.ts` too, and
  * the parity test is what will tell you that you forgot.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 

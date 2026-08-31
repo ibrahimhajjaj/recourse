@@ -1,4 +1,4 @@
-# helpdeck evals
+# recourse evals
 
 Scored suites for retrieval quality, answer grounding, injection resistance
 and conduct. Not published; this is a development tool.
@@ -10,13 +10,13 @@ which is a different question and the one customers actually experience.
 
 ```sh
 # Retrieval only. No model, no credential, no network. This is the CI run.
-pnpm --filter @helpdeck/evals eval
+pnpm --filter @recourse/evals eval
 
 # Everything, against a local Ollama model.
-pnpm --filter @helpdeck/evals eval --model qwen3:4b --embed --save
+pnpm --filter @recourse/evals eval --model qwen3:4b --embed --save
 
 # One suite.
-pnpm --filter @helpdeck/evals eval --suite injection --model qwen3:4b
+pnpm --filter @recourse/evals eval --suite injection --model qwen3:4b
 ```
 
 ### A local run is the whole machine

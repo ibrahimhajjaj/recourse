@@ -22,15 +22,15 @@ import { createServer } from 'node:http'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
-import { sunshineChannel } from 'helpdeck/channels'
-import { memoryStore } from 'helpdeck/store'
-import { models } from 'helpdeck/models'
+import { buildIndex, createAgent, textSource } from 'recourse'
+import { sunshineChannel } from 'recourse/channels'
+import { memoryStore } from 'recourse/store'
+import { models } from 'recourse/models'
 
 const CREDENTIALS = join(homedir(), '.config/dev-credentials/sunshine.env')
 const PORT = 8791
 const API = 'https://api.smooch.io/v2'
-const NAME = 'helpdeck live check'
+const NAME = 'recourse live check'
 
 function credentials(): Record<string, string> {
   const found: Record<string, string> = {}

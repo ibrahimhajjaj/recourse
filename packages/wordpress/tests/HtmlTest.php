@@ -2,13 +2,13 @@
 /**
  * What a rendered page has to survive on its way into the index.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck\Tests;
+namespace Recourse\Tests;
 
-use Helpdeck\Chunker;
-use Helpdeck\Html;
+use Recourse\Chunker;
+use Recourse\Html;
 use PHPUnit\Framework\TestCase;
 
 /**

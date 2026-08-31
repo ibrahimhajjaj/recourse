@@ -199,7 +199,7 @@ function normalize(url: string): string {
 
 async function getText(url: string, signal?: AbortSignal): Promise<string | null> {
   try {
-    const response = await fetchWithRetry(url, { headers: { 'User-Agent': 'helpdeck' } }, { attempts: 2, signal })
+    const response = await fetchWithRetry(url, { headers: { 'User-Agent': 'recourse' } }, { attempts: 2, signal })
     if (!response.ok) return null
     return await response.text()
   } catch {

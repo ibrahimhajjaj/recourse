@@ -1,11 +1,11 @@
-# @helpdeck/widget
+# @recourse/widget
 
-The embeddable chat UI for [helpdeck](https://github.com/ibrahimhajjaj/helpdeck).
+The embeddable chat UI for [recourse](https://github.com/ibrahimhajjaj/recourse).
 15KB minified, no dependencies, isolated in a shadow root.
 
 ```html
 <script
-  src="https://cdn.jsdelivr.net/npm/@helpdeck/widget/dist/helpdeck.min.js"
+  src="https://cdn.jsdelivr.net/npm/@recourse/widget/dist/recourse.min.js"
   data-endpoint="/api/chat"
   data-title="Ask us anything"
   data-accent="#2563eb"
@@ -15,7 +15,7 @@ The embeddable chat UI for [helpdeck](https://github.com/ibrahimhajjaj/helpdeck)
 Or mount it yourself:
 
 ```ts
-import { createWidget } from '@helpdeck/widget'
+import { createWidget } from '@recourse/widget'
 
 const widget = createWidget({
   endpoint: '/api/chat',
@@ -46,7 +46,7 @@ const widget = createWidget({
 | `data-delete` | `true` to let a visitor delete their own conversation. |
 | `data-invite` | A message that opens the widget itself after a pause. |
 | `data-invite-delay` | Milliseconds before it does. |
-| `data-deep-link` | `false` to ignore `?helpdeck_q=` in the page URL. |
+| `data-deep-link` | `false` to ignore `?recourse_q=` in the page URL. |
 | `data-user-id`, `data-user-hash` | A signed identity, below. |
 
 ### Linking straight to a question
@@ -55,17 +55,17 @@ A help article that ends "still stuck?" can only offer a contact form. Link to
 the answer instead:
 
 ```html
-<a href="/billing?helpdeck_q=How+do+I+change+my+VAT+number">ask about VAT</a>
+<a href="/billing?recourse_q=How+do+I+change+my+VAT+number">ask about VAT</a>
 ```
 
 The visitor lands on the page they were going to anyway, the panel opens, and
-the question is already being answered. `hd_q` works too, for links people type
+the question is already being answered. `rc_q` works too, for links people type
 by hand. The parameter is removed from the address bar as soon as it is read, so
 a refresh does not ask again and a copied URL does not carry the question.
 
 Deliberately not `q`: that is a site search on half the web, and answering
 somebody's product search in the chat window is not what they asked for. Nothing
-happens on a page that has no `helpdeck_q`, which is why this is on by default.
+happens on a page that has no `recourse_q`, which is why this is on by default.
 
 ### Telling the agent who this is
 
@@ -82,7 +82,7 @@ order, an invoice, an address.
 Actions can then refuse to answer an unverified session rather than trusting the
 id it was handed.
 
-`window.helpdeck` exposes `open()`, `close()`, `ask(question)`, `clear()` and
+`window.recourse` exposes `open()`, `close()`, `ask(question)`, `clear()` and
 `destroy()`.
 
 ## Attachments
@@ -158,9 +158,9 @@ MIT
 Every visible word is replaceable, and a partial set is normal:
 
 ```html
-<script src="/helpdeck.js" data-endpoint="/api/chat" defer></script>
+<script src="/recourse.js" data-endpoint="/api/chat" defer></script>
 <script>
-  window.helpdeckConfig = {
+  window.recourseConfig = {
     strings: {
       title: 'Vraag ons alles',
       placeholder: 'Typ uw vraag',

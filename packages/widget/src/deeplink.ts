@@ -4,7 +4,7 @@
  * A help article that ends "still stuck?" can only offer a mailto or a link to
  * a contact form. With this it can link to the answer instead:
  *
- *     <a href="/billing?helpdeck_q=How+do+I+change+my+VAT+number">ask about VAT</a>
+ *     <a href="/billing?recourse_q=How+do+I+change+my+VAT+number">ask about VAT</a>
  *
  * The visitor lands on the page they were going to anyway, the panel opens,
  * and the question is already being answered. It also gives support staff a
@@ -12,8 +12,8 @@
  * paragraphs send people to the chat.
  */
 
-/** Read in this order. The namespaced one is canonical; `hd_q` is for hand-typed links. */
-export const DEEP_LINK_PARAMS = ['helpdeck_q', 'hd_q'] as const
+/** Read in this order. The namespaced one is canonical; `rc_q` is for hand-typed links. */
+export const DEEP_LINK_PARAMS = ['recourse_q', 'rc_q'] as const
 
 /**
  * Long enough for a real question, short enough that a crafted link cannot

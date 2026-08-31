@@ -18,10 +18,10 @@
  */
 
 import { createServer } from 'node:http'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
-import { telegramChannel } from 'helpdeck/channels'
-import { memoryStore } from 'helpdeck/store'
-import { models } from 'helpdeck/models'
+import { buildIndex, createAgent, textSource } from 'recourse'
+import { telegramChannel } from 'recourse/channels'
+import { memoryStore } from 'recourse/store'
+import { models } from 'recourse/models'
 
 const env = process.env
 const need = (name: string): string => {

@@ -12,10 +12,10 @@
  * counterpart in this file: embeddings need a credential, and the whole point
  * of the plugin is working without one.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 

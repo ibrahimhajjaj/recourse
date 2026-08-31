@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "helpdeck-worker",
+  "name": "recourse-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-01",
 
@@ -9,12 +9,12 @@
   // all. If a change ever makes this necessary, that is the signal something
   // Node-only leaked onto the serving path.
 
-  // Attachments. Create it with `wrangler r2 bucket create helpdeck-attachments`;
+  // Attachments. Create it with `wrangler r2 bucket create recourse-attachments`;
   // `wrangler dev` backs it with local storage until you do.
   "r2_buckets": [
     {
       "binding": "ATTACHMENTS",
-      "bucket_name": "helpdeck-attachments"
+      "bucket_name": "recourse-attachments"
     }
   ],
 

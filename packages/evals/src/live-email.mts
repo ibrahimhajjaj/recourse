@@ -6,7 +6,7 @@
  * function that reads the provider's body and a function that sends the reply,
  * so both ends can be pointed at a local one.
  *
- *   docker run -d --name helpdeck-mail -p 1025:1025 -p 8025:8025 axllent/mailpit
+ *   docker run -d --name recourse-mail -p 1025:1025 -p 8025:8025 axllent/mailpit
  *   npx tsx src/live-email.mts
  *
  * What this proves is a real message over real SMTP: a customer sends one, the
@@ -18,10 +18,10 @@
  */
 
 import { createConnection } from 'node:net'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
-import { emailChannel } from 'helpdeck/channels'
-import { memoryStore } from 'helpdeck/store'
-import { models } from 'helpdeck/models'
+import { buildIndex, createAgent, textSource } from 'recourse'
+import { emailChannel } from 'recourse/channels'
+import { memoryStore } from 'recourse/store'
+import { models } from 'recourse/models'
 
 const SMTP = { host: '127.0.0.1', port: 1025 }
 const API = 'http://127.0.0.1:8025/api/v1'
@@ -38,7 +38,7 @@ async function smtpSend(from: string, to: string, message: string): Promise<void
     socket.setEncoding('utf8')
 
     const script = [
-      `EHLO helpdeck.test`,
+      `EHLO recourse.test`,
       `MAIL FROM:<${from}>`,
       `RCPT TO:<${to}>`,
       'DATA',

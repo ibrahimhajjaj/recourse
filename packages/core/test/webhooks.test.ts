@@ -101,9 +101,9 @@ describe('delivering events', () => {
       globalThis.fetch = original
     }
 
-    expect(headers?.get('x-helpdeck-event')).toBe('ticket.opened')
-    expect(headers?.get('x-helpdeck-delivery')).toMatch(/^whd_/)
-    expect(await verifyWebhook(body, headers?.get('x-helpdeck-signature') ?? null, 'whsec_test')).toBe(true)
+    expect(headers?.get('x-recourse-event')).toBe('ticket.opened')
+    expect(headers?.get('x-recourse-delivery')).toMatch(/^whd_/)
+    expect(await verifyWebhook(body, headers?.get('x-recourse-signature') ?? null, 'whsec_test')).toBe(true)
   })
 
   it('uses a per-endpoint secret over the shared one', async () => {
@@ -128,8 +128,8 @@ describe('delivering events', () => {
       globalThis.fetch = original
     }
 
-    expect(await verifyWebhook(body, headers?.get('x-helpdeck-signature') ?? null, 'per-endpoint')).toBe(true)
-    expect(await verifyWebhook(body, headers?.get('x-helpdeck-signature') ?? null, 'shared')).toBe(false)
+    expect(await verifyWebhook(body, headers?.get('x-recourse-signature') ?? null, 'per-endpoint')).toBe(true)
+    expect(await verifyWebhook(body, headers?.get('x-recourse-signature') ?? null, 'shared')).toBe(false)
   })
 
   it('reports a failing endpoint without taking anything else down', async () => {

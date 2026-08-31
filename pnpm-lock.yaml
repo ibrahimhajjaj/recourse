@@ -20,7 +20,7 @@ importers:
       ai:
         specifier: ^7.0.84
         version: 7.0.84(zod@4.5.1)
-      helpdeck:
+      recourse:
         specifier: workspace:*
         version: link:../../packages/core
       next:
@@ -33,7 +33,7 @@ importers:
         specifier: ^19.2.0
         version: 19.2.8(react@19.2.8)
     devDependencies:
-      '@helpdeck/widget':
+      '@recourse/widget':
         specifier: workspace:*
         version: link:../../packages/widget
       '@types/node':
@@ -48,7 +48,7 @@ importers:
 
   examples/worker:
     dependencies:
-      helpdeck:
+      recourse:
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -83,14 +83,14 @@ importers:
 
   packages/evals:
     dependencies:
-      helpdeck:
+      recourse:
         specifier: workspace:*
         version: link:../core
     devDependencies:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.40
         version: 3.0.40(zod@4.5.1)
-      '@helpdeck/store-postgres':
+      '@recourse/store-postgres':
         specifier: workspace:*
         version: link:../store-postgres
       '@types/node':
@@ -120,7 +120,7 @@ importers:
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
-      helpdeck:
+      recourse:
         specifier: workspace:*
         version: link:../core
       typescript:
@@ -138,7 +138,7 @@ importers:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.23.1
-      helpdeck:
+      recourse:
         specifier: workspace:*
         version: link:../core
       pg:

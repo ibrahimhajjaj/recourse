@@ -8,8 +8,8 @@ whole thing has to fit in one request body. A `url` you already host works and
 is never fetched by this server. The third is a bucket.
 
 ```ts
-import { s3Blobs } from 'helpdeck/storage'
-import { uploadRoute } from 'helpdeck/server'
+import { s3Blobs } from 'recourse/storage'
+import { uploadRoute } from 'recourse/server'
 
 const blobs = s3Blobs({
   bucket: 'support-attachments',
@@ -26,7 +26,7 @@ Then hand the chat handler the same two things, and a message can carry
 `{ name, mimeType, key, token }` instead of the bytes:
 
 ```ts
-import { createChatHandler } from 'helpdeck/server'
+import { createChatHandler } from 'recourse/server'
 
 createChatHandler({ index, storage: { blobs, secret: process.env.UPLOAD_SECRET! } })
 ```
@@ -46,7 +46,7 @@ test asserts. Two things to know: an R2 presigned URL cannot be used with a
 custom domain, and an expired one comes back as a 403 with no CORS headers, so
 the browser cannot read the error. Refresh before expiry rather than after.
 
-`helpdeck doctor` checks the bucket by writing to it, reading it back and
+`recourse doctor` checks the bucket by writing to it, reading it back and
 deleting it, because credentials that can list a bucket but not write to it are
 the usual mistake and nothing else notices until a customer's upload fails.
 

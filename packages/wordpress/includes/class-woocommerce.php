@@ -15,10 +15,10 @@
  * Reads only. Nothing here cancels, refunds or changes anything, because a
  * model that misunderstands a sentence should not be able to refund an order.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -33,7 +33,7 @@ class WooCommerce {
 	 * @return void
 	 */
 	public static function register() {
-		add_filter( 'helpdeck_actions', array( __CLASS__, 'add_actions' ) );
+		add_filter( 'recourse_actions', array( __CLASS__, 'add_actions' ) );
 	}
 
 	/**
@@ -111,7 +111,7 @@ class WooCommerce {
 		 * @param int|string $id     The number as given.
 		 * @param string     $number The number as given.
 		 */
-		$id    = apply_filters( 'helpdeck_order_id_from_number', $number, $number );
+		$id    = apply_filters( 'recourse_order_id_from_number', $number, $number );
 		$order = wc_get_order( $id );
 
 		// One answer for "not yours" and "not there". Telling them apart is how
@@ -147,7 +147,7 @@ class WooCommerce {
 			'items'        => $items,
 			// The tracking number is what the customer actually wants, and
 			// every shipping plugin stores it somewhere different.
-			'tracking'     => apply_filters( 'helpdeck_order_tracking', '', $order ),
+			'tracking'     => apply_filters( 'recourse_order_tracking', '', $order ),
 		);
 	}
 

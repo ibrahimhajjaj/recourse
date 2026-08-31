@@ -2,7 +2,7 @@
 /**
  * Stands in for WP_Post, which is all the content gate reads before deciding.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
 declare(strict_types=1);
@@ -10,7 +10,7 @@ declare(strict_types=1);
 /**
  * The two fields the gate looks at, and nothing else.
  */
-final class Helpdeck_Fake_Post {
+final class Recourse_Fake_Post {
 
 	/**
 	 * Post status.

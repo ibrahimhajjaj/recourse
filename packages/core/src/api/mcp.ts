@@ -96,7 +96,7 @@ export function createMcp(options: McpOptions) {
 
         return result(id, {
           protocolVersion: version,
-          serverInfo: { name: options.serverName ?? 'helpdeck', version: options.version ?? '0.1.0' },
+          serverInfo: { name: options.serverName ?? 'recourse', version: options.version ?? '0.1.0' },
           capabilities: { tools: { listChanged: false } },
         })
       }

@@ -23,7 +23,7 @@ import type {
   Store,
   Ticket,
   TicketMessage,
-} from 'helpdeck'
+} from 'recourse'
 import { SCHEMA } from './schema.js'
 
 export interface PostgresStoreOptions {
@@ -796,7 +796,7 @@ function warnOnRepeatedPool(connectionString: string): void {
   if (pooledConnections.has(connectionString) && !warned) {
     warned = true
     console.warn(
-      '[helpdeck] postgresStore has opened a second pool for the same database in this process. ' +
+      '[recourse] postgresStore has opened a second pool for the same database in this process. ' +
         'Create the store once at module scope and reuse it; one per request will exhaust the ' +
         'connection limit. Pass an existing `pool` if you manage one yourself.',
     )

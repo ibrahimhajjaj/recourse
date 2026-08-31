@@ -1,6 +1,7 @@
 {
-  "name": "@helpdeck/wordpress",
+  "name": "@recourse/wordpress",
   "version": "0.1.0",
+  "license": "GPL-2.0-or-later",
   "private": true,
   "description": "The WordPress plugin. PHP, with a retrieval engine proven identical to the TypeScript core's.",
   "type": "module",

@@ -2,7 +2,7 @@
 /**
  * The chat endpoint.
  *
- * `/wp-json/helpdeck/v1/chat`, answering in the same event-stream protocol the
+ * `/wp-json/recourse/v1/chat`, answering in the same event-stream protocol the
  * widget already speaks, so the same widget build serves a WordPress install
  * and a Node one.
  *
@@ -18,10 +18,10 @@
  * Admin routes are a different matter, and those do check a nonce and a
  * capability.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -33,7 +33,7 @@ class Rest {
 	/**
 	 * Namespace for every route here.
 	 */
-	const NAMESPACE_V1 = 'helpdeck/v1';
+	const NAMESPACE_V1 = 'recourse/v1';
 
 	/**
 	 * Messages one visitor may send per window.
@@ -85,13 +85,13 @@ class Rest {
 		$caller = self::caller();
 
 		if ( self::over_limit( $caller ) ) {
-			return new \WP_REST_Response( array( 'error' => __( 'Too many messages just now.', 'helpdeck' ) ), 429 );
+			return new \WP_REST_Response( array( 'error' => __( 'Too many messages just now.', 'recourse' ) ), 429 );
 		}
 
 		$messages = self::messages( $request->get_param( 'messages' ) );
 
 		if ( empty( $messages ) ) {
-			return new \WP_REST_Response( array( 'error' => __( 'No question was sent.', 'helpdeck' ) ), 400 );
+			return new \WP_REST_Response( array( 'error' => __( 'No question was sent.', 'recourse' ) ), 400 );
 		}
 
 		$index = Storage::load();
@@ -99,7 +99,7 @@ class Rest {
 		if ( null === $index ) {
 			return self::stream(
 				array(),
-				__( 'The assistant has not been set up yet. An administrator needs to build the index.', 'helpdeck' )
+				__( 'The assistant has not been set up yet. An administrator needs to build the index.', 'recourse' )
 			);
 		}
 
@@ -307,13 +307,13 @@ class Rest {
 		 * @param int    $limit  Messages.
 		 * @param string $caller Caller hash.
 		 */
-		$limit = (int) apply_filters( 'helpdeck_rate_limit', self::RATE_LIMIT, $caller );
+		$limit = (int) apply_filters( 'recourse_rate_limit', self::RATE_LIMIT, $caller );
 
 		if ( $limit <= 0 ) {
 			return false;
 		}
 
-		return (int) get_transient( 'helpdeck_rate_' . $caller ) >= $limit;
+		return (int) get_transient( 'recourse_rate_' . $caller ) >= $limit;
 	}
 
 	/**
@@ -326,7 +326,7 @@ class Rest {
 	 * @return void
 	 */
 	private static function count_message( $caller ) {
-		$key   = 'helpdeck_rate_' . $caller;
+		$key   = 'recourse_rate_' . $caller;
 		$count = (int) get_transient( $key );
 
 		// The window restarts from the first message rather than sliding, which

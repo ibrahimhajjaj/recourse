@@ -100,7 +100,7 @@ export function answerInBackground(
       options.onError?.(error, { channel, conversationId: message.conversationId })
       // Logged rather than rethrown: nothing is listening, and an unhandled
       // rejection would take the whole worker down with it.
-      console.error(`[helpdeck] ${channel} turn failed`, error)
+      console.error(`[recourse] ${channel} turn failed`, error)
     }
   })()
 

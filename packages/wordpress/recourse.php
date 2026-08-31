@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name:       Helpdeck Support Agent
- * Plugin URI:        https://github.com/ibrahimhajjaj/helpdeck
+ * Plugin Name:       Recourse Support Agent
+ * Plugin URI:        https://github.com/ibrahimhajjaj/recourse
  * Description:       A support agent that answers from your own pages and products, with citations. Runs on your server; no content leaves it except the question you send to your own model provider.
  * Version:           0.1.0
  * Requires at least: 6.0
@@ -10,20 +10,20 @@
  * Author URI:        https://github.com/ibrahimhajjaj
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       helpdeck
+ * Text Domain:       recourse
  * Domain Path:       /languages
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'HELPDECK_VERSION', '0.1.0' );
-define( 'HELPDECK_FILE', __FILE__ );
-define( 'HELPDECK_PATH', plugin_dir_path( __FILE__ ) );
-define( 'HELPDECK_URL', plugin_dir_url( __FILE__ ) );
+define( 'RECOURSE_VERSION', '0.1.0' );
+define( 'RECOURSE_FILE', __FILE__ );
+define( 'RECOURSE_PATH', plugin_dir_path( __FILE__ ) );
+define( 'RECOURSE_URL', plugin_dir_url( __FILE__ ) );
 
 /**
  * Loads a class on demand.
@@ -41,7 +41,7 @@ function autoload( $class_name ) {
 	}
 
 	$relative = substr( $class_name, strlen( __NAMESPACE__ ) + 1 );
-	$file     = HELPDECK_PATH . 'includes/class-' . strtolower( str_replace( '_', '-', $relative ) ) . '.php';
+	$file     = RECOURSE_PATH . 'includes/class-' . strtolower( str_replace( '_', '-', $relative ) ) . '.php';
 
 	if ( is_readable( $file ) ) {
 		require_once $file;

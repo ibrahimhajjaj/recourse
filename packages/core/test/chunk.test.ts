@@ -45,7 +45,7 @@ describe('markdown chunker', () => {
   })
 
   it('does not treat a hash inside a code fence as a heading', () => {
-    const chunks = chunker.split(doc('# Setup\n\n```sh\n# install it\nnpm i helpdeck\n```'))
+    const chunks = chunker.split(doc('# Setup\n\n```sh\n# install it\nnpm i recourse\n```'))
     expect(chunks.every((chunk) => chunk.section === 'Setup')).toBe(true)
   })
 
@@ -107,6 +107,6 @@ describe('index build and serialisation', () => {
   })
 
   it('rejects a malformed index with an actionable message', () => {
-    expect(() => parseIndex(JSON.stringify({ version: 1 }))).toThrow(/helpdeck ingest/)
+    expect(() => parseIndex(JSON.stringify({ version: 1 }))).toThrow(/recourse ingest/)
   })
 })

@@ -6,10 +6,10 @@
  * touch, so the rule here is that a page with no widget on it does no work at
  * all: no index read, no option read beyond the one, no script enqueued.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -36,7 +36,7 @@ class Plugin {
 			Admin::register();
 		}
 
-		register_deactivation_hook( HELPDECK_FILE, array( __CLASS__, 'deactivate' ) );
+		register_deactivation_hook( RECOURSE_FILE, array( __CLASS__, 'deactivate' ) );
 	}
 
 	/**
@@ -57,21 +57,21 @@ class Plugin {
 		 *
 		 * @param bool $show Whether to show it.
 		 */
-		if ( ! apply_filters( 'helpdeck_show_widget', true ) ) {
+		if ( ! apply_filters( 'recourse_show_widget', true ) ) {
 			return;
 		}
 
 		$settings = Settings::all();
 
 		wp_enqueue_script(
-			'helpdeck-widget',
-			HELPDECK_URL . 'assets/helpdeck.min.js',
+			'recourse-widget',
+			RECOURSE_URL . 'assets/recourse.min.js',
 			array(),
-			HELPDECK_VERSION,
+			RECOURSE_VERSION,
 			true
 		);
 
-		// The widget reads `window.helpdeckConfig` and merges it over whatever
+		// The widget reads `window.recourseConfig` and merges it over whatever
 		// the script tag carries, so the configuration goes in a global rather
 		// than in data attributes. The key names are the widget's, not the
 		// settings screen's, and they are not the same: it wants a `title`
@@ -103,11 +103,11 @@ class Plugin {
 		 * @param string $disclosure The line shown under the assistant's name.
 		 */
 		$config['subtitle'] = apply_filters(
-			'helpdeck_ai_disclosure',
-			__( 'Automated assistant. Answers can be wrong.', 'helpdeck' )
+			'recourse_ai_disclosure',
+			__( 'Automated assistant. Answers can be wrong.', 'recourse' )
 		);
 
-		wp_localize_script( 'helpdeck-widget', 'helpdeckConfig', $config );
+		wp_localize_script( 'recourse-widget', 'recourseConfig', $config );
 	}
 
 	/**

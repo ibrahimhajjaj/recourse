@@ -34,7 +34,7 @@ function suiteNames(): string {
 }
 
 const HELP = `
-helpdeck evals
+recourse evals
 
 Usage
   pnpm eval                          Retrieval suite only. No model, no credential.

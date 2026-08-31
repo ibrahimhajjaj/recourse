@@ -4,7 +4,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Lumen Coffee Roasters',
-  description: 'A demo shop with a helpdeck support agent trained on its own help pages.',
+  description: 'A demo shop with a recourse support agent trained on its own help pages.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           tag can host the agent: WordPress, Shopify, Webflow, a static export.
         */}
         <Script
-          src="/helpdeck.js"
+          src="/recourse.js"
           strategy="afterInteractive"
           data-endpoint="/api/chat"
           data-title="Ask Nadia"
@@ -35,11 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           The browser half of a client action. The basket lives in the page, so
           the agent asks for it rather than the server guessing.
         */}
-        <Script id="helpdeck-actions" strategy="afterInteractive">
+        <Script id="recourse-actions" strategy="afterInteractive">
           {`
             (function register() {
-              if (!window.helpdeck) return void setTimeout(register, 50)
-              window.helpdeck.handle('read_basket', function () {
+              if (!window.recourse) return void setTimeout(register, 50)
+              window.recourse.handle('read_basket', function () {
                 return {
                   items: [
                     { name: 'Ethiopia Guji, 250g, whole bean', price: 11.5 },

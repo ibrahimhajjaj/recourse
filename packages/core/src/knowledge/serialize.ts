@@ -10,11 +10,11 @@ export function parseIndex(json: string | KnowledgeIndex): KnowledgeIndex {
 
   if (index?.version !== 1) {
     throw new Error(
-      `unsupported knowledge index version ${String(index?.version)}; rebuild it with the current helpdeck`,
+      `unsupported knowledge index version ${String(index?.version)}; rebuild it with the current recourse`,
     )
   }
   if (!Array.isArray(index.chunks) || !index.keyword) {
-    throw new Error('knowledge index is malformed; rebuild it with `helpdeck ingest`')
+    throw new Error('knowledge index is malformed; rebuild it with `recourse ingest`')
   }
 
   return index

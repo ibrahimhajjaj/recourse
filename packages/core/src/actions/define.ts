@@ -98,7 +98,7 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
               calls.set(signature, seen + 1)
 
               if (repeatLimit > 0 && seen >= repeatLimit) {
-                console.warn(`[helpdeck] "${action.name}" called ${seen + 1} times with the same input; refusing to run it again.`)
+                console.warn(`[recourse] "${action.name}" called ${seen + 1} times with the same input; refusing to run it again.`)
                 return { ok: false, error: STOP_REPEATING }
               }
 

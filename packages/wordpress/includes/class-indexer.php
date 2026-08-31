@@ -13,10 +13,10 @@
  * long the rebuild takes, and a rebuild that fails halfway leaves it there for
  * good.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -28,12 +28,12 @@ class Indexer {
 	/**
 	 * The cron hook one batch runs on.
 	 */
-	const HOOK = 'helpdeck_build_batch';
+	const HOOK = 'recourse_build_batch';
 
 	/**
 	 * The cron hook a content change schedules.
 	 */
-	const CHANGED_HOOK = 'helpdeck_content_changed';
+	const CHANGED_HOOK = 'recourse_content_changed';
 
 	/**
 	 * Option holding the state of a rebuild in progress.
@@ -41,7 +41,7 @@ class Indexer {
 	 * Spelled out at every call site as well. See the note in `Storage`: the
 	 * directory's scanner reads the literal at the call, not the constant.
 	 */
-	const STATE_OPTION = 'helpdeck_build_state';
+	const STATE_OPTION = 'recourse_build_state';
 
 	/**
 	 * Seconds to wait after a content change before rebuilding.
@@ -107,7 +107,7 @@ class Indexer {
 		self::clear_working_file();
 
 		update_option(
-			'helpdeck_build_state',
+			'recourse_build_state',
 			array(
 				'page'       => 1,
 				'documents'  => 0,
@@ -128,7 +128,7 @@ class Indexer {
 	 * @return void
 	 */
 	public static function run_batch() {
-		$state = get_option( 'helpdeck_build_state' );
+		$state = get_option( 'recourse_build_state' );
 
 		if ( ! is_array( $state ) || ! isset( $state['page'] ) ) {
 			return;
@@ -142,7 +142,7 @@ class Indexer {
 
 		if ( $batch['more'] ) {
 			$state['page'] = (int) $state['page'] + 1;
-			update_option( 'helpdeck_build_state', $state, false );
+			update_option( 'recourse_build_state', $state, false );
 
 			// A minute apart, because the point of batching is to leave the
 			// host some room, not to do the same work in a tighter loop.
@@ -169,7 +169,7 @@ class Indexer {
 		Storage::save( Index::build( $documents ) );
 
 		self::clear_working_file();
-		delete_option( 'helpdeck_build_state' );
+		delete_option( 'recourse_build_state' );
 	}
 
 	/**
@@ -182,7 +182,7 @@ class Indexer {
 	 */
 	private static function finish_with_nothing() {
 		self::clear_working_file();
-		delete_option( 'helpdeck_build_state' );
+		delete_option( 'recourse_build_state' );
 	}
 
 	/**
@@ -191,7 +191,7 @@ class Indexer {
 	 * @return array{running: bool, page: int, documents: int}
 	 */
 	public static function progress() {
-		$state = get_option( 'helpdeck_build_state' );
+		$state = get_option( 'recourse_build_state' );
 
 		if ( ! is_array( $state ) || ! isset( $state['page'] ) ) {
 			return array(

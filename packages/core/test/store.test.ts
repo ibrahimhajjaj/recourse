@@ -20,7 +20,7 @@ afterEach(async () => {
 })
 
 async function makeFileStore(): Promise<Store> {
-  const dir = await mkdtemp(join(tmpdir(), 'helpdeck-store-'))
+  const dir = await mkdtemp(join(tmpdir(), 'recourse-store-'))
   temporaryDirs.push(dir)
   return fileStore({ dir })
 }
@@ -56,7 +56,7 @@ storeConformance({ name: 'file', make: makeFileStore, hooks: { describe, it } })
 
 describe('file store durability', () => {
   it('reads back everything after a restart', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'helpdeck-store-'))
+    const dir = await mkdtemp(join(tmpdir(), 'recourse-store-'))
     temporaryDirs.push(dir)
 
     const first = fileStore({ dir })
@@ -77,7 +77,7 @@ describe('file store durability', () => {
   })
 
   it('survives a truncated final line rather than losing the file', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'helpdeck-store-'))
+    const dir = await mkdtemp(join(tmpdir(), 'recourse-store-'))
     temporaryDirs.push(dir)
 
     const first = fileStore({ dir })

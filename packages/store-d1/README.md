@@ -1,9 +1,9 @@
-# @helpdeck/store-d1
+# @recourse/store-d1
 
-The helpdeck `Store`, backed by Cloudflare D1.
+The recourse `Store`, backed by Cloudflare D1.
 
 ```ts
-import { d1Store } from '@helpdeck/store-d1'
+import { d1Store } from '@recourse/store-d1'
 
 export default {
   async fetch(request: Request, env: Env) {
@@ -14,7 +14,7 @@ export default {
 
 ```jsonc
 // wrangler.jsonc
-{ "d1_databases": [{ "binding": "DB", "database_name": "helpdeck", "database_id": "..." }] }
+{ "d1_databases": [{ "binding": "DB", "database_name": "recourse", "database_id": "..." }] }
 ```
 
 ## Choosing this over Postgres
@@ -60,7 +60,7 @@ Same interface, same behaviour suite, different SQL underneath.
 ## Running the tests
 
 ```sh
-pnpm --filter @helpdeck/store-d1 test
+pnpm --filter @recourse/store-d1 test
 ```
 
 No database and no dependency: the tests drive the store through a shim over

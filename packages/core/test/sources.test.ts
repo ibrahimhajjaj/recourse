@@ -14,7 +14,7 @@ afterEach(async () => {
 })
 
 async function makeDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'helpdeck-src-'))
+  const dir = await mkdtemp(join(tmpdir(), 'recourse-src-'))
   dirs.push(dir)
   return dir
 }

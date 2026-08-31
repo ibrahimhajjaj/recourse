@@ -45,7 +45,7 @@ export function stripeBilling(options: StripeOptions): Action {
         { signal, attempts: 2 },
       )
     } catch (error) {
-      console.error('[helpdeck] stripe request failed', error)
+      console.error('[recourse] stripe request failed', error)
       throw new Error('Stripe lookup failed')
     }
 
@@ -175,7 +175,7 @@ export function shopifyOrders(options: ShopifyOptions): Action {
       } catch (error) {
         // The query string carries the customer's email; keep it out of the
         // message the model sees.
-        console.error('[helpdeck] shopify request failed', error)
+        console.error('[recourse] shopify request failed', error)
         throw new Error('Shopify lookup failed')
       }
 

@@ -1,13 +1,13 @@
-# @helpdeck/store-postgres
+# @recourse/store-postgres
 
-The helpdeck `Store`, backed by Postgres.
+The recourse `Store`, backed by Postgres.
 
 ```sh
-npm install @helpdeck/store-postgres pg
+npm install @recourse/store-postgres pg
 ```
 
 ```ts
-import { postgresStore } from '@helpdeck/store-postgres'
+import { postgresStore } from '@recourse/store-postgres'
 
 const store = postgresStore({ connectionString: process.env.DATABASE_URL })
 
@@ -67,7 +67,7 @@ roughly twenty thousand chunks. Past that it is the file that hurts before the
 scan does. `pgVectorStore` moves that half into Postgres:
 
 ```ts
-import { pgVectorStore } from '@helpdeck/store-postgres'
+import { pgVectorStore } from '@recourse/store-postgres'
 
 const vectors = pgVectorStore({ pool, dimensions: 768 })
 
@@ -138,8 +138,8 @@ something better.
 ## Running the tests
 
 ```sh
-docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=helpdeck -e POSTGRES_DB=helpdeck postgres:16-alpine
-TEST_DATABASE_URL=postgres://postgres:helpdeck@localhost:55432/helpdeck pnpm test
+docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=recourse -e POSTGRES_DB=recourse postgres:16-alpine
+TEST_DATABASE_URL=postgres://postgres:recourse@localhost:55432/recourse pnpm test
 ```
 
 Without `TEST_DATABASE_URL` the suite skips rather than fails, so a contributor

@@ -12,10 +12,10 @@
  * things that carry structure in a support page, headings, paragraphs, list
  * items, line breaks, table rows and cells, and throws the rest away.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 

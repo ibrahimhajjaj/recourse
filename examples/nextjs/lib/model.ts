@@ -1,6 +1,6 @@
-import { models, embedders } from 'helpdeck'
+import { models, embedders } from 'recourse'
 import type { LanguageModel } from 'ai'
-import type { Embedder } from 'helpdeck'
+import type { Embedder } from 'recourse'
 
 /**
  * Picks the model to answer with.

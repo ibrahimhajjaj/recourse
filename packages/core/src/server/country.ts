@@ -48,7 +48,7 @@ export function countryFrom(request: Request): string | undefined {
  */
 export function consented(purpose: string): (request: Request) => boolean {
   return (request) =>
-    (request.headers.get('x-helpdeck-consent') ?? '')
+    (request.headers.get('x-recourse-consent') ?? '')
       .split(',')
       .map((one) => one.trim().toLowerCase())
       .includes(purpose.toLowerCase())

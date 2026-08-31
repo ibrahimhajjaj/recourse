@@ -15,9 +15,9 @@
 
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
-import { memoryStore } from 'helpdeck/store'
-import type { KnowledgeIndex } from 'helpdeck'
+import { buildIndex, createAgent, textSource } from 'recourse'
+import { memoryStore } from 'recourse/store'
+import type { KnowledgeIndex } from 'recourse'
 
 const flag = (name: string, fallback: number): number => {
   const at = process.argv.indexOf(`--${name}`)

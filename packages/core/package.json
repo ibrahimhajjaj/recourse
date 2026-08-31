@@ -1,17 +1,17 @@
 {
-  "name": "helpdeck",
+  "name": "recourse",
   "version": "0.1.0",
   "type": "module",
   "description": "A support agent trained on your own site. No API keys, no database, no vendor.",
   "license": "MIT",
   "author": "Ibrahim Hajjaj",
-  "homepage": "https://github.com/ibrahimhajjaj/helpdeck#readme",
+  "homepage": "https://github.com/ibrahimhajjaj/recourse#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ibrahimhajjaj/helpdeck.git"
+    "url": "git+https://github.com/ibrahimhajjaj/recourse.git"
   },
   "bugs": {
-    "url": "https://github.com/ibrahimhajjaj/helpdeck/issues"
+    "url": "https://github.com/ibrahimhajjaj/recourse/issues"
   },
   "keywords": [
     "chatbot",
@@ -26,7 +26,7 @@
     "bm25"
   ],
   "bin": {
-    "helpdeck": "./dist/cli/index.js"
+    "recourse": "./dist/cli/index.js"
   },
   "files": [
     "dist",

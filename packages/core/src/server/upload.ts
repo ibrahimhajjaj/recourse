@@ -126,7 +126,7 @@ export function uploadRoute(options: UploadRouteOptions) {
     try {
       await options.blobs.put(key, bytes, { mimeType: checked.mimeType, filename: checked.name })
     } catch (error) {
-      console.warn(`[helpdeck] upload to ${options.blobs.name} failed: ${String(error)}`)
+      console.warn(`[recourse] upload to ${options.blobs.name} failed: ${String(error)}`)
       return json({ error: 'could not store that file' }, 502, cors)
     }
 
@@ -192,7 +192,7 @@ export function uploadUrlRoute(options: UploadUrlRouteOptions) {
         cors,
       )
     } catch (error) {
-      console.warn(`[helpdeck] could not sign an upload for ${options.blobs.name}: ${String(error)}`)
+      console.warn(`[recourse] could not sign an upload for ${options.blobs.name}: ${String(error)}`)
       return json({ error: 'could not start that upload' }, 502, cors)
     }
   }

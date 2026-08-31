@@ -9,14 +9,14 @@ way to hear about events and a way to ask it questions, and both already exist.
 Every one of these platforms gives you a URL to post to. Paste it in:
 
 ```ts
-import { createWebhooks } from 'helpdeck'
+import { createWebhooks } from 'recourse'
 
 const webhooks = createWebhooks({
   endpoints: [
     { url: 'https://hooks.zapier.com/hooks/catch/123/abcdef', events: ['lead.captured'] },
     { url: 'https://flow.viasocket.com/hook/xyz' },
   ],
-  secret: process.env.HELPDECK_WEBHOOK_SECRET,
+  secret: process.env.RECOURSE_WEBHOOK_SECRET,
 })
 ```
 
@@ -25,8 +25,8 @@ Six events are sent: `conversation.answered`, `conversation.unanswered`,
 endpoint with no `events` gets all of them.
 
 Each delivery is a flat JSON object with `id`, `event`, `createdAt` and `data`,
-which is the shape these platforms expect to be handed. The `X-Helpdeck-Event`
-header carries the name for routing, and `X-Helpdeck-Delivery` is stable across
+which is the shape these platforms expect to be handed. The `X-Recourse-Event`
+header carries the name for routing, and `X-Recourse-Delivery` is stable across
 retries so a receiver can drop a repeat.
 
 ## When the URL is not known at deploy time
@@ -58,9 +58,9 @@ The same data, as tools a model can call. Turn it on and the management API
 also speaks Model Context Protocol at `POST /mcp`:
 
 ```ts
-import { createApiHandler } from 'helpdeck/api'
+import { createApiHandler } from 'recourse/api'
 
-createApiHandler({ store, helpdesk, tokens: [process.env.HELPDECK_TOKEN!], mcp: { agent } })
+createApiHandler({ store, helpdesk, tokens: [process.env.RECOURSE_TOKEN!], mcp: { agent } })
 ```
 
 Then point a client at it. In Claude Desktop or an editor that speaks MCP:
@@ -68,7 +68,7 @@ Then point a client at it. In Claude Desktop or an editor that speaks MCP:
 ```json
 {
   "mcpServers": {
-    "helpdeck": {
+    "recourse": {
       "url": "https://support.example.com/api/mcp",
       "headers": { "Authorization": "Bearer YOUR_TOKEN" }
     }

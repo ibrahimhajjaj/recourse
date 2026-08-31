@@ -12,7 +12,7 @@ export const ADMIN_PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>helpdeck</title>
+<title>recourse</title>
 <style>
   :root {
     --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --soft:#f9fafb; --accent:#2563eb;
@@ -78,7 +78,7 @@ export const ADMIN_PAGE = `<!doctype html>
 </head>
 <body>
 <header>
-  <h1>helpdeck</h1>
+  <h1>recourse</h1>
   <nav>
     <button data-view="activity" aria-current="true">Activity</button>
     <button data-view="gaps">Answer gaps</button>
@@ -128,7 +128,7 @@ const views = {
   async widget() {
     const settings = {
       endpoint: '/api/chat',
-      script: '/helpdeck.js',
+      script: '/recourse.js',
       title: '',
       subtitle: '',
       greeting: '',

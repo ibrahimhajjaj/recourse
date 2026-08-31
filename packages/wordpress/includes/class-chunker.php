@@ -11,10 +11,10 @@
  * there. A shop that later moves to the Node core should not have its answers
  * change underneath it.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 

@@ -18,12 +18,12 @@ const readme = readFileSync(join(root, 'README.md'), 'utf8')
  * not compiled and a wrong one still passes every other test.
  */
 describe('the exports table', () => {
-  const documented = new Set([...readme.matchAll(/\| `(helpdeck[^`]*)`/g)].map((m) => m[1] as string))
+  const documented = new Set([...readme.matchAll(/\| `(recourse[^`]*)`/g)].map((m) => m[1] as string))
 
   const exported = new Set(
     Object.keys(pkg.exports)
       .filter((key) => key !== './package.json')
-      .map((key) => (key === '.' ? 'helpdeck' : key.replace('./', 'helpdeck/'))),
+      .map((key) => (key === '.' ? 'recourse' : key.replace('./', 'recourse/'))),
   )
 
   it('has a row for every entry point the package actually exports', () => {

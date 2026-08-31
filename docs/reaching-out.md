@@ -6,7 +6,7 @@ rather than in testing.
 ## Campaigns
 
 ```ts
-import { runCampaign } from 'helpdeck/outbound'
+import { runCampaign } from 'recourse/outbound'
 ```
 
 Sending is the easy part. The hard parts are the three mistakes you only make
@@ -26,7 +26,7 @@ every one is discovered the expensive way.
 ## Webhooks going out
 
 ```ts
-import { createWebhooks } from 'helpdeck/webhooks'
+import { createWebhooks } from 'recourse/webhooks'
 ```
 
 The store tells you what happened inside your own deployment. A webhook tells

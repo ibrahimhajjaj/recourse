@@ -13,17 +13,17 @@
  * to compute, and the bytes never leave Cloudflare's network on the way in.
  */
 
-import { createChatHandler, uploadRoute, downloadRoute } from 'helpdeck/server'
-import { r2Blobs, type R2Like } from 'helpdeck/storage'
-// Subpaths, not the root export: `helpdeck` re-exports `ingest`, which reads
+import { createChatHandler, uploadRoute, downloadRoute } from 'recourse/server'
+import { r2Blobs, type R2Like } from 'recourse/storage'
+// Subpaths, not the root export: `recourse` re-exports `ingest`, which reads
 // from disk and so imports `node:fs`. Nothing below touches the filesystem.
-import { models } from 'helpdeck/models'
-import type { KnowledgeIndex } from 'helpdeck/agent'
+import { models } from 'recourse/models'
+import type { KnowledgeIndex } from 'recourse/agent'
 import knowledge from './knowledge.json'
 
 interface Env {
   /** A model id for the AI Gateway, or leave it unset for the default. */
-  HELPDECK_MODEL?: string
+  RECOURSE_MODEL?: string
   /** Any OpenAI-compatible endpoint, including Workers AI. */
   OPENAI_COMPATIBLE_BASE_URL?: string
   OPENAI_COMPATIBLE_API_KEY?: string
@@ -32,9 +32,9 @@ interface Env {
   ATTACHMENTS?: R2Like
   /**
    * Signs the keys the upload route hands out, so a browser cannot name
-   * somebody else's file. `wrangler secret put HELPDECK_UPLOAD_SECRET`.
+   * somebody else's file. `wrangler secret put RECOURSE_UPLOAD_SECRET`.
    */
-  HELPDECK_UPLOAD_SECRET?: string
+  RECOURSE_UPLOAD_SECRET?: string
 }
 
 export default {
@@ -45,7 +45,7 @@ export default {
     // still takes small inline attachments; it just has nowhere to put a
     // 20MB scan.
     const storage =
-      env.ATTACHMENTS && env.HELPDECK_UPLOAD_SECRET
+      env.ATTACHMENTS && env.RECOURSE_UPLOAD_SECRET
         ? {
             // No `publicBase`: this bucket is private, so there is no URL a
             // model provider could fetch. Images are sent as bytes instead,
@@ -53,7 +53,7 @@ export default {
             // private network. Put a custom domain on the bucket and pass it
             // here if you would rather hand out links.
             blobs: r2Blobs(env.ATTACHMENTS),
-            secret: env.HELPDECK_UPLOAD_SECRET,
+            secret: env.RECOURSE_UPLOAD_SECRET,
           }
         : undefined
 

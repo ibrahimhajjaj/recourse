@@ -106,7 +106,7 @@ function page(view: {
             .join('')
 
   const widget = view.chatEndpoint
-    ? `<script src="${escapeHtml(view.base)}/helpdeck.js" data-endpoint="${escapeHtml(view.chatEndpoint)}"></script>`
+    ? `<script src="${escapeHtml(view.base)}/recourse.js" data-endpoint="${escapeHtml(view.chatEndpoint)}"></script>`
     : ''
 
   return `<!doctype html>

@@ -17,11 +17,11 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const out = join(root, 'dist', 'helpdeck')
+const out = join(root, 'dist', 'recourse')
 
 /** Everything the plugin needs at runtime, and nothing else. */
 const SHIPS = [
-  'helpdeck.php',
+  'recourse.php',
   'uninstall.php',
   'readme.txt',
   'includes',
@@ -29,7 +29,7 @@ const SHIPS = [
   'languages',
 ]
 
-if (!existsSync(join(root, 'assets', 'helpdeck.min.js'))) {
+if (!existsSync(join(root, 'assets', 'recourse.min.js'))) {
   console.error('The widget is not built. Run `npm run build` first.')
   process.exit(1)
 }
@@ -44,7 +44,7 @@ for (const entry of readdirSync(out)) {
   rmSync(join(out, entry), { recursive: true, force: true })
 }
 
-rmSync(join(root, 'dist', 'helpdeck.zip'), { force: true })
+rmSync(join(root, 'dist', 'recourse.zip'), { force: true })
 
 for (const entry of SHIPS) {
   const from = join(root, entry)
@@ -78,12 +78,12 @@ const walk = (directory) => {
 
 walk(out)
 
-const zip = spawnSync('zip', ['-rq', 'helpdeck.zip', 'helpdeck'], {
+const zip = spawnSync('zip', ['-rq', 'recourse.zip', 'recourse'], {
   cwd: join(root, 'dist'),
 })
 
-console.log(`dist/helpdeck: ${files} files, ${(bytes / 1024).toFixed(0)} KB`)
+console.log(`dist/recourse: ${files} files, ${(bytes / 1024).toFixed(0)} KB`)
 
 if (zip.status === 0) {
-  console.log(`dist/helpdeck.zip: ${(statSync(join(root, 'dist', 'helpdeck.zip')).size / 1024).toFixed(0)} KB`)
+  console.log(`dist/recourse.zip: ${(statSync(join(root, 'dist', 'recourse.zip')).size / 1024).toFixed(0)} KB`)
 }

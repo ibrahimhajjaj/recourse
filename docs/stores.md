@@ -4,8 +4,8 @@
 for anything that scales out:
 
 ```ts
-import { createChatHandler } from 'helpdeck/server'
-import { postgresStore } from '@helpdeck/store-postgres'
+import { createChatHandler } from 'recourse/server'
+import { postgresStore } from '@recourse/store-postgres'
 
 createChatHandler({ index, store: postgresStore({ connectionString: process.env.DATABASE_URL }) })
 ```
@@ -25,7 +25,7 @@ The suite the four run is published, so a fifth store proves it conforms rather
 than hoping:
 
 ```ts
-import { storeConformance } from 'helpdeck/store/conformance'
+import { storeConformance } from 'recourse/store/conformance'
 
 storeConformance({ name: 'dynamodb', make: () => myStore() })
 ```

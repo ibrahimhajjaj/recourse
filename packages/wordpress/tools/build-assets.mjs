@@ -15,8 +15,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const built = join(root, '..', 'widget', 'dist')
 const assets = join(root, 'assets')
 
-if (!existsSync(join(built, 'helpdeck.min.js'))) {
-  console.error('No widget build found. Run `pnpm --filter @helpdeck/widget build` first.')
+if (!existsSync(join(built, 'recourse.min.js'))) {
+  console.error('No widget build found. Run `pnpm --filter @recourse/widget build` first.')
   process.exit(1)
 }
 
@@ -39,15 +39,15 @@ function newestSource(directory) {
 }
 
 const source = join(root, '..', 'widget', 'src')
-if (existsSync(source) && newestSource(source) > statSync(join(built, 'helpdeck.min.js')).mtimeMs) {
+if (existsSync(source) && newestSource(source) > statSync(join(built, 'recourse.min.js')).mtimeMs) {
   console.error('The widget build is older than the widget source.')
-  console.error('Run `pnpm --filter @helpdeck/widget build` first, or the plugin ships the previous version.')
+  console.error('Run `pnpm --filter @recourse/widget build` first, or the plugin ships the previous version.')
   process.exit(1)
 }
 
 mkdirSync(assets, { recursive: true })
 
-for (const file of ['helpdeck.js', 'helpdeck.min.js']) {
+for (const file of ['recourse.js', 'recourse.min.js']) {
   copyFileSync(join(built, file), join(assets, file))
   console.log(`  ${file}  ${(statSync(join(assets, file)).size / 1024).toFixed(1)} KB`)
 }

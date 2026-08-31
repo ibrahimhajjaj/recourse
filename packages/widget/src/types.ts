@@ -1,7 +1,7 @@
 import type { WidgetStrings } from './strings.js'
 
 export interface WidgetOptions {
-  /** The helpdeck chat endpoint. Required. */
+  /** The recourse chat endpoint. Required. */
   endpoint: string
   /** Header title. */
   title?: string
@@ -24,7 +24,7 @@ export interface WidgetOptions {
   /** Remember the conversation for the tab's lifetime. */
   persist?: boolean
   /**
-   * Opens on a question carried in the page URL, as `?helpdeck_q=...`.
+   * Opens on a question carried in the page URL, as `?recourse_q=...`.
    *
    * On by default. The parameter is namespaced precisely so leaving it on is
    * safe: a page that already has `?q=` or `?search=` is untouched, because

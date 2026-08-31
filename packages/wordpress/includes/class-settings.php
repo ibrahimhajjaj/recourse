@@ -5,10 +5,10 @@
  * One option holding one array, because a settings screen with twelve
  * `update_option` calls is twelve chances to leave the site half configured.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -23,7 +23,7 @@ class Settings {
 	 * Written out at call sites too, so the directory's scanner can see the
 	 * prefix it is looking for.
 	 */
-	const OPTION = 'helpdeck_settings';
+	const OPTION = 'recourse_settings';
 
 	/**
 	 * The tones the prompt knows how to turn into rules.
@@ -41,7 +41,7 @@ class Settings {
 	 * @return array<string, mixed>
 	 */
 	public static function all() {
-		$stored = get_option( 'helpdeck_settings', array() );
+		$stored = get_option( 'recourse_settings', array() );
 
 		if ( ! is_array( $stored ) ) {
 			$stored = array();
@@ -85,8 +85,8 @@ class Settings {
 	 * @return string
 	 */
 	private static function api_key( $stored ) {
-		if ( defined( 'HELPDECK_API_KEY' ) && '' !== HELPDECK_API_KEY ) {
-			return (string) HELPDECK_API_KEY;
+		if ( defined( 'RECOURSE_API_KEY' ) && '' !== RECOURSE_API_KEY ) {
+			return (string) RECOURSE_API_KEY;
 		}
 
 		return self::text( $stored, 'model', 'api_key', '' );
@@ -99,7 +99,7 @@ class Settings {
 	 * @return bool
 	 */
 	public static function key_is_a_constant() {
-		return defined( 'HELPDECK_API_KEY' ) && '' !== HELPDECK_API_KEY;
+		return defined( 'RECOURSE_API_KEY' ) && '' !== RECOURSE_API_KEY;
 	}
 
 	/**

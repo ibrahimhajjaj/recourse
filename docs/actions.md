@@ -5,8 +5,8 @@
 An action is a name, a description of when to use it, and the fields it needs.
 
 ```ts
-import { createChatHandler } from 'helpdeck/server'
-import { collectLeads, escalate, httpAction, webSearch } from 'helpdeck'
+import { createChatHandler } from 'recourse/server'
+import { collectLeads, escalate, httpAction, webSearch } from 'recourse'
 
 createChatHandler({
   index: knowledge,
@@ -42,7 +42,7 @@ out until the coffee stops arriving.
 Where improvising is expensive, give the agent the steps.
 
 ```ts
-import { defineProcedure } from 'helpdeck/procedures'
+import { defineProcedure } from 'recourse/procedures'
 
 defineProcedure({
   name: 'Return or refund request',

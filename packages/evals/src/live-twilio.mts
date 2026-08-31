@@ -21,11 +21,11 @@
  */
 
 import { createServer } from 'node:http'
-import { buildIndex, createAgent, textSource } from 'helpdeck'
-import { signTwilio, twilioChannel } from 'helpdeck/channels'
+import { buildIndex, createAgent, textSource } from 'recourse'
+import { signTwilio, twilioChannel } from 'recourse/channels'
 
-import { memoryStore } from 'helpdeck/store'
-import { models } from 'helpdeck/models'
+import { memoryStore } from 'recourse/store'
+import { models } from 'recourse/models'
 
 const env = process.env
 const need = (name: string): string => {
@@ -85,7 +85,7 @@ function agent() {
     embedder: false,
     store: memoryStore(),
     model: models.fromEnvironment(env as Record<string, string | undefined>),
-    persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.HELPDECK_TONE as 'plain') ?? 'warm' },
+    persona: { name: 'Ada', business: 'Lumen Coffee Roasters', tone: (env.RECOURSE_TONE as 'plain') ?? 'warm' },
   })
 }
 

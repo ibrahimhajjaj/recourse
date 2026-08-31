@@ -215,7 +215,7 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions) {
       const timer = setInterval(() => {
         if (!dirty && !options_.force) return
         void this.train().catch((error: unknown) => {
-          console.error('[helpdeck] scheduled retrain failed', error)
+          console.error('[recourse] scheduled retrain failed', error)
         })
       }, intervalMs)
 

@@ -1,5 +1,5 @@
 {
-  "name": "helpdeck-monorepo",
+  "name": "recourse-monorepo",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.1",
@@ -7,7 +7,7 @@
     "build": "pnpm -r --filter \"./packages/*\" build",
     "test": "pnpm -r --filter \"./packages/*\" test",
     "lint": "pnpm -r --filter \"./packages/*\" lint",
-    "example": "pnpm --filter helpdeck-example-nextjs dev",
+    "example": "pnpm --filter recourse-example-nextjs dev",
     "verify": "pnpm build && pnpm lint && pnpm test"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 {
-  "name": "helpdeck/wordpress",
+  "name": "recourse/wordpress",
   "description": "A support agent that learns a WordPress site's own content. Ships as a plugin.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",

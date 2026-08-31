@@ -1,14 +1,14 @@
 {
-  "name": "@helpdeck/widget",
+  "name": "@recourse/widget",
   "version": "0.1.0",
   "type": "module",
-  "description": "Embeddable chat widget for helpdeck. One script tag, no dependencies, shadow DOM isolated.",
+  "description": "Embeddable chat widget for recourse. One script tag, no dependencies, shadow DOM isolated.",
   "license": "MIT",
   "author": "Ibrahim Hajjaj",
-  "homepage": "https://github.com/ibrahimhajjaj/helpdeck#readme",
+  "homepage": "https://github.com/ibrahimhajjaj/recourse#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ibrahimhajjaj/helpdeck.git",
+    "url": "git+https://github.com/ibrahimhajjaj/recourse.git",
     "directory": "packages/widget"
   },
   "keywords": [
@@ -16,24 +16,24 @@
     "support",
     "embed",
     "shadow-dom",
-    "helpdeck"
+    "recourse"
   ],
   "files": [
     "dist",
     "README.md",
     "LICENSE"
   ],
-  "main": "./dist/helpdeck.js",
+  "main": "./dist/recourse.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "unpkg": "./dist/helpdeck.min.js",
-  "jsdelivr": "./dist/helpdeck.min.js",
+  "unpkg": "./dist/recourse.min.js",
+  "jsdelivr": "./dist/recourse.min.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./embed": "./dist/helpdeck.min.js",
+    "./embed": "./dist/recourse.min.js",
     "./package.json": "./package.json"
   },
   "scripts": {

@@ -8,10 +8,10 @@
  * use the site's own words, and the corpus is small enough that lexical
  * matching is competitive.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 

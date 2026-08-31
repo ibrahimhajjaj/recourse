@@ -13,18 +13,18 @@ That is asserted in CI rather than claimed. `examples/worker` has the whole
 setup and a bundle guard that fails the build if a Node built-in reaches the
 serving path.
 
-`@helpdeck/store-d1` puts the conversations in D1, reached through a binding:
+`@recourse/store-d1` puts the conversations in D1, reached through a binding:
 no connection pool, no credential, nothing to exhaust. It passes the same
 behaviour suite as the memory, file and Postgres stores. Watch the free tier's
 **50 queries per invocation**, which is per request rather than per day.
 
-`helpdeck/storage` puts attachments in R2 through a binding, which is the part
+`recourse/storage` puts attachments in R2 through a binding, which is the part
 a Worker does better than anywhere else: no credentials in the environment and
 no signature to compute. The same seam runs on S3, MinIO, Backblaze and Wasabi
 through their shared API, so nothing here is Cloudflare-only.
 
-Two things differ from Node. Import the subpaths (`helpdeck/server`,
-`helpdeck/models`, ...) rather than the root, which re-exports `ingest` and so
+Two things differ from Node. Import the subpaths (`recourse/server`,
+`recourse/models`, ...) rather than the root, which re-exports `ingest` and so
 pulls in `node:fs`. And pass the environment in with
 `models.fromEnvironment(env)`, because a Worker has no `process` and reading
 it throws.
@@ -37,7 +37,7 @@ which is the right shape and has one cost: nothing validates it until a webhook
 arrives and fails. A wrong Slack signing secret looks exactly like silence.
 
 ```bash
-npx helpdeck doctor
+npx recourse doctor
 ```
 
 ```

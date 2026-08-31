@@ -5,12 +5,12 @@
  * The file format is the one the Node core writes and reads, version and all.
  * That is deliberate: a shop that outgrows the plugin and moves to the
  * self-hosted core should be able to take its index with it, and a developer
- * who builds an index with `helpdeck ingest` should be able to drop it in here.
+ * who builds an index with `recourse ingest` should be able to drop it in here.
  *
- * @package Helpdeck
+ * @package Recourse
  */
 
-namespace Helpdeck;
+namespace Recourse;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -72,7 +72,7 @@ class Index {
 		return array(
 			'version'   => self::VERSION,
 			// The same shape JavaScript's toISOString produces, so a file
-			// written here and one written by `helpdeck ingest` are the same
+			// written here and one written by `recourse ingest` are the same
 			// kind of thing to anything reading them.
 			'createdAt' => gmdate( 'Y-m-d\TH:i:s' ) . '.000Z',
 			'chunks'    => $chunks,

@@ -7,8 +7,8 @@
  * every call so `mustCallAction` has something to check.
  */
 
-import { defineAction } from 'helpdeck'
-import type { Action } from 'helpdeck'
+import { defineAction } from 'recourse'
+import type { Action } from 'recourse'
 
 export interface ActionLog {
   actions: Action[]
