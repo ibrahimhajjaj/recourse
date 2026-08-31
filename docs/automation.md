@@ -52,6 +52,48 @@ one of these platforms ships can call it directly. `GET /conversations`,
 trigger possible without any of the above: point one at `/conversations` and
 let it poll.
 
+## Reading it from inside a coding agent
+
+The same data, as tools a model can call. Turn it on and the management API
+also speaks Model Context Protocol at `POST /mcp`:
+
+```ts
+import { createApiHandler } from 'helpdeck/api'
+
+createApiHandler({ store, helpdesk, tokens: [process.env.HELPDECK_TOKEN!], mcp: { agent } })
+```
+
+Then point a client at it. In Claude Desktop or an editor that speaks MCP:
+
+```json
+{
+  "mcpServers": {
+    "helpdeck": {
+      "url": "https://support.example.com/api/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}
+```
+
+A support lead can then ask "what are people asking that we cannot answer?" and
+get the gap list, and an engineer can ask what the customer on ticket 412
+actually said without leaving the editor. The tools are `list_answer_gaps`,
+`support_stats`, `list_conversations`, `get_conversation`, plus
+`search_knowledge` when you pass the agent and `list_tickets`, `get_ticket` and
+`search_tickets` when you pass a help desk.
+
+Two things worth knowing. It is **read-only**, on purpose: every tool answers a
+question and none of them change anything, because an agent that closes a
+customer's ticket over a misread sentence is a worse trade than opening the
+dashboard. And it is behind the same `tokens` and the same `onAccess` log as
+every other route, so there is one credential to rotate and one audit trail to
+read rather than two.
+
+There is no process to run and no transport to configure. It is JSON-RPC 2.0
+over ordinary HTTP on the endpoint you already serve, which also means it works
+unchanged on Cloudflare Workers.
+
 ## Deliberately not here
 
 There is no published Zapier app. Publishing one means an account, a review and

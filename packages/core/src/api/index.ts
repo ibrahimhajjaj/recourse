@@ -6,6 +6,7 @@ import { corsHeaders, type CorsOptions } from '../server/cors.js'
 import { createRouter } from './router.js'
 import { badRequest, fail, json, notFound, ok, pageParams, readJson } from './http.js'
 import { ADMIN_PAGE } from './admin.js'
+import { createMcp, type McpOptions } from './mcp.js'
 import { safeEqual } from '../util/compare.js'
 
 export interface ApiOptions {
@@ -27,6 +28,21 @@ export interface ApiOptions {
    * every transcript, so it belongs behind the same auth as the rest of this.
    */
   admin?: boolean
+  /**
+   * Serves a Model Context Protocol endpoint at `/mcp`.
+   *
+   * Turns the help desk into tools a coding agent can call, so the gap list and
+   * the ticket queue are readable from Claude Desktop or an editor rather than
+   * from a dashboard in another tab. Read-only, and behind the same `tokens` as
+   * the rest of this.
+   *
+   * `true` mounts the store-backed tools. Pass an object to add
+   * `search_knowledge`, which needs the agent so that a search matches what a
+   * customer would actually have been answered from.
+   *
+   *     mcp: { agent }
+   */
+  mcp?: boolean | Omit<McpOptions, 'store' | 'helpdesk'>
   /**
    * Called for every request to this API, including the refused ones.
    *
@@ -91,6 +107,26 @@ export function createApiHandler(options: ApiOptions) {
   }
 
   router.get('/health', async () => ok({ status: 'ok', store: store.name }))
+
+  // Model Context Protocol, on the same auth and the same access log as
+  // everything else here. A separate endpoint with its own token would be a
+  // second thing to rotate and a second thing to forget.
+  if (options.mcp) {
+    const mcp = createMcp({
+      store,
+      ...(options.helpdesk ? { helpdesk: options.helpdesk } : {}),
+      ...(options.mcp === true ? {} : options.mcp),
+    })
+
+    router.post('/mcp', async (request) => {
+      const body = await request.text()
+      const answer = await mcp.handleText(body)
+
+      // A notification gets no response. Answering one is a protocol error,
+      // and 202 with an empty body is what the spec asks for.
+      return answer === null ? new Response(null, { status: 202 }) : json(answer, 200)
+    })
+  }
 
   if (options.admin) {
     router.get('/admin', async () =>

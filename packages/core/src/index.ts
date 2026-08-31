@@ -157,6 +157,7 @@ export {
   type Translated,
 } from './helpdesk/translate.js'
 export { createApiHandler, type ApiOptions } from './api/index.js'
+export { createMcp, MCP_PROTOCOLS, type Mcp, type McpOptions } from './api/mcp.js'
 export { createHelpPage, type HelpPageOptions } from './api/helppage.js'
 
 export { runCampaign, renderTemplate, validateRecipients } from './outbound/index.js'
