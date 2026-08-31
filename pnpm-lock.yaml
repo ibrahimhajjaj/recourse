@@ -169,7 +169,11 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@22.20.1)(happy-dom@20.11.13)(jsdom@30.0.1)(tsx@4.23.12)
 
-  packages/wordpress: {}
+  packages/wordpress:
+    devDependencies:
+      '@recourse-ai/widget':
+        specifier: workspace:*
+        version: link:../widget
 
 packages:
 
