@@ -1,6 +1,9 @@
 {
   "name": "@recourse-ai/store-postgres",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Postgres implementation of the recourse Store. Survives more than one instance.",
   "license": "MIT",

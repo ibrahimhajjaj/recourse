@@ -1,6 +1,9 @@
 {
   "name": "@recourse-ai/store-d1",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Cloudflare D1 implementation of the recourse Store. Runs on Workers.",
   "license": "MIT",

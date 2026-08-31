@@ -1,6 +1,9 @@
 {
   "name": "@recourse-ai/widget",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Embeddable chat widget for recourse. One script tag, no dependencies, shadow DOM isolated.",
   "license": "MIT",
