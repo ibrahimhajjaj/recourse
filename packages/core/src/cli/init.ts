@@ -30,8 +30,6 @@ export interface InitOptions {
   path?: string | undefined
   /** Where the index goes. */
   index: string
-  /** Takes every default and asks nothing. */
-  yes: boolean
   /** Where the project is. */
   cwd: string
   write: (line: string) => void
@@ -49,7 +47,7 @@ export async function init(options: InitOptions): Promise<number> {
   let source: { url?: string; path?: string } | null = { ...(options.url ? { url: options.url } : {}), ...(options.path ? { path: options.path } : {}) }
 
   if (!source.url && !source.path) {
-    source = prompts ? await ask(prompts, options.cwd) : null
+    source = prompts ? await ask(prompts) : null
 
     if (!source) {
       options.write(
@@ -160,7 +158,7 @@ async function look(cwd: string): Promise<Project> {
 }
 
 /** The one question, when there is a terminal to ask it in. */
-async function ask(prompts: Prompts, cwd: string): Promise<{ url?: string; path?: string } | null> {
+async function ask(prompts: Prompts): Promise<{ url?: string; path?: string } | null> {
   const kind = await prompts.select({
     message: 'What should it learn?',
     options: [
@@ -179,7 +177,6 @@ async function ask(prompts: Prompts, cwd: string): Promise<{ url?: string; path?
 
   if (prompts.isCancel(answer) || !String(answer).trim()) return null
 
-  void cwd
   return kind === 'url' ? { url: String(answer).trim() } : { path: String(answer).trim() }
 }
 

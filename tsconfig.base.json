@@ -10,8 +10,13 @@
     "noUnusedParameters": true,
     "noImplicitOverride": true,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    // No maps in the build output. They pointed at `../src/*.ts`, `src` is not
+    // in any package's `files`, and `sourcesContent` was off, so all 250 of
+    // them resolved to nothing in a consumer's debugger while accounting for
+    // most of the published weight. Tests run from `src` through vitest, so
+    // nothing local wanted them either.
+    "declarationMap": false,
+    "sourceMap": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

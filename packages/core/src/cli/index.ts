@@ -329,7 +329,6 @@ async function runInit(flags: Record<string, string | boolean>): Promise<number>
     ...(typeof flags.url === 'string' ? { url: flags.url } : {}),
     ...(typeof flags.path === 'string' ? { path: flags.path } : {}),
     index: typeof flags.index === 'string' ? flags.index : DEFAULT_OUT,
-    yes: flags.yes === true,
     cwd: process.cwd(),
     write: (line) => process.stdout.write(line),
   })

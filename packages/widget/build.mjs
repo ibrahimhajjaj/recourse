@@ -1,4 +1,12 @@
 import { build, context } from 'esbuild'
+import { rm } from 'node:fs/promises'
+
+// esbuild writes to named outfiles and never removes anything, so a bundle
+// that has been renamed survives in dist forever and gets published alongside
+// its replacement. `files: ["dist"]` ships whatever is in there, so the stale
+// copy reaches npm and anybody still loading the old name gets a build that
+// stopped being updated. Clearing first is the only thing that prevents it.
+await rm('dist', { recursive: true, force: true })
 
 /** The script-tag build: one self-contained IIFE that boots itself from data attributes. */
 const embed = {
