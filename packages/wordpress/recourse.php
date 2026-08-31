@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       Recourse Support Agent
+ * Plugin Name:       Recourse - AI Chatbot for Customer Support
  * Plugin URI:        https://github.com/ibrahimhajjaj/recourse
  * Description:       A support agent that answers from your own pages and products, with citations. Runs on your server; no content leaves it except the question you send to your own model provider.
  * Version:           0.1.0

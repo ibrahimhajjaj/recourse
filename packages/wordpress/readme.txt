@@ -1,6 +1,6 @@
-=== Recourse Support Agent ===
+=== Recourse - AI Chatbot for Customer Support ===
 Contributors: ibrahimhajjaj
-Tags: support, chat, search, answers, chatbot
+Tags: chatbot, ai chatbot, customer support, live chat, helpdesk
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -8,11 +8,11 @@ Stable tag: 0.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Answers visitor questions from your own published content, with citations back to the pages the answer came from.
+An AI chatbot that answers customer questions from your own posts and pages, and puts a citation under every answer.
 
 == Description ==
 
-Recourse reads your published posts, pages and any public custom post types, builds a keyword index from them, and answers visitors' questions out of that index. Every answer carries numbered citations pointing at the pages it came from, so a visitor can check it and you can see where a wrong answer came from.
+Recourse is an AI chatbot for customer support that answers out of your own content. It reads your published posts, pages and any public custom post types, builds a search index from them, and answers visitors' questions from that index. Every answer carries numbered citations pointing at the pages it came from, so a visitor can check it and you can see where a wrong answer came from.
 
 Nothing is indexed that a visitor could not already read. Drafts, private posts, password-protected posts and post types you did not tick are all left out, and a `recourse_index_post` filter is there for anything else your site needs to exclude.
 
@@ -82,6 +82,13 @@ The index is built in batches on WP-Cron, so the size of the site is not the lim
 = Does it work on multisite? =
 
 Each site in a network has its own settings and its own index. Uninstalling removes the data from every site in the network.
+
+== Screenshots ==
+
+1. The chat window answering a visitor's question, with a numbered citation under the answer pointing at the page it came from.
+2. The settings screen: model endpoint, the post types to index, and the tone the assistant answers in.
+3. Rebuilding the index, which reports how many documents it holds and how large it is.
+4. Test Connection, which checks the model endpoint before a visitor does.
 
 == Changelog ==
 
