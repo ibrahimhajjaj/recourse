@@ -8,6 +8,10 @@ export {
   type Tone,
 } from './prompt.js'
 export { corsHeaders, type CorsOptions } from './cors.js'
+// Re-exported here so a generated route needs one import line rather than two:
+// picking the model is server-side configuration like everything else on this
+// entry point.
+export { models, embedders, type EnvironmentLike } from '../models.js'
 export {
   createRateLimiter,
   callerKey,

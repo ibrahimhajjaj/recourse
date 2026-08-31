@@ -71,11 +71,15 @@ export function routeFor(project: Project, indexPath: string): string {
   const importPath = importFrom(project.route, indexPath)
 
   if (framework === 'next') {
-    return `import { createChatHandler } from '@recourse-ai/core/server'
+    return `import { createChatHandler, models } from '@recourse-ai/core/server'
 import knowledge from '${importPath}'
 
+// Reads the environment rather than assuming one provider: a local Ollama when
+// OPENAI_COMPATIBLE_BASE_URL is set, otherwise whatever key is configured.
+const model = models.fromEnvironment()
+
 // One handler for both verbs: the browser sends a preflight before it streams.
-const handler = createChatHandler({ index: knowledge })
+const handler = createChatHandler({ index: knowledge, model })
 
 export const POST = handler
 export const OPTIONS = handler
@@ -83,27 +87,29 @@ export const OPTIONS = handler
   }
 
   if (framework === 'worker') {
-    return `import { createChatHandler } from '@recourse-ai/core/server'
+    return `import { createChatHandler, models } from '@recourse-ai/core/server'
 import knowledge from '${importPath}'
 
-const chat = createChatHandler({ index: knowledge })
-
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: Record<string, string | undefined>): Promise<Response> {
     const { pathname } = new URL(request.url)
-    if (pathname === '/api/chat') return chat(request)
+    if (pathname !== '/api/chat') return new Response('Not found', { status: 404 })
 
-    return new Response('Not found', { status: 404 })
+    // A Worker has no global process.env: the variables arrive with the
+    // request, so the handler is built here rather than at module scope.
+    const chat = createChatHandler({ index: knowledge, model: models.fromEnvironment(env) })
+
+    return chat(request)
   },
 }
 `
   }
 
   return `import { createServer } from 'node:http'
-import { createChatHandler } from '@recourse-ai/core/server'
+import { createChatHandler, models } from '@recourse-ai/core/server'
 import knowledge from '${importPath}' with { type: 'json' }
 
-const chat = createChatHandler({ index: knowledge })
+const chat = createChatHandler({ index: knowledge, model: models.fromEnvironment() })
 
 createServer(async (incoming, outgoing) => {
   const body = incoming.method === 'POST' ? await text(incoming) : undefined

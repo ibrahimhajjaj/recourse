@@ -71,7 +71,10 @@ describe('the file it writes', () => {
     const route = routeFor(project, 'recourse/knowledge.json')
 
     expect(route).toContain('export default {')
-    expect(route).toContain("pathname === '/api/chat'")
+    expect(route).toContain("'/api/chat'")
+    // Built inside `fetch`, because a Worker gets its variables from the
+    // request rather than from a global environment at module scope.
+    expect(route).toContain('models.fromEnvironment(env)')
   })
 
   it('imports every generated route from a path that matches where it lands', () => {

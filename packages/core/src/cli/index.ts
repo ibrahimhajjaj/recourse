@@ -8,7 +8,7 @@ import { createRetriever } from '../retrieve/retriever.js'
 import { canReachGateway, createEmbedder } from '../embed.js'
 import { buildInstructions } from '../server/prompt.js'
 import type { ProgressEvent } from '../types.js'
-import { init } from './init.js'
+import { init, model as chooseModel } from './init.js'
 import { list, num, parseArgs } from './args.js'
 import { checkCredentials, checkModel, checkStorage, exitCodeFor, formatChecks, type Check } from './doctor.js'
 
@@ -20,6 +20,7 @@ recourse: a support agent trained on your own content
 Usage
   recourse init                      Set it up here: learn, wire the endpoint, print
                                      the widget snippet
+  recourse model                     Choose how it answers, or change it later
   recourse ingest --url <site>        Learn a website and write the knowledge index
   recourse ingest --path <dir>        Learn a folder of markdown instead
   recourse ask "<question>"           Ask the index a question from the terminal
@@ -39,6 +40,8 @@ Options
   --embed-url <u>   Any OpenAI-compatible embeddings endpoint, such as a local
                     Ollama on http://localhost:11434/v1
   --embed-model <m> Embedding model on that endpoint  (default nomic-embed-text)
+  --no-install      For init: write the files but add no dependency
+  --provider <p>    For init: local, gateway, compatible or later, without asking
   --retrieve-only   For ask: show the matched passages, do not call a model
   --model <id>      Chat model through the Vercel AI Gateway
   --top-k <n>       Passages retrieved per question    (default 6)
@@ -60,6 +63,12 @@ async function main(): Promise<number> {
   switch (command) {
     case 'init':
       return runInit(flags)
+    case 'model':
+      return chooseModel({
+        cwd: process.cwd(),
+        write: (line) => process.stdout.write(line),
+        ...(typeof flags.provider === 'string' ? { provider: flags.provider as never } : {}),
+      })
     case 'ingest':
       return runIngest(flags)
     case 'ask':
@@ -331,6 +340,8 @@ async function runInit(flags: Record<string, string | boolean>): Promise<number>
     index: typeof flags.index === 'string' ? flags.index : DEFAULT_OUT,
     cwd: process.cwd(),
     write: (line) => process.stdout.write(line),
+    ...(flags.install === false ? { install: false } : {}),
+    ...(typeof flags.provider === 'string' ? { provider: flags.provider as never } : {}),
   })
 }
 

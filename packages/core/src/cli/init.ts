@@ -20,6 +20,25 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { detect, routeFor, snippetFor, type Detected, type Project } from './scaffold.js'
+import {
+  PACKAGE,
+  alreadyInstalled,
+  detectPackageManager,
+  installCommand,
+  runScript,
+  type Manifest,
+  type PackageManager,
+} from './install.js'
+import {
+  OLLAMA,
+  envFileFor,
+  envFor,
+  mergeEnv,
+  pickLocalModel,
+  summarise,
+  type Provider,
+  type ProviderAnswers,
+} from './provider.js'
 
 /** Node version that `@clack/prompts` needs, because it uses `util.styleText`. */
 const PROMPTS_NEED = [20, 12] as const
@@ -33,11 +52,18 @@ export interface InitOptions {
   /** Where the project is. */
   cwd: string
   write: (line: string) => void
+  /** Add the library to the project. Off with `--no-install`. */
+  install?: boolean | undefined
+  /** How to run the installer. Injected so tests never spawn a process. */
+  run?: ((command: string, args: string[], cwd: string) => Promise<boolean>) | undefined
+  /** Skip the model question and leave it unconfigured. */
+  provider?: Provider | undefined
 }
 
 export async function init(options: InitOptions): Promise<number> {
   const prompts = await loadPrompts()
-  const project = await look(options.cwd)
+  const { project, found } = await look(options.cwd)
+  const manager = detectPackageManager(found.files)
 
   if (prompts) prompts.intro('recourse')
   else options.write('\nrecourse init\n')
@@ -95,23 +121,224 @@ export async function init(options: InitOptions): Promise<number> {
 
   const written = await writeRoute(options, project)
 
+  // The route imports this package, so the project has to have it. Skipping
+  // this is what turns a finished `init` into a dev server that dies on a
+  // module-not-found for a file the tool wrote thirty seconds earlier.
+  const installed = await add(options, manager, found.manifest)
+  const start = startFor(project, manager)
+
+  const chosen = await chooseProvider(options, prompts)
+  await writeEnv(options, project, chosen.provider, chosen.answers)
+
+  // Said here rather than at the end, so the steps arrive in the order they
+  // have to happen in: install, paste, run.
+  if (!installed) {
+    options.write(`\nInstall it before starting:\n\n  ${installCommand(manager, PACKAGE).join(' ')}\n`)
+  }
+
   if (prompts) {
     prompts.note(snippetFor(), 'Paste this into your page')
-    prompts.outro(`${written ? `Wrote ${project.route}. ` : ''}Run ${project.start} and ask it something.`)
+    prompts.outro(`${written ? `Wrote ${project.route}. ` : ''}Run ${start} and ask it something.`)
   } else {
     options.write(
       `\n${written ? `Wrote ${project.route}\n` : ''}\nPaste this into your page:\n\n${snippetFor()}\n\n` +
-        `Then run ${project.start} and ask it something.\n`,
+        `Then run ${start} and ask it something.\n`,
     )
   }
 
-  options.write(
-    '\nNo model configured yet, so it will show the passages it found rather than\n' +
-      'writing a sentence. Set AI_GATEWAY_API_KEY, or any OpenAI-compatible endpoint,\n' +
-      'and it starts answering. Nothing else changes.\n',
-  )
+
 
   return 0
+}
+
+/**
+ * The model question on its own, for a project that already has the rest.
+ *
+ * `init` asks this once. Somebody who picked "decide later", or who has since
+ * moved from a local model to a hosted one, had no way back other than knowing
+ * which environment variables to write by hand, which is a dead end dressed up
+ * as a choice.
+ */
+export async function model(options: ModelOptions): Promise<number> {
+  const prompts = await loadPrompts()
+  const { project } = await look(options.cwd)
+
+  if (prompts) prompts.intro('recourse model')
+
+  const chosen = await chooseProvider(options, prompts)
+  await writeEnv(options, project, chosen.provider, chosen.answers)
+
+  return 0
+}
+
+export interface ModelOptions {
+  cwd: string
+  write: (line: string) => void
+  provider?: Provider | undefined
+}
+
+/**
+ * How it should answer, asked once while somebody is still at the keyboard.
+ *
+ * A flag settles it without asking. With no terminal there is nobody to ask,
+ * so it stays unconfigured and the closing message says so, which is better
+ * than blocking a scripted run on a question.
+ */
+async function chooseProvider(
+  options: ModelOptions,
+  prompts: Prompts | null,
+): Promise<{ provider: Provider; answers: ProviderAnswers }> {
+  // A flag still goes through the local resolution below: picking `local`
+  // without checking what is pulled writes a model that may not be there.
+  if (options.provider) return { provider: options.provider, answers: await answersFor(options.provider) }
+  if (!prompts) return { provider: 'later', answers: {} }
+
+  const picked = await prompts.select({
+    message: 'How should it answer?',
+    options: [
+      { value: 'local', label: 'A model on this machine', hint: 'Ollama, no key, nothing leaves the machine' },
+      { value: 'gateway', label: 'Vercel AI Gateway', hint: 'one key, many models' },
+      { value: 'compatible', label: 'Another OpenAI-compatible provider', hint: 'OpenAI, Anthropic, DeepSeek, Groq' },
+      { value: 'later', label: 'Decide later', hint: 'cites sources, hands over to a person' },
+    ],
+  })
+
+  if (prompts.isCancel(picked)) return { provider: 'later', answers: {} }
+  const provider = String(picked) as Provider
+
+  if (provider === 'gateway') {
+    const key = await prompts.text({ message: 'Paste your AI Gateway key', placeholder: 'vck_...' })
+    if (prompts.isCancel(key) || !String(key).trim()) return { provider: 'later', answers: {} }
+
+    return { provider, answers: { key: String(key).trim() } }
+  }
+
+  if (provider === 'compatible') {
+    const baseURL = await prompts.text({ message: 'Base URL', placeholder: 'https://api.deepseek.com/v1' })
+    if (prompts.isCancel(baseURL) || !String(baseURL).trim()) return { provider: 'later', answers: {} }
+
+    const model = await prompts.text({ message: 'Model', placeholder: 'deepseek-chat' })
+    if (prompts.isCancel(model) || !String(model).trim()) return { provider: 'later', answers: {} }
+
+    const apiKey = await prompts.text({ message: 'API key, if it needs one', placeholder: 'leave empty for none' })
+
+    return {
+      provider,
+      answers: {
+        baseURL: String(baseURL).trim(),
+        model: String(model).trim(),
+        ...(prompts.isCancel(apiKey) ? {} : { apiKey: String(apiKey).trim() }),
+      },
+    }
+  }
+
+  return { provider, answers: await answersFor(provider) }
+}
+
+/** What a choice needs looked up rather than typed. */
+async function answersFor(provider: Provider): Promise<ProviderAnswers> {
+  return provider === 'local' ? { model: pickLocalModel(await pulled()) } : {}
+}
+
+/**
+ * What Ollama has, or nothing when it is not running.
+ *
+ * Asked rather than assumed, because the default is only right on a machine
+ * that happens to have pulled it. A short timeout keeps a wedged daemon from
+ * holding up a scaffold that does not really need this answer.
+ */
+async function pulled(): Promise<string[]> {
+  try {
+    const response = await fetch(`${OLLAMA.baseURL.replace(/\/v1$/, '')}/api/tags`, {
+      signal: AbortSignal.timeout(1500),
+    })
+    if (!response.ok) return []
+
+    const body = (await response.json()) as { models?: Array<{ name?: string }> }
+
+    return (body.models ?? []).map((entry) => entry.name).filter((name): name is string => Boolean(name))
+  } catch {
+    // Not running, not installed, or too slow to matter. The default stands.
+    return []
+  }
+}
+
+/**
+ * The environment file, with anything already in it untouched.
+ *
+ * Written even for a choice that adds no variables, because the closing
+ * message names the file and somebody who opens it should find it there.
+ */
+async function writeEnv(
+  options: ModelOptions,
+  project: Project,
+  provider: Provider,
+  answers: ProviderAnswers,
+): Promise<void> {
+  const name = envFileFor(project.framework)
+  const target = resolve(options.cwd, name)
+  const add = envFor(provider, answers)
+
+  if (Object.keys(add).length > 0) {
+    let existing = ''
+    try {
+      existing = await readFile(target, 'utf8')
+    } catch {
+      // No file yet, which is the usual case on a fresh project.
+    }
+
+    const merged = mergeEnv(existing, add)
+    if (merged !== existing) await writeFile(target, merged, 'utf8')
+  }
+
+  options.write(`\n${summarise(provider, name, answers.model)}\n`)
+}
+
+/**
+ * Adds the library, unless it is already there or was turned off.
+ *
+ * Returns whether the project can resolve it afterwards, which is what decides
+ * if the closing message has to include the command by hand. A failure here is
+ * printed rather than fatal: the route and the index are both already written,
+ * and one `npm install` is a smaller thing to hand somebody than a run that
+ * threw away its own work.
+ */
+async function add(options: InitOptions, manager: PackageManager, manifest: Manifest | undefined): Promise<boolean> {
+  if (alreadyInstalled(manifest, PACKAGE)) return true
+  if (options.install === false) return false
+
+  const [command, ...args] = installCommand(manager, PACKAGE) as [string, ...string[]]
+  const runner = options.run ?? spawnInstall
+
+  options.write(`\nAdding ${PACKAGE} with ${manager}\n`)
+
+  try {
+    return await runner(command, args, options.cwd)
+  } catch {
+    return false
+  }
+}
+
+/** The real installer, kept apart so tests can pass their own. */
+async function spawnInstall(command: string, args: string[], cwd: string): Promise<boolean> {
+  const { spawn } = await import('node:child_process')
+
+  return new Promise<boolean>((done) => {
+    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' })
+    child.on('error', () => done(false))
+    child.on('close', (code) => done(code === 0))
+  })
+}
+
+/**
+ * What to tell them to run, in the words their own project uses.
+ *
+ * Only the script-running frameworks change: a Worker is started through
+ * wrangler and a bare node server by node, neither of which cares which
+ * package manager put the files there.
+ */
+function startFor(project: Project, manager: PackageManager): string {
+  return project.framework === 'next' ? runScript(manager, 'dev') : project.start
 }
 
 /**
@@ -138,7 +365,7 @@ async function writeRoute(options: InitOptions, project: Project): Promise<boole
 }
 
 /** What is in this folder, in the shape `detect` reads. */
-async function look(cwd: string): Promise<Project> {
+async function look(cwd: string): Promise<{ project: Project; found: Detected }> {
   const found: Detected = { files: [] }
 
   try {
@@ -154,7 +381,7 @@ async function look(cwd: string): Promise<Project> {
     // can write into, and `detect` returns `unknown` for it.
   }
 
-  return detect(found)
+  return { project: detect(found), found }
 }
 
 /** The one question, when there is a terminal to ask it in. */
