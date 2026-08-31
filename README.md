@@ -218,3 +218,13 @@ The WordPress plugin in `packages/wordpress` is a separate work under
 GPL-2.0-or-later, which is what the wordpress.org directory requires. It talks
 to the rest over HTTP rather than bundling it, so the two licences never meet
 in one binary. MIT is GPL-compatible, so a site running both is fine.
+
+The name is not part of the licence. MIT covers the code and nothing else, so
+"Recourse" and its logo stay with the author. Fork it, sell it, build a business
+on it, all of that is granted. What is not granted is calling your version
+Recourse, or naming a service after it in a way that suggests it comes from
+here. Say it is built on Recourse and you are welcome.
+
+That distinction is the whole reason it is written down: under a permissive
+licence the name is the only thing an author still holds, and a reader deserves
+to know which parts they are free to take.
