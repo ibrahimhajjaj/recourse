@@ -7,8 +7,15 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+  name: string
   exports: Record<string, unknown>
 }
+
+// Read off the manifest, not written out. This file used to spell the entry
+// points under the package's old bare name, so it held the README to a name
+// nothing published under and the table stayed wrong while the test was green.
+const self = pkg.name
+const selfPattern = self.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const readme = readFileSync(join(root, 'README.md'), 'utf8')
 
 /**
@@ -18,12 +25,13 @@ const readme = readFileSync(join(root, 'README.md'), 'utf8')
  * not compiled and a wrong one still passes every other test.
  */
 describe('the exports table', () => {
-  const documented = new Set([...readme.matchAll(/\| `(recourse[^`]*)`/g)].map((m) => m[1] as string))
+  const rows = new RegExp(`\\| \`(${selfPattern}[^\`]*)\``, 'g')
+  const documented = new Set([...readme.matchAll(rows)].map((m) => m[1] as string))
 
   const exported = new Set(
     Object.keys(pkg.exports)
       .filter((key) => key !== './package.json')
-      .map((key) => (key === '.' ? 'recourse' : key.replace('./', 'recourse/'))),
+      .map((key) => (key === '.' ? self : key.replace('./', `${self}/`))),
   )
 
   it('has a row for every entry point the package actually exports', () => {

@@ -24,6 +24,12 @@ const pages = [
         .map((name) => join(skills, name, 'SKILL.md'))
         .filter((path) => existsSync(path))
     : []),
+  // Each package's own README, which is the page npm renders. That one was
+  // outside this check while it was the most public of the lot.
+  ...readdirSync(join(here, '..', '..'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(here, '..', '..', entry.name, 'README.md'))
+    .filter((path) => existsSync(path)),
 ]
 
 const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as {
@@ -37,8 +43,33 @@ const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) a
 const self = pkg.name
 const selfPattern = self.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+/**
+ * Every sibling package, by the name it publishes under.
+ *
+ * The docs import from the store adapters as well as from here, and those
+ * lines went unchecked: `pgVectorStore` could have been renamed and the only
+ * place it showed up would be somebody pasting a documented import that throws.
+ */
+function siblings(): Map<string, string> {
+  const packages = join(here, '..', '..')
+  const found = new Map<string, string>()
+
+  for (const entry of readdirSync(packages, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+
+    const manifest = join(packages, entry.name, 'package.json')
+    const src = join(packages, entry.name, 'src')
+    if (!existsSync(manifest) || !existsSync(src)) continue
+
+    const { name } = JSON.parse(readFileSync(manifest, 'utf8')) as { name?: string }
+    if (name && name !== self) found.set(name, src)
+  }
+
+  return found
+}
+
 /** Everything the source makes available under any name. */
-function exportedNames(): Set<string> {
+function exportedNames(from: string = join(here, '..', 'src')): Set<string> {
   const found = new Set<string>()
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -61,7 +92,7 @@ function exportedNames(): Set<string> {
       }
     }
   }
-  walk(join(here, '..', 'src'))
+  walk(from)
   return found
 }
 
@@ -194,5 +225,69 @@ describe('the examples in the documentation', () => {
     // If this ever reads zero, the extraction above has quietly stopped
     // matching and the two checks are passing on an empty list.
     expect(imports.length).toBeGreaterThan(10)
+  })
+})
+
+describe('the examples that import from the other packages', () => {
+  const others = siblings()
+
+  // `import { x } from '@scope/pkg'`, for any sibling rather than this one.
+  const imports = pages.flatMap((page) => {
+    const text = readFileSync(page, 'utf8')
+
+    return [...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*'(@[\w-]+\/[\w-]+)'/g)]
+      .filter((m) => others.has(m[2] as string))
+      .flatMap((m) =>
+        (m[1] as string)
+          .split(',')
+          .map((name) => name.trim().replace(/^type\s+/, ''))
+          .filter(Boolean)
+          .map((name) => ({ page: page.replace(repo, '').replace(/^\//, ''), name, from: m[2] as string })),
+      )
+  })
+
+  it('name something those packages really export', () => {
+    // Verified by hand once: the docs tell people to import `postgresStore`,
+    // `pgVectorStore` and `d1Store`. Nothing was checking that they still exist.
+    const invented = imports
+      .filter(({ name, from }) => !exportedNames(others.get(from) as string).has(name))
+      .map(({ page, name, from }) => `${page}: ${name} from ${from}`)
+
+    expect(invented, 'documented imports the sibling package does not export').toEqual([])
+  })
+
+  it('checks the adapters at all, rather than passing on an empty list', () => {
+    expect(imports.length).toBeGreaterThan(0)
+  })
+})
+
+describe('the entry points the prose names', () => {
+  /** The subpaths this package publishes, from the manifest. */
+  const subpaths = Object.keys(pkg.exports)
+    .filter((key) => key.startsWith('./') && key !== './package.json')
+    .map((key) => key.slice(2))
+
+  it('spells them the way somebody would have to type them', () => {
+    // The rename swept import statements and missed the prose. A table in the
+    // published README listed every entry point under the old bare name, so
+    // the npm page told people to import something that does not exist.
+    const stale: string[] = []
+
+    for (const page of pages) {
+      const text = readFileSync(page, 'utf8')
+
+      for (const m of text.matchAll(/`([\w@/-]+)\/([\w-]+)`/g)) {
+        const [, scope, tail] = m as unknown as [string, string, string]
+        if (subpaths.includes(tail) && !`${scope}/${tail}`.startsWith(self)) {
+          stale.push(`${page.replace(repo, '').replace(/^\//, '')}: ${scope}/${tail}`)
+        }
+      }
+    }
+
+    expect([...new Set(stale)], 'entry points named under a package that is not this one').toEqual([])
+  })
+
+  it('found some entry points to check, rather than an empty list', () => {
+    expect(subpaths.length).toBeGreaterThan(10)
   })
 })
