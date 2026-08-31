@@ -240,7 +240,8 @@ export const styles = `
 }
 .composer button.attach:hover { background: var(--rc-subtle); color: var(--rc-text); }
 .composer button.attach svg { width: 17px; height: 17px; }
-.composer button.mic {
+.composer button.mic,
+.composer button.call {
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
@@ -253,8 +254,10 @@ export const styles = `
   color: var(--rc-muted);
   cursor: pointer;
 }
-.composer button.mic:hover { background: var(--rc-subtle); color: var(--rc-text); }
-.composer button.mic svg { width: 17px; height: 17px; }
+.composer button.mic:hover,
+.composer button.call:hover { background: var(--rc-subtle); color: var(--rc-text); }
+.composer button.mic svg,
+.composer button.call svg { width: 17px; height: 17px; }
 .composer button.mic[data-recording="true"] {
   color: #fff;
   background: #d33;
@@ -264,8 +267,20 @@ export const styles = `
   0%, 100% { box-shadow: 0 0 0 0 rgba(221, 51, 51, 0.55); }
   50% { box-shadow: 0 0 0 6px rgba(221, 51, 51, 0); }
 }
+/* Connecting is a wait with no progress to show, so the pulse is the only
+   signal that the press was heard. Live is steady, because a call that is up
+   does not need to keep announcing itself. */
+.composer button.call[data-state="connecting"] {
+  color: var(--rc-text);
+  animation: hd-pulse 1.4s ease-in-out infinite;
+}
+.composer button.call[data-state="live"] {
+  color: #fff;
+  background: #d33;
+}
 @media (prefers-reduced-motion: reduce) {
-  .composer button.mic[data-recording="true"] { animation: none; }
+  .composer button.mic[data-recording="true"],
+  .composer button.call[data-state="connecting"] { animation: none; }
 }
 .tray {
   display: flex;

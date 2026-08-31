@@ -1,3 +1,4 @@
+import type { VoiceRuntime } from './call.js'
 import type { WidgetStrings } from './strings.js'
 
 export interface WidgetOptions {
@@ -81,6 +82,12 @@ export interface WidgetOptions {
    * shown as a button that does nothing.
    */
   dictation?: DictationSettings | boolean
+  /**
+   * A call button, pointed at the endpoint that mints a signed URL. Off unless
+   * a host says otherwise: it is the one feature here that costs them money
+   * per use, so it is never on by accident.
+   */
+  call?: { endpoint: string; load?: () => Promise<VoiceRuntime> } | string
 }
 
 export interface DictationSettings {

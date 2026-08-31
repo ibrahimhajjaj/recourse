@@ -31,6 +31,12 @@ export interface WidgetStrings {
   /** Dictation. */
   dictate: string
   stopDictating: string
+  /** Calling. */
+  call: string
+  endCall: string
+  calling: string
+  callStarted: string
+  callEnded: string
   /** Under an answer. */
   helpful: string
   notHelpful: string
@@ -70,6 +76,11 @@ export const DEFAULT_STRINGS: WidgetStrings = {
   removeFile: 'Remove {name}',
   dictate: 'Dictate your question',
   stopDictating: 'Stop dictating',
+  call: 'Talk to us',
+  endCall: 'End the call',
+  calling: 'Connecting',
+  callStarted: 'Call started',
+  callEnded: 'Call ended',
   helpful: 'This helped',
   notHelpful: 'This did not help',
   thanks: 'Thanks, that helps us improve.',

@@ -501,6 +501,129 @@
     return documentRef?.documentElement?.lang ?? "";
   }
 
+  // src/call.ts
+  function createCall(options) {
+    const request = options.fetch ?? globalThis.fetch.bind(globalThis);
+    const load = options.load ?? loadRuntime;
+    let state = "idle";
+    let session = null;
+    let attempt = 0;
+    const move = (next) => {
+      if (state === next) return;
+      state = next;
+      options.onStateChange?.(next);
+    };
+    const fail = (message) => {
+      move("failed");
+      options.onError?.(message);
+    };
+    async function start() {
+      if (state === "connecting" || state === "live") return;
+      const mine = ++attempt;
+      move("connecting");
+      let signedUrl;
+      try {
+        const response = await request(options.endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ conversationId: options.conversationId() })
+        });
+        if (response.status === 429) {
+          if (mine === attempt) fail("Too many calls just now. Try again in a moment.");
+          return;
+        }
+        if (!response.ok) {
+          if (mine === attempt) fail("Calling is not available right now.");
+          return;
+        }
+        const body = await response.json();
+        if (typeof body.signedUrl !== "string" || !body.signedUrl) {
+          if (mine === attempt) fail("Calling is not available right now.");
+          return;
+        }
+        signedUrl = body.signedUrl;
+      } catch {
+        if (mine === attempt) fail("Could not reach the server to start the call.");
+        return;
+      }
+      if (mine !== attempt) return;
+      let runtime;
+      try {
+        runtime = await load();
+      } catch {
+        if (mine === attempt) fail("Could not load the voice connection.");
+        return;
+      }
+      if (mine !== attempt) return;
+      try {
+        const started = await runtime.startSession({
+          signedUrl,
+          onConnect: () => {
+            if (mine === attempt) move("live");
+          },
+          onDisconnect: () => {
+            if (mine === attempt) {
+              session = null;
+              move("ended");
+            }
+          },
+          // The microphone prompt lives inside the runtime, so a refusal arrives
+          // here rather than as a thrown error, and it is the most likely thing
+          // to go wrong on a first call.
+          onError: () => {
+            if (mine === attempt) fail("The call ended unexpectedly. Your microphone may be blocked.");
+          },
+          onMessage: (message) => {
+            const text2 = typeof message?.message === "string" ? message.message.trim() : "";
+            if (!text2) return;
+            options.onTranscript?.({ role: message.source === "user" ? "visitor" : "agent", text: text2 });
+          }
+        });
+        if (mine !== attempt) {
+          await Promise.resolve(started.endSession()).catch(() => {
+          });
+          return;
+        }
+        session = started;
+      } catch {
+        if (mine === attempt) fail("Could not start the call. Your microphone may be blocked.");
+      }
+    }
+    async function stop() {
+      attempt++;
+      const open = session;
+      session = null;
+      if (open) {
+        try {
+          await open.endSession();
+        } catch {
+        }
+      }
+      move(state === "failed" ? "failed" : "ended");
+    }
+    return {
+      get state() {
+        return state;
+      },
+      start,
+      stop,
+      async toggle() {
+        if (state === "connecting" || state === "live") await stop();
+        else await start();
+      }
+    };
+  }
+  var RUNTIME_URL = "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.23.0/+esm";
+  async function loadRuntime() {
+    const source = RUNTIME_URL;
+    const module = await import(
+      /* @vite-ignore */
+      source
+    );
+    if (!module.Conversation) throw new Error("no conversation runtime in the loaded module");
+    return module.Conversation;
+  }
+
   // src/styles.ts
   var styles = `
 :host {
@@ -739,7 +862,8 @@
 }
 .composer button.attach:hover { background: var(--rc-subtle); color: var(--rc-text); }
 .composer button.attach svg { width: 17px; height: 17px; }
-.composer button.mic {
+.composer button.mic,
+.composer button.call {
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
@@ -752,8 +876,10 @@
   color: var(--rc-muted);
   cursor: pointer;
 }
-.composer button.mic:hover { background: var(--rc-subtle); color: var(--rc-text); }
-.composer button.mic svg { width: 17px; height: 17px; }
+.composer button.mic:hover,
+.composer button.call:hover { background: var(--rc-subtle); color: var(--rc-text); }
+.composer button.mic svg,
+.composer button.call svg { width: 17px; height: 17px; }
 .composer button.mic[data-recording="true"] {
   color: #fff;
   background: #d33;
@@ -763,8 +889,20 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(221, 51, 51, 0.55); }
   50% { box-shadow: 0 0 0 6px rgba(221, 51, 51, 0); }
 }
+/* Connecting is a wait with no progress to show, so the pulse is the only
+   signal that the press was heard. Live is steady, because a call that is up
+   does not need to keep announcing itself. */
+.composer button.call[data-state="connecting"] {
+  color: var(--rc-text);
+  animation: hd-pulse 1.4s ease-in-out infinite;
+}
+.composer button.call[data-state="live"] {
+  color: #fff;
+  background: #d33;
+}
 @media (prefers-reduced-motion: reduce) {
-  .composer button.mic[data-recording="true"] { animation: none; }
+  .composer button.mic[data-recording="true"],
+  .composer button.call[data-state="connecting"] { animation: none; }
 }
 .tray {
   display: flex;
@@ -1013,6 +1151,11 @@
     removeFile: "Remove {name}",
     dictate: "Dictate your question",
     stopDictating: "Stop dictating",
+    call: "Talk to us",
+    endCall: "End the call",
+    calling: "Connecting",
+    callStarted: "Call started",
+    callEnded: "Call ended",
     helpful: "This helped",
     notHelpful: "This did not help",
     thanks: "Thanks, that helps us improve.",
@@ -1093,7 +1236,9 @@
     close: "M6 6l12 12M18 6L6 18",
     send: "M4 12l16-8-6 8 6 8z",
     clip: "M21 11.5l-8.6 8.6a5 5 0 01-7-7l8.5-8.6a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.9-7.8",
-    mic: "M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3"
+    mic: "M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3",
+    phone: "M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.24 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11.4 11.4 0 00.57 3.6 1 1 0 01-.25 1z",
+    hangUp: "M3 10.5c5-4 13-4 18 0v3.2a1 1 0 01-1.3.95l-3.4-1a1 1 0 01-.7-1V10a12 12 0 00-7.2 0v2.6a1 1 0 01-.7 1l-3.4 1A1 1 0 013 13.7z"
   };
   var ACCEPTED_TYPES = [
     "image/png",
@@ -1267,8 +1412,40 @@
         });
       }
     }
+    const callEndpoint = typeof options.call === "string" ? options.call : options.call ? options.call.endpoint : null;
+    const callRuntime = typeof options.call === "object" ? options.call.load : void 0;
+    const callButton = document.createElement("button");
+    callButton.type = "button";
+    callButton.className = "call";
+    callButton.setAttribute("aria-label", strings.call);
+    callButton.appendChild(icon(ICONS.phone, false));
+    let call = null;
+    if (callEndpoint) {
+      call = createCall({
+        endpoint: callEndpoint,
+        ...callRuntime ? { load: callRuntime } : {},
+        // Read per dial rather than captured, so a call placed after the thread
+        // was cleared belongs to the conversation now on screen.
+        conversationId: () => state.conversationId,
+        onStateChange: (next) => paintCallState(next),
+        // Same thread as everything else: a spoken answer and a typed one are
+        // the same conversation, and splitting them makes the visitor read two.
+        onTranscript: ({ role, text: text2 }) => void paintMessage({ role: role === "visitor" ? "user" : "assistant", content: text2 }),
+        onError: (message) => showError(message)
+      });
+      callButton.addEventListener("click", () => void call?.toggle());
+    }
+    function paintCallState(next) {
+      callButton.dataset.state = next;
+      const live = next === "live" || next === "connecting";
+      callButton.setAttribute("aria-label", live ? strings.endCall : strings.call);
+      callButton.replaceChildren(icon(live ? ICONS.hangUp : ICONS.phone, false));
+      if (next === "live") paintNotice(strings.callStarted);
+      if (next === "ended") paintNotice(strings.callEnded);
+    }
     const micButton = dictation ? [mic] : [];
-    composer.append(...uploads ? [attach] : [], input, ...micButton, send);
+    const dialButton = call ? [callButton] : [];
+    composer.append(...uploads ? [attach] : [], input, ...micButton, ...dialButton, send);
     panel.append(header, log, suggestions, errorBox, tray, composer);
     if (uploads) panel.appendChild(picker);
     if (!inline) root.append(launcher, panel);
@@ -1909,6 +2086,11 @@
           ...data.dictationCloud === "true" ? { allowCloudFallback: true } : {}
         }
       } : {},
+      // `data-call="/api/voice/token"` adds the call button, pointed at the
+      // route that mints a signed URL. A path rather than a flag, because there
+      // is nothing sensible to default it to: only the host knows where they
+      // mounted it.
+      ...data.call ? { call: data.call } : {},
       // `data-copy="false"` and `data-delete="true"`, since a data attribute is
       // a string and everything else here reads one.
       copy: data.copy !== "false",

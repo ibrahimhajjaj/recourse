@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           data-invite="Question about an order? Ask me."
           data-invite-delay="2000"
           data-attachments="true"
+          // Adds the call button. The path is our own route, which trades an
+          // account key for a short-lived URL so the page never holds one.
+          data-call="/api/voice/token"
         />
 
         {/*

@@ -2,6 +2,7 @@ import { renderMarkdown } from './render.js'
 import { renderForm, renderUi, type UiContext } from './ui.js'
 import { streamChat } from './stream.js'
 import { createDictation, type Dictation } from './dictation.js'
+import { createCall, type Call, type CallState } from './call.js'
 import { styles } from './styles.js'
 import { resolveStrings, fill } from './strings.js'
 import { openDeepLink } from './deeplink.js'
@@ -34,6 +35,8 @@ const ICONS = {
   send: 'M4 12l16-8-6 8 6 8z',
   clip: 'M21 11.5l-8.6 8.6a5 5 0 01-7-7l8.5-8.6a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.9-7.8',
   mic: 'M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3zM5 11a7 7 0 0014 0M12 18v3',
+  phone: 'M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.24 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11.4 11.4 0 00.57 3.6 1 1 0 01-.25 1z',
+  hangUp: 'M3 10.5c5-4 13-4 18 0v3.2a1 1 0 01-1.3.95l-3.4-1a1 1 0 01-.7-1V10a12 12 0 00-7.2 0v2.6a1 1 0 01-.7 1l-3.4 1A1 1 0 013 13.7z',
 }
 
 /**
@@ -275,8 +278,55 @@ export function createWidget(options: WidgetOptions) {
     }
   }
 
+  // Only built when the host pointed it at an endpoint. Unlike the mic, there
+  // is nothing to feature-detect: whether a call can happen is a question about
+  // the server, and the honest answer arrives when somebody presses it.
+  const callEndpoint =
+    typeof options.call === 'string' ? options.call : options.call ? options.call.endpoint : null
+  // A site with a strict content policy cannot fetch the runtime from a CDN,
+  // so it can hand one over instead. Also the seam the tests use.
+  const callRuntime = typeof options.call === 'object' ? options.call.load : undefined
+
+  const callButton = document.createElement('button')
+  callButton.type = 'button'
+  callButton.className = 'call'
+  callButton.setAttribute('aria-label', strings.call)
+  callButton.appendChild(icon(ICONS.phone, false))
+
+  let call: Call | null = null
+
+  if (callEndpoint) {
+    call = createCall({
+      endpoint: callEndpoint,
+      ...(callRuntime ? { load: callRuntime } : {}),
+      // Read per dial rather than captured, so a call placed after the thread
+      // was cleared belongs to the conversation now on screen.
+      conversationId: () => state.conversationId,
+      onStateChange: (next) => paintCallState(next),
+      // Same thread as everything else: a spoken answer and a typed one are
+      // the same conversation, and splitting them makes the visitor read two.
+      onTranscript: ({ role, text }) =>
+        void paintMessage({ role: role === 'visitor' ? 'user' : 'assistant', content: text }),
+      onError: (message) => showError(message),
+    })
+
+    callButton.addEventListener('click', () => void call?.toggle())
+  }
+
+  /** The button, and a line in the thread for the two moments that matter. */
+  function paintCallState(next: CallState) {
+    callButton.dataset.state = next
+    const live = next === 'live' || next === 'connecting'
+    callButton.setAttribute('aria-label', live ? strings.endCall : strings.call)
+    callButton.replaceChildren(icon(live ? ICONS.hangUp : ICONS.phone, false))
+
+    if (next === 'live') paintNotice(strings.callStarted)
+    if (next === 'ended') paintNotice(strings.callEnded)
+  }
+
   const micButton = dictation ? [mic] : []
-  composer.append(...(uploads ? [attach] : []), input, ...micButton, send)
+  const dialButton = call ? [callButton] : []
+  composer.append(...(uploads ? [attach] : []), input, ...micButton, ...dialButton, send)
 
   panel.append(header, log, suggestions, errorBox, tray, composer)
   if (uploads) panel.appendChild(picker)

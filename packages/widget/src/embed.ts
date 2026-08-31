@@ -58,6 +58,11 @@ function readConfig(): WidgetOptions | null {
           },
         }
       : {}),
+    // `data-call="/api/voice/token"` adds the call button, pointed at the
+    // route that mints a signed URL. A path rather than a flag, because there
+    // is nothing sensible to default it to: only the host knows where they
+    // mounted it.
+    ...(data.call ? { call: data.call } : {}),
     // `data-copy="false"` and `data-delete="true"`, since a data attribute is
     // a string and everything else here reads one.
     copy: data.copy !== 'false',

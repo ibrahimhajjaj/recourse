@@ -41,6 +41,7 @@ const widget = createWidget({
 | `data-dictation` | `true` for a microphone. |
 | `data-dictation-lang` | Overrides the page language for speech. |
 | `data-dictation-cloud` | `true` to allow the browser's cloud fallback. |
+| `data-call` | Path to your signed-URL route, such as `/api/voice/token`, which adds a call button. |
 | `data-feedback` | `false` to remove the thumbs on each answer. |
 | `data-copy` | `false` to remove the copy button. |
 | `data-delete` | `true` to let a visitor delete their own conversation. |

@@ -95,6 +95,50 @@ the webhook tool their agent calls, which is the only one of the three that
 needs no Twilio account at all. It is also the one proved against a live
 platform.
 
+## A call from the page, with no phone in it
+
+All three above answer a telephone. `browserVoiceRoute` is the fourth shape: a
+Call button in the widget, on the page the visitor is already reading. That is
+what people reach for when the thing they want to ask is on the screen in front
+of them and typing it out would take four sentences.
+
+The browser cannot open that connection by itself, because it needs an account
+credential, and a credential on a page is a credential anybody can spend. So the
+route is a swap. The page asks it, it spends the key server-side, and it hands
+back a URL good for one call that expires in fifteen minutes.
+
+```ts
+import { browserVoiceRoute } from '@recourse-ai/core/channels'
+
+export const POST = browserVoiceRoute({
+  agentId: process.env.ELEVENLABS_AGENT_ID as string,
+  apiKey: process.env.ELEVENLABS_API_KEY as string,
+  rateLimit: { limit: 5, windowMs: 10 * 60_000 },
+})
+```
+
+Then point the widget at it, and the button appears:
+
+```html
+<script src="/recourse.js" data-endpoint="/api/chat" data-call="/api/voice/token"></script>
+```
+
+Read that rate limit as part of the feature. Every success is a billable minute
+on your account and the button is public, so an unguarded route is a way for a
+stranger to spend your money. The built-in limiter is per instance and stops a
+script rather than a determined person; pass `rateLimiter` for one that holds
+across instances if the budget matters.
+
+Pair it with `elevenLabsToolRoute` on the same agent and the call can do the
+thing a recorded menu cannot: look up the actual order while the customer is
+still speaking. The voice service keeps the parts that have to happen in
+milliseconds, and the facts stay yours. `examples/nextjs` has both routes wired
+and the button switched on.
+
+What the visitor sees is one thread. The call is marked where it starts and
+where it ends, and what was said appears as messages alongside what was typed,
+because a spoken question and a typed one are the same conversation.
+
 ## Two that are not here, on purpose
 
 **3CX.** There is nothing to build against. Their own forums say 3CX cannot

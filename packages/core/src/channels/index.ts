@@ -42,6 +42,12 @@ export {
   elevenLabsSystemPrompt,
   type ElevenLabsToolOptions,
 } from './voice-elevenlabs.js'
+export {
+  browserVoiceRoute,
+  SIGNED_URL_TTL_SECONDS,
+  type BrowserVoiceOptions,
+  type SignedUrlResponse,
+} from './voice-browser.js'
 export { verifyJwt, fetchSigningKeys, clearKeyCache, type JwtClaims, type VerifyJwtOptions } from './jwt.js'
 export { emailChannel, parseCommonEmail, stripQuoted, type EmailOptions, type InboundEmail } from './email.js'
 export {
