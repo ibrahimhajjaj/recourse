@@ -1,4 +1,5 @@
 import { defineAction } from '../define.js'
+import { pauseAgent } from '../../takeover.js'
 import type { Action, ActionContext, ActionField, ActionInput } from '../types.js'
 
 /**
@@ -47,6 +48,19 @@ export interface EscalateOptions {
   confirmation?: string
   /** Keeps it off the agent's own initiative; only a procedure can call it. */
   procedureOnly?: boolean
+  /**
+   * Marks the conversation as belonging to a person from here on.
+   *
+   * On by default, and free unless the agent was built with `takeover`, which
+   * is the option that makes it read the flag. Setting it either way means an
+   * escalation that happens today keeps working when somebody turns takeover
+   * on tomorrow, rather than quietly not having been recorded.
+   *
+   * Turn it off where the ticket goes somewhere nobody replies from, such as a
+   * webhook into a reporting system, since a conversation paused for a person
+   * who will never arrive is a conversation that stops answering.
+   */
+  pause?: boolean
 }
 
 const BASE_FIELDS: ActionField[] = [
@@ -161,6 +175,19 @@ export function escalate(options: EscalateOptions): Action {
         (id
           ? `A person will take this over. Your reference is ${id}.`
           : 'A person will take this over and reply shortly.')
+
+      // After this the person owns the conversation. Recorded before the
+      // frame goes out, so a customer typing again immediately is already met
+      // by the pause rather than by one last answer from the agent.
+      if (options.pause !== false && ctx.store && ctx.conversationId) {
+        try {
+          await pauseAgent(ctx.store, ctx.conversationId)
+        } catch (error) {
+          // The ticket exists and the customer has been told. Failing the
+          // whole action over the flag would lose both.
+          console.warn(`[helpdeck] could not mark the conversation as taken over: ${String(error)}`)
+        }
+      }
 
       ctx.emit({ type: 'handoff', ticketId: id, message })
       return { escalated: true, ticketId: id, message: `Tell the customer: ${message}` }

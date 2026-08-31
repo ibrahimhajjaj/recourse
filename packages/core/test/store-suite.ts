@@ -39,6 +39,34 @@ export function storeBehaviour(name: string, make: () => Promise<Store> | Store)
       expect(await (await make()).deleteConversation('never-existed')).toBe(false)
     })
 
+    it('stores metadata put on a conversation after it started', async () => {
+      const store = await make()
+      await store.appendMessage('c_meta', message(), { channel: 'web' })
+
+      // What the handover flag rides on. A store that quietly drops `meta`
+      // here has an agent talking over whoever took the conversation.
+      await store.updateConversation('c_meta', { meta: { aiPaused: true, aiPausedAt: '2026-08-31T00:00:00.000Z' } })
+
+      const thread = await store.getConversation('c_meta')
+      expect(thread?.conversation.meta?.aiPaused).toBe(true)
+      expect(thread?.conversation.meta?.aiPausedAt).toBe('2026-08-31T00:00:00.000Z')
+      // And the rest of the conversation is still there.
+      expect(thread?.conversation.channel).toBe('web')
+      expect(thread?.messages).toHaveLength(1)
+    })
+
+    it('replaces metadata rather than merging it, so a flag can be cleared', async () => {
+      const store = await make()
+      await store.appendMessage('c_clear', message(), { channel: 'web' })
+
+      await store.updateConversation('c_clear', { meta: { aiPaused: true, country: 'IE' } })
+      await store.updateConversation('c_clear', { meta: { country: 'IE' } })
+
+      const thread = await store.getConversation('c_clear')
+      expect(thread?.conversation.meta?.aiPaused).toBeUndefined()
+      expect(thread?.conversation.meta?.country).toBe('IE')
+    })
+
     it('leaves no trace of a deleted conversation in a listing', async () => {
       const store = await make()
       await store.appendMessage('c1', message(), { channel: 'web' })

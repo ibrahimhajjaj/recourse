@@ -368,4 +368,7 @@ export type {
 export { describeFailure, logFailure } from './diagnostics.js'
 export type { Diagnostic, FailureReason } from './diagnostics.js'
 
+export { isPaused, pauseAgent, resumeAgent, PAUSED_KEY, PAUSED_AT_KEY, PAUSED_MESSAGE } from './takeover.js'
+export type { TakeoverOptions } from './takeover.js'
+
 export { shrink, redact, type ShrinkOptions } from './actions/shrink.js'

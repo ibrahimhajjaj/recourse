@@ -16,6 +16,7 @@ import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
 import { describeFailure, logFailure } from './diagnostics.js'
+import { isPaused, PAUSED_MESSAGE, type TakeoverOptions } from './takeover.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -104,6 +105,18 @@ export interface AgentOptions {
    * allowed. Set 0 to turn it off.
    */
   repeatLimit?: number
+  /**
+   * Stops the agent answering in a conversation a person has taken over.
+   *
+   * Without this the agent keeps replying underneath the human who just picked
+   * the ticket up, and the customer gets two voices contradicting each other.
+   * The customer's messages are still recorded, so the person sees them; the
+   * agent just says who has it and stops.
+   *
+   * Costs one conversation read per turn, so it is off unless asked for. Turn
+   * it on wherever `escalate` can reach a person who will reply.
+   */
+  takeover?: boolean | TakeoverOptions
   /** Who the agent is talking to, when the host knows. */
   contact?: Contact
   conversationId?: string
@@ -255,6 +268,7 @@ export function createAgent(options: AgentOptions) {
     options.classifier === false ? 1 : (options.classifier?.passageThreshold ?? DEFAULT_PASSAGE_THRESHOLD)
   const actions = options.actions ?? []
   const maxSteps = options.maxSteps ?? 6
+  const takeover = options.takeover === true ? {} : options.takeover === false ? null : (options.takeover ?? null)
 
   // Resolved once at construction: which procedures this agent can actually
   // run, and which procedure-only actions they unlock.
@@ -334,6 +348,21 @@ export function createAgent(options: AgentOptions) {
 
     if (screened && blocks(screened)) {
       yield* refuse(screened, { conversationId, channel, contact, question })
+      return
+    }
+
+    // Before retrieval, because a conversation a person owns should cost
+    // nothing at all: no embedding, no model, no passages fetched for an
+    // answer that is not going to be written.
+    if (takeover && store && (await isPaused(store, conversationId))) {
+      onQuiet()
+      yield* stayQuiet(takeover.message ?? PAUSED_MESSAGE, {
+        conversationId,
+        channel,
+        contact,
+        question,
+        attachments: messages[messages.length - 1]?.attachments ?? [],
+      })
       return
     }
 

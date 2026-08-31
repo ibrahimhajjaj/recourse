@@ -47,6 +47,51 @@ Freshdesk wants a number for the priority and a throwaway
 password, Intercom attaches a ticket to a contact so the contact is found or
 created first, and Odoo answers `200` for a failure with the reason in the body.
 
+## Getting out of the way once a person arrives
+
+Opening a ticket and carrying on answering is not a handoff. The customer keeps
+typing in the same window, the agent keeps replying from the documentation, and
+the person who picked the ticket up is now negotiating with their own product.
+Worse, the agent contradicts them: it does not know what the human just
+promised.
+
+```ts
+import { createAgent } from 'helpdeck'
+
+createAgent({ index, store, takeover: true })
+```
+
+`escalate` marks the conversation as belonging to a person, and from then on the
+agent stops answering in it. It still records what the customer says, which is
+the point: the person reads it, and nobody has to type anything twice. What the
+customer sees is one line saying a colleague has it, because silence would be
+worse than a wrong answer here. They cannot tell a paused agent from a broken
+one, so they ask again, and again.
+
+Off by default, because it costs one conversation read per turn. Turn it on
+wherever escalation reaches a person who will actually reply.
+
+Hand it back when they are finished:
+
+```ts
+import { resumeAgent } from 'helpdeck'
+
+await resumeAgent(store, conversationId)
+```
+
+`pauseAgent` is there too, for a dashboard where somebody clicks "take over"
+rather than waiting for the agent to escalate. Both are safe to call twice, and
+the flag rides on the conversation's own metadata, so every store already
+supports it and there is nothing to migrate.
+Turn it off per escalation with `escalate({ pause: false })` where the ticket
+goes somewhere nobody replies from, such as a webhook into a reporting system:
+a conversation paused for a person who will never arrive is a conversation that
+stops answering.
+
+If the store cannot be read the agent answers rather than going quiet. Talking
+over a human is bad; refusing to answer anybody because the database blinked is
+worse, and it fails for every conversation at once.
+
 ---
 
 [Back to the README](../README.md)
