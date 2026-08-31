@@ -8,6 +8,7 @@ import { createRetriever } from '../retrieve/retriever.js'
 import { canReachGateway, createEmbedder } from '../embed.js'
 import { buildInstructions } from '../server/prompt.js'
 import type { ProgressEvent } from '../types.js'
+import { init } from './init.js'
 import { list, num, parseArgs } from './args.js'
 import { checkCredentials, checkModel, checkStorage, exitCodeFor, formatChecks, type Check } from './doctor.js'
 
@@ -17,6 +18,8 @@ const HELP = `
 recourse: a support agent trained on your own content
 
 Usage
+  recourse init                      Set it up here: learn, wire the endpoint, print
+                                     the widget snippet
   recourse ingest --url <site>        Learn a website and write the knowledge index
   recourse ingest --path <dir>        Learn a folder of markdown instead
   recourse ask "<question>"           Ask the index a question from the terminal
@@ -55,6 +58,8 @@ async function main(): Promise<number> {
   }
 
   switch (command) {
+    case 'init':
+      return runInit(flags)
     case 'ingest':
       return runIngest(flags)
     case 'ask':
@@ -315,6 +320,18 @@ function embedderFor(storedModel: string, flags: Record<string, string | boolean
     model,
     baseURL,
     apiKey: typeof flags['embed-key'] === 'string' ? flags['embed-key'] : undefined,
+  })
+}
+
+/** Wires the flags through to the scaffold. */
+async function runInit(flags: Record<string, string | boolean>): Promise<number> {
+  return init({
+    ...(typeof flags.url === 'string' ? { url: flags.url } : {}),
+    ...(typeof flags.path === 'string' ? { path: flags.path } : {}),
+    index: typeof flags.index === 'string' ? flags.index : DEFAULT_OUT,
+    yes: flags.yes === true,
+    cwd: process.cwd(),
+    write: (line) => process.stdout.write(line),
   })
 }
 

@@ -124,6 +124,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
+    "@clack/prompts": "^1.7.0",
     "ai": "^7.0.84"
   },
   "devDependencies": {

@@ -13,6 +13,14 @@ No account, no API key, no model, no database. Point it at some content and ask
 it something:
 
 ```bash
+npx recourse@latest init
+```
+
+It looks at what you have, learns the content you point it at, writes the chat
+endpoint for your framework and hands you the widget snippet. Or do the two
+steps by hand:
+
+```bash
 npx recourse ingest --path ./docs
 npx recourse ask "how do I get a refund?"
 ```
