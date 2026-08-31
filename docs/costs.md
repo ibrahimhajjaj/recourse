@@ -52,8 +52,18 @@ and silently blinds every dollar cap that keys off it. Declare a genuinely free
 model rather than leaving it unknown:
 
 ```ts
-createBudget({ monthlyUsd: 50, prices: { 'ollama/qwen3:4b': { input: 0, output: 0 } } })
+createBudget({ monthlyUsd: 50, prices: { 'ollama/*': { input: 0, output: 0 } } })
 ```
+
+A trailing `*` prices a whole family, because somebody self-hosting has a
+handful of models and swaps them, and naming each one is a list that is wrong
+the first time they pull a new tag. Longest prefix wins, so a specific entry
+still beats the family it sits in, and `'*'` alone is a last resort rather than
+something that shadows every real price.
+
+Model ids arrive as `provider/model` either way. A gateway id already is one; a
+self-hosted model reports a bare `qwen3:4b`, so the provider is put back on the
+front, which is the only thing that tells a local model apart from a hosted one.
 
 Providers return the pinned snapshot they served rather than the alias you
 asked for, so `gpt-4o` comes back as `gpt-4o-2024-11-20`. A dated suffix falls

@@ -82,16 +82,50 @@ export function costOf(model: string, usage: Usage, prices: PriceList = PRICES):
  * silently under-reporting the day a new one ships.
  */
 function priceFor(model: string, prices: PriceList): ModelPrice | undefined {
+  const named = exactly(model, prices)
+  if (named) return named
+
+  // `gpt-4o-2024-11-20` prices as `gpt-4o`.
+  const undated = model.replace(/-(\d{8}|\d{4}-\d{2}-\d{2}|latest|preview)$/, '')
+  if (undated !== model) {
+    const dated = exactly(undated, prices)
+    if (dated) return dated
+  }
+
+  return byPattern(model, prices)
+}
+
+function exactly(model: string, prices: PriceList): ModelPrice | undefined {
   const exact = prices[model]
   if (exact) return exact
 
-  const unprefixed = Object.keys(prices).find((id) => id.endsWith(`/${model}`))
-  if (unprefixed) return prices[unprefixed]
+  const unprefixed = Object.keys(prices).find((id) => !id.endsWith('*') && id.endsWith(`/${model}`))
+  return unprefixed ? prices[unprefixed] : undefined
+}
 
-  const undated = model.replace(/-(\d{8}|\d{4}-\d{2}-\d{2}|latest|preview)$/, '')
-  if (undated === model) return undefined
+/**
+ * A trailing `*` prices a whole family at once.
+ *
+ * Somebody running their own models has a handful of them and swaps them,
+ * and naming each one is a list that goes stale the first time they pull a
+ * different tag. `'ollama/*': { input: 0, output: 0 }` says the true thing
+ * once: nothing served off their own hardware is billed per token.
+ *
+ * Longest prefix wins, so a specific entry still beats the family it sits in
+ * and `'*'` on its own is a last resort rather than something that shadows
+ * every real price.
+ */
+function byPattern(model: string, prices: PriceList): ModelPrice | undefined {
+  let best: string | undefined
 
-  return prices[undated] ?? prices[Object.keys(prices).find((id) => id.endsWith(`/${undated}`)) ?? '']
+  for (const key of Object.keys(prices)) {
+    if (!key.endsWith('*')) continue
+    const prefix = key.slice(0, -1)
+    if (!model.startsWith(prefix)) continue
+    if (best === undefined || prefix.length > best.length - 1) best = key
+  }
+
+  return best === undefined ? undefined : prices[best]
 }
 
 /**

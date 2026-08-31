@@ -91,6 +91,49 @@ describe('pricing a call', () => {
     expect(costOf('ollama/qwen3:4b', { inputTokens: 5_000_000, outputTokens: 5_000_000 }, free)).toBe(0)
     expect(costOf('ollama/mistral', { inputTokens: 5_000_000, outputTokens: 5_000_000 }, free)).toBeUndefined()
   })
+
+  it('prices a whole family from one entry', () => {
+    // Somebody self-hosting has a handful of models and swaps them. Naming
+    // each one is a list that is wrong the first time they pull a new tag.
+    const free = { 'ollama/*': { input: 0, output: 0 } }
+    for (const model of ['ollama/qwen3:4b', 'ollama/gemma4:12b-it-qat', 'ollama/granite4.1:8b', 'ollama/moondream']) {
+      expect(costOf(model, { inputTokens: 9_000_000, outputTokens: 9_000_000 }, free)).toBe(0)
+    }
+    // And it does not reach past its own prefix.
+    expect(costOf('openai/gpt-4o', { inputTokens: 1, outputTokens: 1 }, free)).toBeUndefined()
+  })
+
+  it('lets a specific price beat the family it sits in', () => {
+    const mixed = {
+      'together/*': { input: 1, output: 1 },
+      'together/llama-70b': { input: 9, output: 9 },
+    }
+    expect(costOf('together/llama-70b', { inputTokens: 1_000_000, outputTokens: 0 }, mixed)).toBeCloseTo(9, 10)
+    expect(costOf('together/llama-8b', { inputTokens: 1_000_000, outputTokens: 0 }, mixed)).toBeCloseTo(1, 10)
+  })
+
+  it('takes the longest matching pattern', () => {
+    const nested = {
+      '*': { input: 1, output: 1 },
+      'ollama/*': { input: 2, output: 2 },
+      'ollama/qwen*': { input: 3, output: 3 },
+    }
+    expect(costOf('ollama/qwen3:4b', { inputTokens: 1_000_000, outputTokens: 0 }, nested)).toBeCloseTo(3, 10)
+    expect(costOf('ollama/mistral', { inputTokens: 1_000_000, outputTokens: 0 }, nested)).toBeCloseTo(2, 10)
+    expect(costOf('anything-else', { inputTokens: 1_000_000, outputTokens: 0 }, nested)).toBeCloseTo(1, 10)
+  })
+})
+
+describe('the id a model prices under', () => {
+  it('puts the provider back on a self-hosted model', async () => {
+    const { models } = await import('../src/models.js')
+    const local = models.local('qwen3:4b') as { modelId: string; provider: string }
+
+    // The SDK reports a bare `qwen3:4b`, which says nothing about who served
+    // it. Without the provider, `ollama/*` could never match anything.
+    expect(local.modelId).toBe('qwen3:4b')
+    expect(local.provider.split('.')[0]).toBe('ollama')
+  })
 })
 
 describe('caps', () => {

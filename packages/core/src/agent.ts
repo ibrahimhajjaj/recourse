@@ -1005,14 +1005,26 @@ async function consumed(result: { totalUsage: PromiseLike<Usage> }): Promise<Usa
 /**
  * The id a model prices under.
  *
- * A bare string already is one. An SDK instance carries its own, and anything
- * else is a locally hosted model with no published price, which is correct:
- * self-hosted tokens are not billed per token.
+ * A gateway string is already `provider/model` and passes through. An SDK
+ * instance is not: it reports a bare `qwen3:4b`, which says nothing about who
+ * served it, and a price list cannot tell a local model apart from a hosted
+ * one on that alone. The provider is put back on the front so both halves of
+ * the id space have the same shape, and so `ollama/*` means something.
+ *
+ * The SDK suffixes providers by surface (`ollama.chat`); the surface is not
+ * part of anyone's pricing, so it goes.
  */
 function nameOf(model: LanguageModel): string {
   if (typeof model === 'string') return model
+
   const id = (model as { modelId?: unknown }).modelId
-  return typeof id === 'string' ? id : 'unknown'
+  if (typeof id !== 'string') return 'unknown'
+  if (id.includes('/')) return id
+
+  const provider = (model as { provider?: unknown }).provider
+  if (typeof provider !== 'string' || !provider) return id
+
+  return `${provider.split('.')[0]}/${id}`
 }
 
 /**
