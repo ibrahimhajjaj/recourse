@@ -68,6 +68,18 @@ export interface AgentOptions {
    */
   maxSteps?: number
   /**
+   * A cheaper model to fall back to when the first one will not answer.
+   *
+   * Only for failures another model could plausibly survive: a rate limit, an
+   * exhausted quota, a provider outage, a context window that was too small.
+   * A malformed request fails the same way twice and is not retried.
+   *
+   * Only ever tried when nothing has reached the customer yet and no action
+   * has run, so a fallback can never double-charge a card or send a second
+   * email. An answer half delivered stays half delivered.
+   */
+  fallbackModel?: LanguageModel
+  /**
    * How much of an action's result is shown to the model.
    *
    * Defaults are generous and still finite. An action returning a customer
@@ -388,37 +400,6 @@ export function createAgent(options: AgentOptions) {
       ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),
     }
 
-    const result = streamText({
-      model,
-      ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
-      instructions: (options.prompt ?? buildInstructions)(instructionContext),
-      messages: messages.map((message, position) => {
-        // The file parts belong on the message they arrived with, which is the
-        // last one; everything before it goes across as plain text.
-        const parts = position === messages.length - 1 ? (prepared?.parts ?? []) : []
-        if (message.role !== 'user' || parts.length === 0) {
-          return { role: message.role, content: message.content }
-        }
-        return {
-          role: 'user' as const,
-          content: [{ type: 'text' as const, text: message.content }, ...parts],
-        }
-      }),
-      abortSignal: signal,
-      tools: actionsToTools(actions, {
-        context,
-        unlocked,
-        ...(options.actionResults ? { results: options.actionResults } : {}),
-        ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
-      }),
-      // Without this the turn ends the moment a tool is called, and the
-      // customer gets an action but no answer explaining what happened.
-      stopWhen: stepCountIs(maxSteps),
-      onError: ({ error }) => {
-        failure = error instanceof Error ? error.message : String(error)
-      },
-    })
-
     const clientActions = new Map(
       actions.filter((action) => action.runs === 'client').map((action) => [action.name, action]),
     )
@@ -460,55 +441,132 @@ export function createAgent(options: AgentOptions) {
       asked: messages.filter((message) => message.role === 'user').map((message) => message.content),
     }
 
-    for await (const part of result.fullStream) {
-      if (part.type === 'text-delta') {
-        answered += part.text
+    // The configured model, then the cheaper one if the first will not answer
+    // at all. A second entry is only ever reached from a clean failure, so the
+    // usual path builds a one-element array and never looks at it again.
+    const attempts: LanguageModel[] = options.fallbackModel ? [model, options.fallbackModel] : [model]
+    /** Which model produced the answer, for the log. */
+    let spoke: LanguageModel = model
 
-        if (!checksOutput) {
-          released = answered.length
-          yield { type: 'delta', text: part.text }
-        } else if (!buffering) {
-          // Checked on sentence boundaries, and released only as far as it has
-          // been checked. Sending the unchecked tail and inspecting it later
-          // would mean the customer reads the leak before we notice it, which
-          // is the entire failure this mode exists to prevent. The cost is
-          // that the answer arrives a sentence at a time rather than a word.
-          const boundary = lastBoundary(answered)
-          if (boundary > checkedTo) {
-            const verdict = await classifier.checkOutput(answered.slice(0, boundary), outputContext)
-            noticed = verdict.signals
-            if (blocks(verdict)) {
-              withheld = verdict
-              break
+    for (let attempt = 0; attempt < attempts.length; attempt++) {
+      spoke = attempts[attempt] as LanguageModel
+
+      // Each attempt starts from nothing. Only reached when the one before it
+      // delivered nothing at all, so there is no partial answer to preserve.
+      failure = null
+      answered = ''
+      released = 0
+      checkedTo = 0
+      withheld = null
+      noticed = []
+      ran.length = 0
+      pending.length = 0
+
+      /** Whether the customer has seen anything at all from this attempt. */
+      let delivered = false
+
+      const result = streamText({
+        model: spoke,
+        ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+        instructions: (options.prompt ?? buildInstructions)(instructionContext),
+        messages: messages.map((message, position) => {
+          // The file parts belong on the message they arrived with, which is the
+          // last one; everything before it goes across as plain text.
+          const parts = position === messages.length - 1 ? (prepared?.parts ?? []) : []
+          if (message.role !== 'user' || parts.length === 0) {
+            return { role: message.role, content: message.content }
+          }
+          return {
+            role: 'user' as const,
+            content: [{ type: 'text' as const, text: message.content }, ...parts],
+          }
+        }),
+        abortSignal: signal,
+        tools: actionsToTools(actions, {
+          context,
+          unlocked,
+          ...(options.actionResults ? { results: options.actionResults } : {}),
+          ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
+        }),
+        // Without this the turn ends the moment a tool is called, and the
+        // customer gets an action but no answer explaining what happened.
+        stopWhen: stepCountIs(maxSteps),
+        onError: ({ error }) => {
+          failure = error instanceof Error ? error.message : String(error)
+        },
+      })
+
+      for await (const part of result.fullStream) {
+        if (part.type === 'text-delta') {
+          answered += part.text
+
+          if (!checksOutput) {
+            released = answered.length
+            delivered = true
+            yield { type: 'delta', text: part.text }
+          } else if (!buffering) {
+            // Checked on sentence boundaries, and released only as far as it has
+            // been checked. Sending the unchecked tail and inspecting it later
+            // would mean the customer reads the leak before we notice it, which
+            // is the entire failure this mode exists to prevent. The cost is
+            // that the answer arrives a sentence at a time rather than a word.
+            const boundary = lastBoundary(answered)
+            if (boundary > checkedTo) {
+              const verdict = await classifier.checkOutput(answered.slice(0, boundary), outputContext)
+              noticed = verdict.signals
+              if (blocks(verdict)) {
+                withheld = verdict
+                break
+              }
+              checkedTo = boundary
             }
-            checkedTo = boundary
+            if (checkedTo > released) {
+              delivered = true
+              yield { type: 'delta', text: answered.slice(released, checkedTo) }
+              released = checkedTo
+            }
           }
-          if (checkedTo > released) {
-            yield { type: 'delta', text: answered.slice(released, checkedTo) }
-            released = checkedTo
+        } else if (part.type === 'tool-result') {
+          ran.push({ name: part.toolName, input: part.input, output: part.output })
+        }
+        else if (part.type === 'error') {
+          failure = part.error instanceof Error ? part.error.message : String(part.error)
+        } else if (part.type === 'tool-call' && clientActions.has(part.toolName)) {
+          // No execute() ran, so the browser owes us a result.
+          const definition = clientActions.get(part.toolName)
+          delivered = true
+          yield {
+            type: 'client-action',
+            id: part.toolCallId,
+            name: part.toolName,
+            input: (part.input ?? {}) as Record<string, unknown>,
+            ...(definition?.clientPayload ? { payload: definition.clientPayload } : {}),
           }
         }
-      } else if (part.type === 'tool-result') {
-        ran.push({ name: part.toolName, input: part.input, output: part.output })
-      }
-      else if (part.type === 'error') {
-        failure = part.error instanceof Error ? part.error.message : String(part.error)
-      } else if (part.type === 'tool-call' && clientActions.has(part.toolName)) {
-        // No execute() ran, so the browser owes us a result.
-        const definition = clientActions.get(part.toolName)
-        yield {
-          type: 'client-action',
-          id: part.toolCallId,
-          name: part.toolName,
-          input: (part.input ?? {}) as Record<string, unknown>,
-          ...(definition?.clientPayload ? { payload: definition.clientPayload } : {}),
+
+        while (pending.length > 0) {
+          delivered = true
+          yield pending.shift() as StreamFrame
         }
       }
 
-      while (pending.length > 0) yield pending.shift() as StreamFrame
+      while (pending.length > 0) {
+        delivered = true
+        yield pending.shift() as StreamFrame
+      }
+
+      if (!failure) break
+
+      // Falling back is only safe while the turn is still invisible. Once a
+      // sentence has been read or an action has run, a second attempt would
+      // either repeat itself on screen or charge the same card twice, and a
+      // failed answer is a better outcome than either.
+      const another = attempt + 1 < attempts.length
+      const diagnosis = describeFailure(failure, prepared !== null)
+      if (!another || delivered || ran.length > 0 || !diagnosis.fallbackWorthTrying) break
+
+      console.warn(`[helpdeck] first model failed (${diagnosis.reason}); trying the fallback model.`)
     }
-
-    while (pending.length > 0) yield pending.shift() as StreamFrame
 
     if (checksOutput && !withheld && answered.length > released) {
       // The tail after the last sentence boundary, and the whole answer when
@@ -595,7 +653,7 @@ export function createAgent(options: AgentOptions) {
       // reaches the customer, and what goes in the transcript, is a sentence
       // and a reference that ties the two together.
       const diagnosis = describeFailure(failure, prepared !== null)
-      logFailure(diagnosis, failure, { conversation: conversationId, model: nameOf(model) })
+      logFailure(diagnosis, failure, { conversation: conversationId, model: nameOf(spoke) })
       yield { type: 'error', message: `${diagnosis.message} (reference ${diagnosis.reference})` }
     } else yield { type: 'done' }
   }
