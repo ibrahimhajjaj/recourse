@@ -7,10 +7,24 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const repo = join(here, '..', '..', '..')
 const docs = join(repo, 'docs')
+const skills = join(repo, 'skills')
 
-const pages = existsSync(docs)
-  ? [join(repo, 'README.md'), ...readdirSync(docs).filter((f) => f.endsWith('.md')).map((f) => join(docs, f))]
-  : [join(repo, 'README.md')]
+/**
+ * Every page that shows somebody how to import this, the skill included.
+ *
+ * The skill file was outside this check for a while, which meant the one
+ * document an agent reads and follows verbatim was the one document nothing
+ * verified.
+ */
+const pages = [
+  join(repo, 'README.md'),
+  ...(existsSync(docs) ? readdirSync(docs).filter((f) => f.endsWith('.md')).map((f) => join(docs, f)) : []),
+  ...(existsSync(skills)
+    ? readdirSync(skills)
+        .map((name) => join(skills, name, 'SKILL.md'))
+        .filter((path) => existsSync(path))
+    : []),
+]
 
 const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as {
   name: string
