@@ -102,7 +102,7 @@ class Providers {
 				'label'    => 'Alibaba Qwen (DashScope)',
 				'base_url' => 'https://dashscope.aliyuncs.com/compatible-mode/v1',
 				'model'    => 'qwen-plus',
-				'note'     => __( 'Chinese provider. Use the compatible-mode URL, not the native one.', 'recourse' ),
+				'note'     => __( 'Use the compatible-mode URL, not the native one. A key is tied to the region it was made in, so a key from another region answers 401 here however valid it is.', 'recourse' ),
 			),
 			'zhipu'      => array(
 				'label'    => 'Z.ai (GLM)',
