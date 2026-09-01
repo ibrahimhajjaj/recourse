@@ -354,3 +354,34 @@ describe('a card that changes while you watch', () => {
     call.restore()
   })
 })
+
+describe('the disclosure line', () => {
+  it('shows what the deployment set', () => {
+    // It was declared in the string table and rendered nowhere, so a shop that
+    // set this to say the customer is talking to a machine got nothing on
+    // screen and no error to tell them.
+    const { root } = mount({
+      endpoint: '/api/chat',
+      strings: { footnote: 'You are chatting with an AI assistant.' },
+    } as Parameters<typeof createWidget>[0])
+
+    expect(root.querySelector('.footnote')?.textContent).toBe('You are chatting with an AI assistant.')
+  })
+
+  it('shows nothing when none was set', () => {
+    const { root } = mount({ endpoint: '/api/chat' })
+
+    expect(root.querySelector('.footnote')).toBeNull()
+  })
+
+  it('renders it as text, never as markup', () => {
+    // It arrives from a data attribute on somebody's page.
+    const { root } = mount({
+      endpoint: '/api/chat',
+      strings: { footnote: '<img src=x onerror=alert(1)>' },
+    } as Parameters<typeof createWidget>[0])
+
+    expect(root.querySelector('.footnote img')).toBeNull()
+    expect(root.querySelector('.footnote')?.textContent).toContain('<img')
+  })
+})

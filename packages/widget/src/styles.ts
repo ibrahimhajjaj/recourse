@@ -364,6 +364,13 @@ export const styles = `
 .feedback .icon-button svg { width: 14px; height: 14px; }
 .feedback .icon-button[aria-pressed="true"] { opacity: 1; color: var(--rc-accent); background: none; }
 
+.footnote {
+  margin: 0;
+  padding: 0 12px 8px;
+  font-size: 11px;
+  opacity: 0.6;
+  text-align: center;
+}
 .working {
   display: flex;
   align-items: center;

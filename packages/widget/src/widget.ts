@@ -336,7 +336,21 @@ export function createWidget(options: WidgetOptions) {
   const dialButton = call ? [callButton] : []
   composer.append(...(uploads ? [attach] : []), input, ...micButton, ...dialButton, send)
 
-  panel.append(header, log, suggestions, errorBox, tray, composer)
+  /**
+   * A line under the composer, when the deployment set one.
+   *
+   * This is where a disclosure goes. It was declared in the string table and
+   * rendered nowhere, so a deployment that set it to say the customer is
+   * talking to a machine got an empty screen and no error, which is the worst
+   * way for that particular setting to fail.
+   *
+   * Text, never markup: it comes from a data attribute on somebody's page.
+   */
+  const footnote = document.createElement('p')
+  footnote.className = 'footnote'
+  if (strings.footnote) footnote.textContent = strings.footnote
+
+  panel.append(header, log, suggestions, errorBox, tray, composer, ...(strings.footnote ? [footnote] : []))
   if (uploads) panel.appendChild(picker)
   if (!inline) root.append(launcher, panel)
   else root.append(panel)

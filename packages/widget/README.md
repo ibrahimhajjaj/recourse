@@ -30,6 +30,7 @@ const widget = createWidget({
 | --- | --- |
 | `data-endpoint` | Where to post. The only required one. |
 | `data-title`, `data-subtitle`, `data-greeting` | The header and the opening line. |
+| `data-footnote` | A line under the composer, such as "You are chatting with an AI assistant". Several jurisdictions now expect a visitor to be told this without having to ask. |
 | `data-accent` | One colour; everything else is derived from it. |
 | `data-position` | `bottom-right` (default) or `bottom-left`. |
 | `data-theme` | `light`, `dark`, or `auto` (default). |

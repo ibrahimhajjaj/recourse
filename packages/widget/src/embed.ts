@@ -34,6 +34,10 @@ function readConfig(): WidgetOptions | null {
     inviteDelay: data.inviteDelay ? Number(data.inviteDelay) : undefined,
     title: data.title,
     subtitle: data.subtitle,
+    // `data-footnote="You are chatting with an AI assistant"`, shown under the
+    // composer. The one string reachable from a script tag, because it is the
+    // one a deployment may be obliged to show rather than merely want to.
+    ...(data.footnote ? { strings: { footnote: data.footnote } } : {}),
     greeting: data.greeting,
     accent: data.accent,
     suggestions: data.suggestions?.split('|').map((item) => item.trim()).filter(Boolean),
