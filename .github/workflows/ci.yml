@@ -41,7 +41,7 @@ jobs:
       # package.json is the version that has to win: it is what everybody's
       # local pnpm honours, so pinning a second one here is how CI and a
       # developer's machine quietly end up on different resolvers.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v5
         with:
