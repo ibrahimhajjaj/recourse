@@ -109,6 +109,23 @@ into a box sends one message and waits for it.
 While a burst is held, reply with nothing at all. A "one moment" is itself a
 message the customer has to read, and they are still typing.
 
+Three things it will not do to you.
+
+**It stays out of a person's way.** A conversation somebody has taken over is
+never held and never handed back, and a hold is dropped if a person takes over
+while it is running. Answering over the top of a colleague is the one thing a
+handover exists to prevent.
+
+**Somebody who never stops typing still gets an answer.** A window that
+restarts on every message never ends for a continuous writer, so there is a
+ceiling from the start of the burst: `maxWaitMs`, thirty seconds by default.
+Long enough that a normal burst never reaches it.
+
+**A paste is not a burst.** `maxMessages` caps what gets folded into one turn
+at twenty-five, keeping the newest, because the actual request is at the end of
+two hundred pasted lines and sending all of them to the model is a bill rather
+than a question.
+
 **On two sweepers running at once**: a burst is claimed with a token that is
 written and read back, so an overlapping sweeper almost never takes the same
 one. Almost, because a `Store` has no compare and swap. If you need the

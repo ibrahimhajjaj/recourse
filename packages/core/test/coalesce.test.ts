@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { due, HOLD_KEYS, hold } from '../src/coalesce.js'
 import { memoryStore } from '../src/store/index.js'
+import { pauseAgent } from '../src/takeover.js'
 
 let clock = 0
 const said = (role: 'user' | 'assistant', content: string) => ({
@@ -117,5 +118,84 @@ describe('one thought sent as four messages', () => {
     await store.appendMessage(id, said('user', 'hello'))
 
     expect(await due({ store, windowMs: 5000 })).toEqual([])
+  })
+})
+
+describe('holding a conversation somebody else owns', () => {
+  it('never arms a window once a person has taken it over', async () => {
+    // Arming one would have the agent answer over the top of them when it
+    // elapsed, which is the one thing a handover exists to prevent.
+    const { store, id } = await conversation()
+    await store.appendMessage(id, said('user', 'I want a human'))
+    await pauseAgent(store, id)
+    await store.appendMessage(id, said('user', 'are you there?'))
+
+    await hold(id, { store, windowMs: 5000 })
+    const meta = (await store.getConversation(id))?.conversation.meta
+
+    expect(meta?.[HOLD_KEYS.dueAt]).toBeUndefined()
+  })
+
+  it('drops a hold when a person takes over mid-burst', async () => {
+    const { store, id } = await conversation()
+    await store.appendMessage(id, said('user', 'hello'))
+    await hold(id, { store, windowMs: 5000 })
+    await pauseAgent(store, id)
+    await waited(store, id)
+
+    expect(await due({ store, windowMs: 5000 })).toEqual([])
+    // And the hold is gone rather than left to fire the moment they finish.
+    expect((await store.getConversation(id))?.conversation.meta?.[HOLD_KEYS.dueAt]).toBeUndefined()
+  })
+})
+
+describe('somebody who never stops typing', () => {
+  it('answers anyway once the ceiling is reached', async () => {
+    // A window that restarts on every message never ends for somebody writing
+    // continuously, and they get silence instead of an answer.
+    const { store, id } = await conversation()
+    await store.appendMessage(id, said('user', 'still going'))
+    await hold(id, { store, windowMs: 5000 })
+
+    const thread = await store.getConversation(id)
+    await store.updateConversation(id, {
+      meta: {
+        ...thread?.conversation.meta,
+        [HOLD_KEYS.firstAt]: new Date(Date.now() - 60_000).toISOString(),
+        [HOLD_KEYS.dueAt]: new Date(Date.now() + 5000).toISOString(),
+      },
+    })
+
+    const ready = await due({ store, windowMs: 5000, maxWaitMs: 30_000 })
+    expect(ready).toHaveLength(1)
+  })
+
+  it('measures the ceiling from the start of the burst, not the last message', async () => {
+    const { store, id } = await conversation()
+    await store.appendMessage(id, said('user', 'one'))
+    await hold(id, { store, windowMs: 5000 })
+    const first = (await store.getConversation(id))?.conversation.meta?.[HOLD_KEYS.firstAt]
+
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    await store.appendMessage(id, said('user', 'two'))
+    await hold(id, { store, windowMs: 5000 })
+
+    expect((await store.getConversation(id))?.conversation.meta?.[HOLD_KEYS.firstAt]).toBe(first)
+  })
+})
+
+describe('a burst that is not a burst', () => {
+  it('keeps the newest when somebody pastes two hundred lines', async () => {
+    // The actual request is at the end of a paste, not the start, and sending
+    // all of it to the model is a bill rather than a question.
+    const { store, id } = await conversation()
+    for (let at = 0; at < 200; at++) await store.appendMessage(id, said('user', `line ${at}`))
+    await hold(id, { store, windowMs: 5000 })
+    await waited(store, id)
+
+    const ready = await due({ store, windowMs: 5000, maxMessages: 25 })
+
+    expect(ready[0]?.messages).toHaveLength(25)
+    expect(ready[0]?.messages.at(-1)?.content).toBe('line 199')
   })
 })

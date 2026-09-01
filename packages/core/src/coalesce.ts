@@ -17,11 +17,14 @@
  * Object alarm. Neither half needs a process to stay alive.
  */
 
+import { PAUSED_KEY } from './takeover.js'
 import type { Conversation, Store, StoredMessage } from './store/types.js'
 
 export const HOLD_KEYS = {
   /** When the current burst may be answered, if nothing else arrives. */
   dueAt: 'coalesceDueAt',
+  /** When it began, so somebody typing forever still gets an answer. */
+  firstAt: 'coalesceFirstAt',
   /** Who is answering this burst, so two sweepers do not both. */
   claim: 'coalesceClaim',
 } as const
@@ -39,6 +42,23 @@ export interface HoldOptions {
    * wants: somebody typing into a box sends one message and waits.
    */
   windowMs: number
+  /**
+   * The longest a burst may be held, however much the customer keeps typing.
+   *
+   * Without it a window that restarts on every message never ends for somebody
+   * writing continuously, and they get silence rather than an answer. Thirty
+   * seconds by default: long enough that a normal burst never reaches it.
+   */
+  maxWaitMs?: number
+  /**
+   * The most messages folded into one turn.
+   *
+   * A burst is normally three or four. Two hundred is somebody pasting a log
+   * or a script hammering the webhook, and sending all of it to the model is a
+   * bill rather than a question. The newest are kept, because that is where
+   * the actual request is.
+   */
+  maxMessages?: number
 }
 
 export interface Held {
@@ -64,16 +84,28 @@ export async function hold(conversationId: string, options: HoldOptions): Promis
   const thread = await options.store.getConversation(conversationId)
   if (!thread) return { ready: true, messages: [] }
 
+  const meta = thread.conversation.meta ?? {}
+
+  // A person owns this conversation, so there is nothing to schedule. Arming a
+  // window here would have the agent answer over the top of them once it
+  // elapsed, which is the one thing a handover exists to prevent.
+  if (meta[PAUSED_KEY] === true) return { ready: false, messages: [] }
+
   if (options.windowMs <= 0) {
-    return { ready: true, messages: sinceLastAnswer(thread.messages) }
+    return { ready: true, messages: burst(thread.messages, options.maxMessages) }
   }
 
-  // Restarted on every arrival, which is what makes it a silence detector
-  // rather than a timer from the first word.
+  const now = Date.now()
+
   await options.store.updateConversation(conversationId, {
     meta: {
-      ...(thread.conversation.meta ?? {}),
-      [HOLD_KEYS.dueAt]: new Date(Date.now() + options.windowMs).toISOString(),
+      ...meta,
+      // Restarted on every arrival, which is what makes it a silence detector
+      // rather than a timer from the first word.
+      [HOLD_KEYS.dueAt]: new Date(now + options.windowMs).toISOString(),
+      // Set once and left alone, so the ceiling below is measured from when
+      // the customer started rather than from their most recent keystroke.
+      [HOLD_KEYS.firstAt]: typeof meta[HOLD_KEYS.firstAt] === 'string' ? meta[HOLD_KEYS.firstAt] : new Date(now).toISOString(),
     },
   })
 
@@ -99,11 +131,24 @@ export async function due(options: HoldOptions & { limit?: number }): Promise<
   for (const conversation of page.items) {
     if (ready.length >= limit) break
 
+    // A person took it over while it was being held. Their conversation is
+    // theirs; drop the hold and leave it alone.
+    if (conversation.meta?.[PAUSED_KEY] === true) {
+      await forget(options.store, conversation.id)
+      continue
+    }
+
     const dueAt = conversation.meta?.[HOLD_KEYS.dueAt]
     if (typeof dueAt !== 'string') continue
 
     const at = Date.parse(dueAt)
-    if (Number.isNaN(at) || at > now) continue
+    if (Number.isNaN(at)) continue
+
+    // Either the silence lasted, or the customer has been typing long enough
+    // that waiting for more silence is no longer serving them.
+    const startedAt = Date.parse(String(conversation.meta?.[HOLD_KEYS.firstAt] ?? dueAt))
+    const overdue = !Number.isNaN(startedAt) && now - startedAt >= (options.maxWaitMs ?? 30_000)
+    if (at > now && !overdue) continue
 
     // Released before the burst is handed over, not after. A sweep that reads,
     // answers, then clears would let a second sweeper pick up the same burst
@@ -114,7 +159,7 @@ export async function due(options: HoldOptions & { limit?: number }): Promise<
     const thread = await options.store.getConversation(conversation.id)
     if (!thread) continue
 
-    ready.push({ conversationId: conversation.id, messages: sinceLastAnswer(thread.messages) })
+    ready.push({ conversationId: conversation.id, messages: burst(thread.messages, options.maxMessages) })
   }
 
   return ready
@@ -147,6 +192,7 @@ async function release(store: Store, conversation: Conversation): Promise<boolea
 
   const next = { ...(after?.conversation.meta ?? {}) }
   delete next[HOLD_KEYS.dueAt]
+  delete next[HOLD_KEYS.firstAt]
   delete next[HOLD_KEYS.claim]
 
   await store.updateConversation(conversation.id, { meta: next })
@@ -154,9 +200,29 @@ async function release(store: Store, conversation: Conversation): Promise<boolea
   return true
 }
 
-/** Everything the customer has said since the agent last replied. */
-function sinceLastAnswer(messages: StoredMessage[]): StoredMessage[] {
-  const at = messages.map((message) => message.role).lastIndexOf('assistant')
+/** Drops a hold without taking the burst, for one a person now owns. */
+async function forget(store: Store, conversationId: string): Promise<void> {
+  const thread = await store.getConversation(conversationId)
+  if (!thread) return
 
-  return messages.slice(at + 1).filter((message) => message.role === 'user')
+  const next = { ...(thread.conversation.meta ?? {}) }
+  delete next[HOLD_KEYS.dueAt]
+  delete next[HOLD_KEYS.firstAt]
+  delete next[HOLD_KEYS.claim]
+
+  await store.updateConversation(conversationId, { meta: next })
+}
+
+/**
+ * Everything the customer has said since the agent last replied, capped.
+ *
+ * The newest are kept when there are too many. A burst is three or four
+ * messages; two hundred is a paste or a script, and the actual request is at
+ * the end of it rather than the start.
+ */
+function burst(messages: StoredMessage[], maxMessages = 25): StoredMessage[] {
+  const at = messages.map((message) => message.role).lastIndexOf('assistant')
+  const said = messages.slice(at + 1).filter((message) => message.role === 'user')
+
+  return said.length > maxMessages ? said.slice(-maxMessages) : said
 }
