@@ -37,6 +37,95 @@ subscription will eventually cancel the wrong one, and the customer will not fin
 out until the coffee stops arriving.
 
 
+## Answering with something other than a sentence
+
+Some answers are not a paragraph. An order is a card, three shipping options
+are a table, and "start a return" is a button. The agent can render those
+instead of describing them:
+
+```ts
+import { customButton } from '@recourse-ai/core'
+
+customButton({
+  whenToUse: 'When the customer wants to track an order or start a return.',
+  buttons: [
+    { label: 'Track my order', url: 'https://example.com/track' },
+    { label: 'Start a return', url: 'https://example.com/returns' },
+  ],
+})
+```
+
+Four kinds ship: `button`, `card`, `table` and `list`, plus forms the customer
+can fill in. Your own action emits one directly:
+
+```ts
+ctx.emit({
+  type: 'ui',
+  kind: 'card',
+  id: `refund_${orderNumber}`,
+  data: { title: `Refund for ${orderNumber}`, subtitle: 'Requested', fields: [...] },
+})
+```
+
+### The id is what makes it change
+
+Send the same `id` again and the card on screen is **replaced**, in place,
+rather than a second copy appearing under it. So a refund that goes from
+requested to reviewed to approved is one card that updates three times, and the
+thread does not jump under somebody reading it.
+
+```ts
+ctx.emit({ type: 'ui', kind: 'card', id: 'refund_1042', data: { subtitle: 'Requested' } })
+// later in the same turn, or a later turn in the same conversation
+ctx.emit({ type: 'ui', kind: 'card', id: 'refund_1042', data: { subtitle: 'Approved' } })
+```
+
+Send the whole `data` object each time rather than a patch. These payloads are a
+handful of fields, and a replacement has no way to be half-applied.
+
+Omit the `id` and every frame appends, which is what you want for a card that
+records something that happened rather than something in progress.
+
+### Your own kinds
+
+`RENDERERS` is an ordinary exported record, so a deployment adds to it:
+
+```ts
+import { RENDERERS } from '@recourse-ai/widget'
+
+RENDERERS.progress = (data) => {
+  const bar = document.createElement('progress')
+  bar.max = 100
+  bar.value = Number(data.percent) || 0
+  return bar
+}
+```
+
+A kind nothing knows how to draw renders nothing at all rather than throwing, so
+an agent inventing one cannot break the thread.
+
+## Saying what it is doing
+
+An action that takes a few seconds should say so. Emit a frame when it starts
+and when it finishes, and the widget shows it in place of the typing dots:
+
+```ts
+ctx.emit({ type: 'action', name: 'look_up_billing', status: 'running', summary: 'invoice 1234' })
+const invoice = await stripe.invoices.retrieve(id)
+ctx.emit({ type: 'action', name: 'look_up_billing', status: 'done' })
+```
+
+The visitor sees "Checking invoice 1234" rather than three dots for five
+seconds. Without a `summary` the action's name is tidied and used, so
+`look_up_billing` reads as "look up billing".
+
+The built-in `httpAction` and the commerce lookups already do this. It steps
+aside the moment the answer starts arriving, because a status line under a
+half-written sentence reads as a fault.
+
+`summary` is rendered as text, never as markup. It is written by your code and
+it lands on a customer's screen.
+
 ## Procedures
 
 Where improvising is expensive, give the agent the steps.
