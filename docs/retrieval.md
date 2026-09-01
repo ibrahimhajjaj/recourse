@@ -60,6 +60,27 @@ that, which is why the write happens during the build rather than afterwards.
 The same 50,000 vectors inside a file would be 38 MB raw and 51 MB once base64
 puts them in JSON, before any chunk text, parsed on every cold start.
 
+## The same index, as a page people can search
+
+The index that answers the chat can also serve a plain help centre, so somebody
+who would rather read than ask has something to read.
+
+```ts
+import { createHelpPage } from '@recourse-ai/core/api'
+
+export const GET = createHelpPage({
+  index,
+  business: 'Lumen Coffee',
+  // Offers the chat widget when a search finds nothing good.
+  chatEndpoint: '/api/chat',
+})
+```
+
+One route, server-rendered, no build step and no client framework. It searches
+the same index with the same ranking the agent uses, which is the point: a
+question that fails here would have failed in the chat too, and you can see it
+without opening a conversation.
+
 ---
 
 [Back to the README](../README.md)

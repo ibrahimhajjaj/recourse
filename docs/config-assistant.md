@@ -4,12 +4,38 @@ Configuration is code here, and that is right for a developer and wrong for the
 support lead who knows exactly which question the agent keeps failing and
 cannot fix it without asking somebody.
 
+First you need knowledge that can change without a deploy. `createIndex` from
+the command line produces a file; this produces the same thing from sources
+kept in your store, so a page added at four o'clock is answerable at five.
+
+```ts
+import { createKnowledgeBase } from '@recourse-ai/core'
+
+const knowledge = createKnowledgeBase({ store })
+
+await knowledge.addSource({ type: 'text', name: 'Refunds', content: 'We refund within 30 days.' })
+await knowledge.train()
+
+knowledge.index() // hand this to the agent
+```
+
+`train` rebuilds the whole thing rather than patching it. Incremental indexing
+has to keep the ranking statistics honest as documents come and go, and getting
+that subtly wrong degrades every answer quietly, without ever failing. A few
+thousand chunks rebuild in well under a second, so the simple thing is also the
+right one until the corpus is very large.
+
+`startAutoRetrain(intervalMs)` does it on a timer, and only when something
+actually changed, because refetching a link source costs a credit.
+
+Then hand it to the assistant:
+
 ```ts
 import { createChatHandler } from '@recourse-ai/core/server'
 import { knowledgeActions, ASSISTANT_PROMPT } from '@recourse-ai/core'
 
 createChatHandler({
-  index,
+  index: knowledge.index(),
   actions: knowledgeActions({ knowledge, store }),
   prompt: () => ASSISTANT_PROMPT,
 })

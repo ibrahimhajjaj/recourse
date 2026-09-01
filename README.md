@@ -156,6 +156,12 @@ real webhook signature verification.
 turn: Conversation Relay, a plain call-and-response loop, your own speech provider, or
 ElevenLabs driving the whole conversation.
 
+**Plugs into your editor.** The management API also speaks Model Context
+Protocol, so Claude Desktop, Cursor or anything else that speaks it can read
+your support data as tools. Ask "what are people asking that we cannot answer?"
+and get the gap list; ask what the customer on ticket 412 actually said without
+leaving the editor. Read-only on purpose, one endpoint, no process to run.
+
 **Takes a call from the page itself.** A Call button in the widget, with no
 phone number and no telephony account. Either a voice vendor carries it, or
 your own server does over a plain WebSocket, in which case the same agent that
@@ -201,7 +207,9 @@ the thing you came for.
 | Store conversations somewhere that survives | [docs/stores.md](docs/stores.md) |
 | Start conversations, and tell other systems | [docs/reaching-out.md](docs/reaching-out.md) |
 | Wire it to Zapier, ViaSocket, Make or n8n | [docs/automation.md](docs/automation.md) |
+| Read your tickets from Claude Desktop or your editor | [docs/automation.md](docs/automation.md#reading-it-from-inside-a-coding-agent) |
 | Let a non-developer fix a wrong answer | [docs/config-assistant.md](docs/config-assistant.md) |
+| Serve a help centre people can search | [docs/retrieval.md](docs/retrieval.md#the-same-index-as-a-page-people-can-search) |
 | Find out whether any of it actually works | [docs/evals.md](docs/evals.md) |
 | Put it on Cloudflare, and check it before a customer does | [docs/deploying.md](docs/deploying.md) |
 | Accept a PDF or a photo of a broken part | [docs/files.md](docs/files.md) |
