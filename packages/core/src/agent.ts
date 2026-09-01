@@ -6,6 +6,7 @@ import type { Channel, Store, StoredMessage } from './store/types.js'
 import { renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
 import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
+import { embedderSpansLanguages, translateQuery } from './knowledge/translate-query.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever, type RetrieverOptions } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
@@ -64,6 +65,31 @@ export interface AgentOptions {
    * the thinking plus the answer, or turn the thinking off.
    */
   maxOutputTokens?: number
+  /**
+   * Search in the language the content is written in, whatever the customer used.
+   *
+   * Retrieval matches a question against the text of the documents, so a
+   * question in another script matches nothing and a shop whose help pages
+   * answer it perfectly returns empty. This translates the search key first.
+   * Measured: an Arabic question about delivery found nothing against English
+   * pages that answer it in full.
+   *
+   * Only the key is translated, so the answer still comes back in the
+   * customer's language. Costs one small call, and only when the question is
+   * in a different script; see `needsTranslation` for where that line is.
+   */
+  searchLanguage?: {
+    language: string
+    model: LanguageModel
+    /**
+     * Overrides what the index says about its own embedder.
+     *
+     * Set true for an in-house multilingual model this does not recognise, or
+     * false to translate anyway. Left alone, the decision comes from the model
+     * the index was built with.
+     */
+    multilingualEmbeddings?: boolean
+  }
   /** Passages given to the model per question. */
   topK?: number
   /**
@@ -303,11 +329,39 @@ export function createAgent(options: AgentOptions) {
    * topic along with it.
    */
   async function search(messages: Message[], signal?: AbortSignal): Promise<Match[]> {
-    const matches = await retriever.retrieve(retrievalQuery(messages), { signal })
+    const asked = await asIndexed(retrievalQuery(messages), signal)
+    const matches = await retriever.retrieve(asked, { signal })
     if (matches.length > 0) return matches
 
     const withContext = contextualQuery(messages)
-    return withContext ? retriever.retrieve(withContext, { signal }) : []
+    if (!withContext) return []
+
+    return retriever.retrieve(await asIndexed(withContext, signal), { signal })
+  }
+
+  /**
+   * The search key, in the language the content is written in.
+   *
+   * Only the key. The question the model answers is untouched, so the reply
+   * still comes back in the language the customer used.
+   */
+  async function asIndexed(query: string, signal?: AbortSignal): Promise<string> {
+    if (!options.searchLanguage) return query
+
+    // The better of the two routes, when it is available. An embedder that
+    // places every language in one space already matches an Arabic question
+    // to an English passage, so translating first would spend a call to
+    // arrive where retrieval already is. Decided from what the index was
+    // actually built with rather than asked of the caller, and overridable
+    // for an in-house model this does not recognise.
+    const spans = options.searchLanguage.multilingualEmbeddings ?? embedderSpansLanguages(index.vectors?.model)
+    if (spans) return query
+
+    return translateQuery(query, {
+      indexLanguage: options.searchLanguage.language,
+      model: options.searchLanguage.model,
+      ...(signal ? { signal } : {}),
+    })
   }
 
   function toMessages(question: string | Message[], history: Message[]): Message[] {

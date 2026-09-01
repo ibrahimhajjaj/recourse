@@ -34,6 +34,16 @@ export interface ChatHandlerOptions {
   /** Replaces the instructions the model is given. Compose from `buildInstructions`. */
   prompt?: AgentOptions['prompt']
   /**
+   * Searches content written in one language with questions asked in any.
+   *
+   * Off unless set. Without it a shop whose help pages are in English returns
+   * nothing for the same question asked in Arabic, French or Turkish, and the
+   * agent says it cannot find something it is standing on.
+   */
+  searchLanguage?: AgentOptions['searchLanguage']
+  /** Ceiling on a single reply, counting whatever the model spends thinking. */
+  maxOutputTokens?: number
+  /**
    * Set `false` to force keyword-only retrieval. Defaults to matching whatever
    * the index was built with.
    */
@@ -172,6 +182,8 @@ export function createChatHandler(options: ChatHandlerOptions) {
     // read. Splitting them across two settings only invites them to disagree.
     ...(options.attachments ? { attachments: options.attachments } : {}),
     ...(options.classifier !== undefined ? { classifier: options.classifier } : {}),
+    ...(options.searchLanguage ? { searchLanguage: options.searchLanguage } : {}),
+    ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
   })
 
   return async function handle(request: Request): Promise<Response> {
