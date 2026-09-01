@@ -109,8 +109,8 @@ class Tokenizer {
 		$stopwords = self::stopwords();
 
 		// Splitting on anything that is not a letter or a digit, by Unicode
-		// property rather than by a Latin range, so Arabic and CJK content
-		// tokenises instead of being thrown away.
+		// property rather than by a Latin range, so Arabic content tokenises
+		// instead of being thrown away.
 		$parts = preg_split( '/[^\p{L}\p{N}]+/u', self::lower( $text ) );
 
 		if ( false === $parts ) {
@@ -118,16 +118,100 @@ class Tokenizer {
 		}
 
 		foreach ( $parts as $raw ) {
-			$length = self::length( $raw );
-
-			if ( $length < 2 || $length > 40 ) {
-				continue;
-			}
-			if ( isset( $stopwords[ $raw ] ) ) {
+			if ( '' === $raw ) {
 				continue;
 			}
 
-			$out[] = self::stem( $raw );
+			// The common path, and nearly always the answer.
+			if ( ! preg_match( self::UNSPACED, $raw ) ) {
+				$length = self::length( $raw );
+
+				if ( $length < 2 || $length > 40 ) {
+					continue;
+				}
+				if ( isset( $stopwords[ $raw ] ) ) {
+					continue;
+				}
+
+				$out[] = self::stem( $raw );
+				continue;
+			}
+
+			// Mixed runs are ordinary rather than exotic: a Japanese sentence
+			// naming an English product, a Chinese page with a model number.
+			$runs = array();
+			if ( false === preg_match_all( self::RUNS, $raw, $runs ) ) {
+				continue;
+			}
+
+			foreach ( $runs[0] as $run ) {
+				if ( preg_match( self::UNSPACED, $run ) ) {
+					foreach ( self::pairs( $run ) as $pair ) {
+						$out[] = $pair;
+					}
+					continue;
+				}
+
+				$length = self::length( $run );
+
+				if ( $length < 2 || $length > 40 ) {
+					continue;
+				}
+				if ( isset( $stopwords[ $run ] ) ) {
+					continue;
+				}
+
+				$out[] = self::stem( $run );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Scripts that put no spaces between words.
+	 *
+	 * Splitting on spaces is a definition of "word" that half the world does
+	 * not use. A Japanese sentence has none, so the rule above returned the
+	 * whole sentence as one term, and a term that long matches only an
+	 * identical sentence: a shop whose pages are in Japanese or Chinese
+	 * retrieved nothing at all, silently.
+	 *
+	 * Hangul is absent on purpose. Korean is written with spaces, so it wants
+	 * the ordinary path.
+	 */
+	const UNSPACED = '/[\p{Han}\p{Hiragana}\p{Katakana}\p{Thai}\p{Khmer}\p{Lao}\p{Myanmar}]/u';
+
+	/** Runs of unspaced script, and runs of everything else, in order. */
+	const RUNS = '/[\p{Han}\p{Hiragana}\p{Katakana}\p{Thai}\p{Khmer}\p{Lao}\p{Myanmar}]+|[^\p{Han}\p{Hiragana}\p{Katakana}\p{Thai}\p{Khmer}\p{Lao}\p{Myanmar}]+/u';
+
+	/**
+	 * Overlapping character pairs, which is how you index a script with no
+	 * word boundaries and no dictionary to find them with.
+	 *
+	 * A pair is short enough to survive whatever the real boundary turns out
+	 * to be, and specific enough to rank. Single characters are kept as
+	 * themselves, because plenty of them are whole words.
+	 *
+	 * The alternative is a morphological analyser, which means a dictionary
+	 * per language, megabytes of it, in a plugin whose entire argument is that
+	 * it runs on shared hosting.
+	 *
+	 * @param string $run One run of unspaced script.
+	 * @return array<int, string>
+	 */
+	private static function pairs( $run ) {
+		$characters = preg_split( '//u', $run, -1, PREG_SPLIT_NO_EMPTY );
+
+		if ( false === $characters || count( $characters ) < 2 ) {
+			return false === $characters ? array() : $characters;
+		}
+
+		$out   = array();
+		$total = count( $characters );
+
+		for ( $at = 0; $at + 1 < $total; $at++ ) {
+			$out[] = $characters[ $at ] . $characters[ $at + 1 ];
 		}
 
 		return $out;

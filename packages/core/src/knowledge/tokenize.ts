@@ -120,17 +120,81 @@ function stem(word: string): string {
 
 /**
  * Splits on anything that is not a letter or a digit. The unicode property
- * escapes keep non-English content (Arabic, CJK, accented Latin) tokenising
- * sensibly instead of being thrown away.
+ * escapes keep accented Latin, Arabic, Cyrillic and Greek intact instead of
+ * being thrown away a character at a time.
  */
 const SPLIT = /[^\p{L}\p{N}]+/u
 
+/**
+ * Scripts that put no spaces between words.
+ *
+ * Splitting on spaces is a definition of "word" that half the world does not
+ * use. A Japanese sentence has none, so the rule above returned the entire
+ * sentence as one term, and a term that long matches only an identical
+ * sentence: a shop whose pages are in Japanese or Chinese retrieved nothing at
+ * all, silently, and the agent reported that it had no information on a
+ * subject it had a page about.
+ *
+ * Hangul is absent on purpose. Korean is written with spaces, so it wants the
+ * ordinary path.
+ */
+const UNSPACED = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Khmer}\p{Script=Lao}\p{Script=Myanmar}]/u
+
+/** Runs of unspaced script, and runs of everything else, in order. */
+const RUNS =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Khmer}\p{Script=Lao}\p{Script=Myanmar}]+|[^\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Khmer}\p{Script=Lao}\p{Script=Myanmar}]+/gu
+
+/**
+ * Overlapping character pairs, which is how you index a script with no word
+ * boundaries and no dictionary to find them with.
+ *
+ * A pair is short enough to survive whatever the real boundary turns out to
+ * be, and specific enough to rank: a query and a page that discuss the same
+ * thing share pairs even when neither knows where the words end. Single
+ * characters are kept as themselves, because plenty of them are whole words.
+ *
+ * The alternative is a morphological analyser, which means a dictionary per
+ * language, megabytes of it, in a plugin whose entire argument is that it runs
+ * on shared hosting.
+ */
+function pairs(run: string): string[] {
+  const characters = [...run]
+  if (characters.length === 1) return characters
+
+  const out: string[] = []
+  for (let at = 0; at + 1 < characters.length; at++) out.push(`${characters[at]}${characters[at + 1]}`)
+
+  return out
+}
+
 export function tokenize(text: string): string[] {
   const out: string[] = []
+
   for (const raw of text.toLowerCase().split(SPLIT)) {
-    if (raw.length < 2 || raw.length > 40) continue
-    if (STOPWORDS.has(raw)) continue
-    out.push(stem(raw))
+    if (!raw) continue
+
+    // The common path, unchanged. Checked first because it is nearly always
+    // the answer and the test is one regex against a short string.
+    if (!UNSPACED.test(raw)) {
+      if (raw.length < 2 || raw.length > 40) continue
+      if (STOPWORDS.has(raw)) continue
+      out.push(stem(raw))
+      continue
+    }
+
+    // Mixed, which is ordinary rather than exotic: a Japanese sentence naming
+    // an English product, a Chinese page with a model number in it.
+    for (const run of raw.match(RUNS) ?? []) {
+      if (UNSPACED.test(run)) {
+        out.push(...pairs(run))
+        continue
+      }
+
+      if (run.length < 2 || run.length > 40) continue
+      if (STOPWORDS.has(run)) continue
+      out.push(stem(run))
+    }
   }
+
   return out
 }

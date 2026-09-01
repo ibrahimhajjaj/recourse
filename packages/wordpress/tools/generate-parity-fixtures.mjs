@@ -45,7 +45,10 @@ const WORDS = [
   'is', 'a', 'the', 'and', 'i', 'ok',
   'Größe', 'Grösse', 'CAFÉ', 'café', 'ÜBER',
   'فاتورة', 'الشحن', 'التوصيل',
-  '配送', '返品',
+  // No spaces, so these become pairs rather than one unmatchable term.
+  '配送', '返品', '配送时间需要多久', '配送にはどのくらいかかりますか', '茶',
+  // Written with spaces, so it must not become pairs.
+  '배송은', '걸리나요',
   'ORDER-1042', 'sku_88', '2026', 'v2.1',
 ]
 
@@ -54,6 +57,10 @@ const SENTENCES = [
   'I want my money back on order 1042.',
   'Do you ship to the United Arab Emirates, and what does it cost?',
   'كيف يمكنني إرجاع الطلب؟',
+  '配送时间通常需要三天',
+  'LUM-1234の配送はいつですか',
+  '배송은 얼마나 걸리나요',
+  'การจัดส่งใช้เวลานานเท่าไร',
   'Wie lange dauert der Versand nach Österreich?',
   '   ',
   'a the and of',

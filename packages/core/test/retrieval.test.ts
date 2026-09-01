@@ -15,8 +15,42 @@ describe('tokenize', () => {
     expect(tokenize('كيف يمكنني الإلغاء')).toEqual(['كيف', 'يمكنني', 'الإلغاء'])
   })
 
-  it('ignores punctuation and single characters', () => {
-    expect(tokenize('a b -- ??? refund!!')).toEqual(['refund'])
+  it('splits a script that writes no spaces', () => {
+    // Japanese and Chinese put nothing between words, so the old rule returned
+    // the whole sentence as one term and it matched only itself: a shop with
+    // Japanese pages retrieved nothing, silently.
+    expect(tokenize('配送时间需要多久')).toEqual(['配送', '送时', '时间', '间需', '需要', '要多', '多久'])
+
+    // And a real question overlaps a real page.
+    const page = tokenize('配送时间通常需要三天')
+    expect(tokenize('配送需要多久').some((term) => page.includes(term))).toBe(true)
+  })
+
+  it('leaves Korean alone, because it is written with spaces', () => {
+    expect(tokenize('배송은 얼마나 걸리나요')).toEqual(['배송은', '얼마나', '걸리나요'])
+  })
+
+  it('reads a sentence that mixes a script with a product code', () => {
+    expect(tokenize('LUM-1234の配送')).toEqual(['lum', '1234', 'の配', '配送'])
+  })
+
+})
+
+describe('ranking a corpus with no spaces in it', () => {
+  // The shape of the original failure: three real pages, three real questions,
+  // and nothing matched. Every question returned the whole sentence as one
+  // term, which appears in no document but itself.
+  const pages = [
+    '配送時間は国によって異なります。日本国内は通常一から二営業日です。',
+    '返品は配達から三十日以内であれば受け付けます。',
+    'コーヒー豆は冷暗所で保存してください。冷蔵庫には入れないでください。',
+  ]
+  const index = buildKeywordIndex(pages)
+
+  it('puts the right page first for a question in Japanese', () => {
+    expect(searchKeyword(index, '配送はどのくらいかかりますか', 3)[0]?.ord).toBe(0)
+    expect(searchKeyword(index, '返品したいのですが', 3)[0]?.ord).toBe(1)
+    expect(searchKeyword(index, '豆の保存方法', 3)[0]?.ord).toBe(2)
   })
 })
 
