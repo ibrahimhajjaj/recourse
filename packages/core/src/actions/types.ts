@@ -73,6 +73,27 @@ export interface Action {
    */
   procedureOnly?: boolean
   /**
+   * Only offer this action when the conversation is about it.
+   *
+   * Every action's name, description and input schema go to the model on every
+   * turn. Eleven of them is around nine hundred tokens; forty-five is over
+   * three thousand, on every message including "hi". Worse than the bytes is
+   * the attention: a small model choosing between forty tools chooses badly.
+   *
+   * A few words describing what this is for. The action is bound only on turns
+   * whose conversation shares a distinctive word with it, so a shipping
+   * question does not carry the returns tooling.
+   *
+   * ```ts
+   * httpAction({ name: 'check_stock', relevantWhen: 'stock availability in store', ... })
+   * ```
+   *
+   * Left unset, the action is always offered, which is the right default: an
+   * action the model cannot see is one it cannot use, and a missed match is a
+   * worse failure than a wasted token.
+   */
+  relevantWhen?: string
+  /**
    * `client` actions are executed by the browser rather than here, because they
    * need page context the server does not have. The server pauses, the widget
    * runs them, and the result comes back on the next request.

@@ -1,4 +1,4 @@
-import { tokenize } from '../knowledge/tokenize.js'
+import { mentions } from '../relevance.js'
 import type { Action } from '../actions/types.js'
 import { ACTION_REFERENCE, MAX_BRANCHES, MAX_STEPS, type Decision, type Procedure, type Step } from './types.js'
 
@@ -82,74 +82,23 @@ export function usableProcedures(
   return { usable, dropped }
 }
 
-/** Action names any usable procedure needs, so procedure-only ones unlock. */
+/**
+ * Action names any usable procedure needs, so procedure-only ones unlock.
+ *
+ * Pass the **whole conversation** rather than the last message, which is what
+ * makes a match stay decided: a refund procedure matched at "I want a refund"
+ * is still matched three turns later at "LUM-1234", so an action does not
+ * vanish from under a flow halfway through it. Omit it and everything unlocks,
+ * for a caller with no conversation to judge.
+ */
 export function unlockedBy(procedures: Procedure[], conversation?: string): Set<string> {
   const names = new Set<string>()
 
   for (const procedure of procedures) {
-    if (conversation !== undefined && !triggerMatches(procedure, conversation)) continue
+    if (conversation !== undefined && !mentions(procedure.trigger, conversation)) continue
     for (const name of referencedActions(procedure)) names.add(name)
   }
 
   return names
 }
 
-/**
- * Whether this procedure's trigger has anything to do with what is being said.
- *
- * Deciding it from the **whole conversation** rather than the last message is
- * what makes it stay decided: a refund procedure matched at "I want a refund"
- * is still matched three turns later at "LUM-1234", so an action does not
- * vanish from under a flow that is halfway through it.
- *
- * Deliberately generous. A missed match takes an action away from a procedure
- * that needed it, which breaks a working deployment; a loose match only leaves
- * things as they were before this existed. So one shared term is enough, and a
- * trigger with no terms worth matching on unlocks rather than locks.
- */
-function triggerMatches(procedure: Procedure, conversation: string): boolean {
-  const wanted = new Set(tokenize(procedure.trigger).filter((term) => !GENERIC.has(term)))
-  if (wanted.size === 0) return true
-
-  for (const term of tokenize(conversation)) {
-    if (wanted.has(term)) return true
-  }
-
-  return false
-}
-
-/**
- * Support vocabulary that says nothing about which procedure applies.
- *
- * Nearly every trigger contains some of these, so matching on one matches
- * everything: "where is my order" turned on a refund procedure because both
- * mention an order. The general stopword list does not cover them because
- * they carry plenty of meaning in a document; they just carry none here.
- *
- * Stemmed, because that is what the tokeniser returns.
- */
-const GENERIC = new Set([
-  'custom',
-  'customer',
-  'client',
-  'user',
-  'account',
-  'order',
-  'purchas',
-  'item',
-  'product',
-  'request',
-  'ask',
-  'want',
-  'need',
-  'help',
-  'support',
-  'question',
-  'issu',
-  'problem',
-  'about',
-  'their',
-  'them',
-  'someth',
-  'anyth',
-])

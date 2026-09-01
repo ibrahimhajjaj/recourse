@@ -1,6 +1,7 @@
 import { jsonSchema, tool, type Tool, type ToolSet } from 'ai'
 import type { Action, ActionContext, ActionField, ActionInput, ActionResult } from './types.js'
 import { redact, shrink, type ShrinkOptions } from './shrink.js'
+import { mentions } from '../relevance.js'
 
 /**
  * Declares an action. This is deliberately a thin identity function: it exists
@@ -39,6 +40,13 @@ export function fieldsToSchema(fields: ActionField[] = []) {
 export interface ToolBuildOptions {
   /** Excludes procedure-only actions unless a procedure has unlocked them. */
   unlocked?: Set<string>
+  /**
+   * Everything said so far, for deciding which `relevantWhen` actions to offer.
+   *
+   * Left out, every action is offered, which is what a caller building a tool
+   * set outside a conversation wants.
+   */
+  conversation?: string
   context: ActionContext
   /** How much of a result reaches the model. */
   results?: ShrinkOptions
@@ -75,14 +83,41 @@ const STOP_REPEATING =
  * again is common enough on small models to be worth spending code on, and
  * every repeat is another round trip to somebody's payment API.
  */
+/**
+ * The actions worth offering on this turn.
+ *
+ * The prompt names the actions and the tool set binds them, and they have to
+ * agree: an action described in the prompt but absent from the tool set is a
+ * model reaching for something that is not there, which it reports to the
+ * customer as a failure.
+ */
+export function offeredActions(
+  actions: Action[],
+  options: Pick<ToolBuildOptions, 'unlocked' | 'conversation'>,
+): Action[] {
+  return actions.filter((action) => {
+    if (action.procedureOnly && !options.unlocked?.has(action.name)) return false
+
+    // Unlocked wins: a procedure that reached this action has already decided
+    // it applies, and asking the same question a second way could drop a tool
+    // out of a flow halfway through it.
+    if (options.unlocked?.has(action.name)) return true
+
+    if (action.relevantWhen && options.conversation !== undefined) {
+      return mentions(action.relevantWhen, options.conversation)
+    }
+
+    return true
+  })
+}
+
 export function actionsToTools(actions: Action[], options: ToolBuildOptions): ToolSet {
   const tools: ToolSet = {}
   const repeatLimit = options.repeatLimit ?? 2
   /** Signature of every server call this turn, and how often it has been made. */
   const calls = new Map<string, number>()
 
-  for (const action of actions) {
-    if (action.procedureOnly && !options.unlocked?.has(action.name)) continue
+  for (const action of offeredActions(actions, options)) {
 
     const inputSchema = jsonSchema<ActionInput>(fieldsToSchema(action.collect))
 

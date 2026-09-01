@@ -1,6 +1,6 @@
 import { stepCountIs, streamText, type LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame } from './types.js'
-import { actionsToTools } from './actions/define.js'
+import { actionsToTools, offeredActions } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
 import type { Channel, Store, StoredMessage } from './store/types.js'
 import { renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
@@ -557,10 +557,33 @@ export function createAgent(options: AgentOptions) {
     // cleanly, so without capturing this a dead provider looks like silence.
     let failure: string | null = null
 
+    /**
+     * The whole conversation as one string, for the two decisions that ask what
+     * it is about: which procedures are unlocked, and which actions are worth
+     * putting in front of the model this turn.
+     */
+    const said = messages.map((message) => message.content).join('\n')
+    const unlocked = unlockedBy(procedures, said)
+    /**
+     * Decided from the whole conversation, so an action stays available for a
+     * flow that is halfway through and is absent from a turn that never
+     * mentioned the thing it belongs to.
+     *
+     * The retrieved passages are read as part of the conversation, because
+     * matching on the customer's words alone misses the paraphrase: "do you
+     * have this in a medium" is a stock question that contains none of the
+     * words a stock action would be described with. Whatever the retriever
+     * found is what the turn is about, in the vocabulary the business uses.
+     */
+    const offered = offeredActions(actions, {
+      unlocked,
+      conversation: `${said}\n${matches.map((match) => match.chunk.text).join('\n')}`,
+    })
+
     const instructionContext: InstructionOptions = {
       persona: options.persona,
       matches,
-      actions,
+      actions: offered,
       procedures: renderProcedures(procedures, {
         contact,
         ...(options.procedureVariables ? { extra: options.procedureVariables() } : {}),
@@ -661,18 +684,9 @@ export function createAgent(options: AgentOptions) {
           }
         }),
         abortSignal: signal,
-        tools: actionsToTools(actions, {
+        // Already filtered, so the tool set is exactly what the prompt named.
+        tools: actionsToTools(offered, {
           context,
-          // Decided from the whole conversation, so an action stays available
-          // for a flow that is halfway through and is absent from a turn that
-          // never mentioned the thing it belongs to. `procedureOnly` promises
-          // an action fires "only as a step inside a procedure"; resolving this
-          // once at construction meant a refund tool was bound and callable on
-          // every turn, merely undocumented in the prompt.
-          unlocked: unlockedBy(
-            procedures,
-            messages.map((message) => message.content).join('\n'),
-          ),
           ...(options.actionResults ? { results: options.actionResults } : {}),
           ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
         }),

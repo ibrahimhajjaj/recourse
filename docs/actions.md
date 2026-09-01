@@ -159,6 +159,41 @@ entirely, with a warning. Half a procedure is worse than none: the agent follows
 four steps, reaches a tool that is not there, and improvises the ending the
 procedure existed to prevent.
 
+## Holding an action back until it is wanted
+
+Every action's name, description and inputs go to the model on every turn,
+whether or not the conversation has anything to do with them. Eleven actions is
+around three hundred and fifty tokens on a message as short as "hi". Forty-five
+is over three thousand. The bill is the smaller problem; the larger one is that
+a small model choosing between forty tools chooses worse than one choosing
+between four.
+
+`relevantWhen` takes a few words describing what the action is for, and the
+action is offered only on turns the conversation is about it.
+
+```ts
+httpAction({
+  name: 'check_stock',
+  whenToUse: 'Say whether an item is in stock.',
+  relevantWhen: 'stock availability sizes in store',
+  // ...
+})
+```
+
+On a shop with eleven actions this typically offers two to four of them per
+turn, so most of the manifest never reaches the model.
+
+The relevance test reads the whole conversation **and the passages retrieval
+just found**, which matters more than it sounds. "Do you have this in a medium?"
+is a stock question containing none of the words a stock action is described
+with; the sizing page it retrieves contains all of them. Without the passages
+the action would be dropped from exactly the turn that needed it.
+
+Leave it unset unless you have a reason. An action the model cannot see is one
+it cannot use, and a missed match is a worse failure than a wasted token. It is
+also ignored for an action a procedure has already unlocked, so a flow halfway
+through never loses a step because the customer replied "yes".
+
 ---
 
 [Back to the README](../README.md)
