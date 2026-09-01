@@ -1,0 +1,78 @@
+name: Bug report
+description: Something behaves differently from what it says it does.
+labels: ["bug"]
+
+body:
+  - type: checkboxes
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched open and closed issues and did not find this.
+          required: true
+        - label: I am on the current version, or I have said below which one I am on.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: |
+        Asked "how long does delivery take" and got the fallback message,
+        even though shipping.md is in the index and answers it.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: How to reproduce it
+      description: >
+        The smallest set of steps that shows it. A few lines of code or a
+        command beats a description of the code.
+      placeholder: |
+        1. recourse ingest --path ./content
+        2. recourse ask "how long does delivery take" --retrieve-only
+        3. Returns nothing
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: Where
+      description: Which part of it. Pick more than one if it spans them.
+      multiple: true
+      options:
+        - Retrieval, ingest or the index
+        - Answering, actions or procedures
+        - The chat widget
+        - Voice or calling
+        - A channel (WhatsApp, Slack, email, SMS and so on)
+        - The WordPress plugin
+        - A store adapter (Postgres, D1)
+        - The CLI
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Version
+      description: The version of the package or plugin, and Node or PHP if it is relevant.
+      placeholder: "@recourse-ai/core 0.1.1, Node 22.22.3"
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Model and endpoint
+      description: >
+        Which model answered, and what kind of host. Never paste a key: the
+        model name and the sort of endpoint is all that is useful here.
+      placeholder: "qwen3:4b on a local Ollama, keyword-only index"
+
+  - type: textarea
+    attributes:
+      label: Anything else
+      description: >
+        Logs, a stack trace, or the passage it should have found. Redact
+        anything private first, because this is a public tracker.

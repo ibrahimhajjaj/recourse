@@ -219,6 +219,14 @@ you want a real vector store. The `VectorStore` boundary is where that goes and
 it exists now, with the in-file scan as its default implementation; what does
 not exist yet is a database behind it.
 
+## Contributing
+
+Bug reports and fixes are welcome. Anything larger starts as a discussion
+rather than a pull request, so that whether it belongs gets settled before
+anybody spends an evening on it. [CONTRIBUTING.md](CONTRIBUTING.md) has the
+detail, including the two ports of the tokeniser that have to stay in step and
+why linting a fresh checkout before building it looks broken.
+
 ## Licence
 
 MIT, for the library, the widget and the store adapters. Self-host it, change

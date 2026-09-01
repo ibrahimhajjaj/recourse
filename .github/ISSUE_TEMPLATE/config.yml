@@ -1,0 +1,21 @@
+# Blank issues are off on purpose. The tracker holds work that is agreed and
+# ready to pick up, so anything still being decided goes to a discussion and
+# becomes an issue once it is understood.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Feature request, or an idea
+    url: https://github.com/ibrahimhajjaj/recourse/discussions/new?category=ideas
+    about: Anything not yet agreed. If it turns into well understood work, it becomes an issue.
+
+  - name: Question
+    url: https://github.com/ibrahimhajjaj/recourse/discussions/new?category=q-a
+    about: How to wire something up, which model to use, why it answered the way it did.
+
+  - name: Documentation
+    url: https://github.com/ibrahimhajjaj/recourse/tree/main/docs
+    about: Models, retrieval, channels, actions, languages, safety, costs and deployment.
+
+  - name: Report a security problem
+    url: https://github.com/ibrahimhajjaj/recourse/security/advisories/new
+    about: Privately, please, not as a public issue.
