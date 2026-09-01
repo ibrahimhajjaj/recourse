@@ -107,9 +107,7 @@ async function runIngest(flags: Record<string, string | boolean>): Promise<numbe
     include: list(flags.include),
     exclude: list(flags.exclude),
     embed: typeof flags.embed === 'boolean' ? flags.embed : undefined,
-    embedBaseURL: typeof flags['embed-url'] === 'string' ? flags['embed-url'] : undefined,
-    embedModel: typeof flags['embed-model'] === 'string' ? flags['embed-model'] : undefined,
-    embedApiKey: typeof flags['embed-key'] === 'string' ? flags['embed-key'] : undefined,
+    ...embeddingEndpoint(flags),
     onProgress: progress(),
   })
 
@@ -318,17 +316,47 @@ function headingOf(title: string, section?: string): string {
 }
 
 /**
+ * Where embeddings come from: the flags, or the environment already pointing
+ * everything else at a local endpoint.
+ *
+ * Reading the environment matters more than it looks. Someone who sets
+ * OPENAI_COMPATIBLE_BASE_URL and OPENAI_COMPATIBLE_EMBED_MODEL has said where
+ * their models live, and ingest used to ignore both, hand back a keyword-only
+ * index, and suggest a gateway key they had deliberately not set. `doctor`
+ * then checked the index against the very variable ingest had not read.
+ */
+function embeddingEndpoint(flags: Record<string, string | boolean>): {
+  embedBaseURL?: string
+  embedModel?: string
+  embedApiKey?: string
+} {
+  const baseURL =
+    typeof flags['embed-url'] === 'string' ? flags['embed-url'] : process.env.OPENAI_COMPATIBLE_BASE_URL
+  const model =
+    typeof flags['embed-model'] === 'string' ? flags['embed-model'] : process.env.OPENAI_COMPATIBLE_EMBED_MODEL
+  const apiKey =
+    typeof flags['embed-key'] === 'string' ? flags['embed-key'] : process.env.OPENAI_COMPATIBLE_API_KEY
+
+  // Both or neither. A model name with no endpoint would be sent to the
+  // gateway, which has never heard of the model somebody runs at home.
+  if (!baseURL || !model) return {}
+
+  return { embedBaseURL: baseURL, embedModel: model, ...(apiKey ? { embedApiKey: apiKey } : {}) }
+}
+
+/**
  * Rebuilds the embedder the index was written with. A query vector has to come
  * from the same model as the stored ones or the distances are meaningless, so
  * the model name travels inside the index rather than being guessed here.
  */
 function embedderFor(storedModel: string, flags: Record<string, string | boolean>) {
   const model = storedModel.replace(/^(gateway|endpoint|provider):/, '')
-  const baseURL = typeof flags['embed-url'] === 'string' ? flags['embed-url'] : undefined
+  const endpoint = embeddingEndpoint(flags)
+
   return createEmbedder({
     model,
-    baseURL,
-    apiKey: typeof flags['embed-key'] === 'string' ? flags['embed-key'] : undefined,
+    baseURL: endpoint.embedBaseURL,
+    apiKey: endpoint.embedApiKey,
   })
 }
 
