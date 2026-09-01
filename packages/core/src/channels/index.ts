@@ -1,3 +1,4 @@
+export { createDeliveryLog, type DeliveryLog, type DeliveryState, type DeliveryUpdate } from './delivery.js'
 export { whatsappChannel, type WhatsAppOptions } from './whatsapp.js'
 export { slackChannel, type SlackOptions } from './slack.js'
 export {

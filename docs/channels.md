@@ -77,6 +77,36 @@ the `AI` author subtype makes Sunshine append its own disclaimer in the
 customer's own client, per channel, for text, image and file messages alike. Set
 `disclosure` as well and the customer is told twice, so use one or the other.
 
+## Whether the answer actually arrived
+
+"We sent it" and "they got it" are the same fact today, and they are not. A
+message that failed on the way looks identical in a transcript to one the
+customer read and ignored.
+
+```ts
+whatsappChannel({
+  agent,
+  onDelivery: ({ messageId, state, reason }) => log(messageId, state, reason),
+})
+```
+
+Four states: `sent`, `delivered`, `read`, `failed`.
+
+The subtle half is not recording them, it is that **they do not arrive in
+order**. Meta re-delivers status webhooks and can hand you `sent` after `read`.
+Applied naively the state goes backwards, a customer who has read the message
+shows as merely sent, and anything triggered by a change fires twice on every
+re-delivery.
+
+So a message only ever moves forward, the same state arriving twice is not a
+change, and your callback is only reached on a real move. `failed` is the one
+exception that can follow a `read`, because read on one device and rejected on
+another is a real thing and the failure is the more important of the two.
+
+`createDeliveryLog` is the piece doing that, and it is exported so another
+channel adapter can use it. Only WhatsApp reports statuses today; the others
+have nothing to report them from.
+
 ## One thought sent as four messages
 
 People do not compose on a phone. They send "hi", then "I have a problem", then
