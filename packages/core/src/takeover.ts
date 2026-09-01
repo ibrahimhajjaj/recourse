@@ -29,9 +29,26 @@ export const PAUSED_AT_KEY = 'aiPausedAt'
  */
 export const PAUSED_MESSAGE = 'A colleague has taken this over and will reply here. I have passed your message on.'
 
+export const UNANSWERED_MESSAGE =
+  'Nobody is available to pick this up right now, so I will carry on helping if I can.'
+
 export interface TakeoverOptions {
   /** Replaces {@link PAUSED_MESSAGE}. */
   message?: string
+  /**
+   * How long the agent stays quiet waiting for a person, in milliseconds.
+   *
+   * Off unless set, which is how it behaved before this existed. Turn it on
+   * and a handover that nobody picks up hands itself back rather than leaving
+   * the customer in silence: an escalation at two in the morning otherwise
+   * ends the conversation without anybody deciding to.
+   *
+   * The clock is the moment of handover, not the last message, so a customer
+   * who keeps typing into the silence does not keep extending their own wait.
+   */
+  waitForPersonMs?: number
+  /** Said when the wait runs out. Replaces {@link UNANSWERED_MESSAGE}. */
+  unansweredMessage?: string
 }
 
 /**
@@ -41,10 +58,25 @@ export interface TakeoverOptions {
  * person clicking "take over" and the agent noticing longer than the window
  * between two customer messages, which is exactly the window that matters.
  */
-export async function isPaused(store: Store, conversationId: string): Promise<boolean> {
+export async function isPaused(
+  store: Store,
+  conversationId: string,
+  waitForPersonMs?: number,
+): Promise<boolean> {
   try {
     const thread = await store.getConversation(conversationId)
-    return thread?.conversation.meta?.[PAUSED_KEY] === true
+    if (thread?.conversation.meta?.[PAUSED_KEY] !== true) return false
+    if (!waitForPersonMs) return true
+
+    // The timestamp was written on every handover and read by nothing, so a
+    // pause had no way to end except a person ending it.
+    const since = thread.conversation.meta?.[PAUSED_AT_KEY]
+    if (typeof since !== 'string') return true
+
+    const began = Date.parse(since)
+    if (Number.isNaN(began)) return true
+
+    return Date.now() - began < waitForPersonMs
   } catch {
     // A store that cannot be read should not silence the agent. Answering when
     // a human had taken over is bad; refusing to answer anybody because the
@@ -60,6 +92,35 @@ export async function isPaused(store: Store, conversationId: string): Promise<bo
  */
 export async function pauseAgent(store: Store, conversationId: string): Promise<void> {
   await merge(store, conversationId, { [PAUSED_KEY]: true, [PAUSED_AT_KEY]: new Date().toISOString() })
+}
+
+/**
+ * Whether this conversation was handed back by the clock rather than a person.
+ *
+ * The agent answers either way; this is so the turn can open by saying nobody
+ * came, instead of the customer wondering what happened to the human they were
+ * promised.
+ */
+export async function waitedTooLong(
+  store: Store,
+  conversationId: string,
+  waitForPersonMs?: number,
+): Promise<boolean> {
+  if (!waitForPersonMs) return false
+
+  try {
+    const thread = await store.getConversation(conversationId)
+    if (thread?.conversation.meta?.[PAUSED_KEY] !== true) return false
+
+    const since = thread.conversation.meta?.[PAUSED_AT_KEY]
+    if (typeof since !== 'string') return false
+
+    const began = Date.parse(since)
+
+    return !Number.isNaN(began) && Date.now() - began >= waitForPersonMs
+  } catch {
+    return false
+  }
 }
 
 /** Gives it back to the agent, for when a person has finished with it. */

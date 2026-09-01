@@ -445,7 +445,7 @@ export function createAgent(options: AgentOptions) {
     // Before retrieval, because a conversation a person owns should cost
     // nothing at all: no embedding, no model, no passages fetched for an
     // answer that is not going to be written.
-    if (takeover && store && (await isPaused(store, conversationId))) {
+    if (takeover && store && (await isPaused(store, conversationId, takeover.waitForPersonMs))) {
       onQuiet()
       yield* stayQuiet(takeover.message ?? PAUSED_MESSAGE, {
         conversationId,
