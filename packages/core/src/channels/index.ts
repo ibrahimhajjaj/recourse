@@ -78,6 +78,14 @@ export {
   type TurnEvent,
   type TurnOptions,
 } from './voice-turns.js'
+export { toWav, TARGET_RATE } from './voice-wav.js'
+export {
+  createCallSession,
+  type Answering,
+  type CallMessage,
+  type CallSession,
+  type CallSessionOptions,
+} from './voice-session.js'
 export {
   listTemplates,
   sendTemplate,
