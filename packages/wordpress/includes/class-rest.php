@@ -94,6 +94,24 @@ class Rest {
 			return new \WP_REST_Response( array( 'error' => __( 'No question was sent.', 'recourse' ) ), 400 );
 		}
 
+		// Read before anything is spent. A refused turn costs no retrieval and
+		// no model call, which is the whole reason this runs first.
+		$last = end( $messages );
+		if ( is_array( $last ) && isset( $last['content'] ) ) {
+			$checked = Safety::check_input( (string) $last['content'] );
+			$verdict = Safety::verdict( $checked['signals'] );
+
+			// The message carries on with whatever was taken out of it, so a
+			// card number never reaches the model even when the turn is fine.
+			$messages[ count( $messages ) - 1 ]['content'] = $checked['text'];
+
+			if ( null !== $verdict && 'flag' !== $verdict['action'] ) {
+				do_action( 'recourse_message_refused', $verdict['category'], $verdict['reason'] );
+
+				return self::stream( array(), '', $verdict['message'] );
+			}
+		}
+
 		$index = Storage::load();
 
 		if ( null === $index ) {
@@ -149,6 +167,15 @@ class Rest {
 		 * @param string $text    The answer as the model wrote it.
 		 * @param array  $matches The passages it was written from.
 		 */
+		// And read again on the way out, because the checks that matter most
+		// are the ones about an answer that already exists.
+		$leaving = Safety::verdict( Safety::check_output( $answer['text'], $matches ) );
+		if ( null !== $leaving && 'flag' !== $leaving['action'] ) {
+			do_action( 'recourse_answer_refused', $leaving['category'], $leaving['reason'] );
+
+			return self::stream( $matches, '', $leaving['message'] );
+		}
+
 		$text = (string) apply_filters( 'recourse_answer', $answer['text'], $matches );
 
 		return self::stream( $matches, '', $text );

@@ -138,6 +138,297 @@ class Safety {
 	}
 
 	/**
+	 * How sure a signal has to be before its category acts, by sensitivity.
+	 *
+	 * Kept in step with `THRESHOLDS` in the TypeScript. A starting point to be
+	 * measured and replaced on a real corpus, not a claim about accuracy.
+	 *
+	 * @return array<string, float>
+	 */
+	public static function thresholds() {
+		return array(
+			'high'   => 0.3,
+			'medium' => 0.5,
+			'low'    => 0.75,
+		);
+	}
+
+	/**
+	 * What each category does when it fires.
+	 *
+	 * `refuse` answers with the category's message instead of calling the
+	 * model. `handoff` does the same and marks the turn for a person.
+	 * `flag` records it and lets the answer through, which is right for the
+	 * checks that run after the answer already exists.
+	 *
+	 * @return array<string, array{action: string, sensitivity: string, message: string}>
+	 */
+	public static function categories() {
+		return array(
+			'injection'          => array(
+				'action'      => 'refuse',
+				'sensitivity' => 'medium',
+				'message'     => __( 'I can only help with questions about our products and your orders.', 'recourse' ),
+			),
+			'abuse'              => array(
+				'action'      => 'refuse',
+				'sensitivity' => 'medium',
+				'message'     => __( 'I want to help, but please keep it civil.', 'recourse' ),
+			),
+			'crisis'             => array(
+				'action'      => 'handoff',
+				'sensitivity' => 'high',
+				'message'     => __( 'I am putting you through to someone who can help.', 'recourse' ),
+			),
+			'leak'               => array(
+				'action'      => 'refuse',
+				'sensitivity' => 'high',
+				'message'     => __( 'Something went wrong with that answer. Let me get a colleague.', 'recourse' ),
+			),
+			'ungrounded'         => array(
+				'action'      => 'flag',
+				'sensitivity' => 'medium',
+				'message'     => '',
+			),
+			'ungrounded-contact' => array(
+				'action'      => 'flag',
+				'sensitivity' => 'high',
+				'message'     => '',
+			),
+			'refusal'            => array(
+				'action'      => 'handoff',
+				'sensitivity' => 'high',
+				'message'     => '',
+			),
+			'pii'                => array(
+				'action'      => 'flag',
+				'sensitivity' => 'high',
+				'message'     => '',
+			),
+		);
+	}
+
+	/**
+	 * Reads a visitor's message before it costs anything.
+	 *
+	 * Returns the message to actually use, which may have had something taken
+	 * out of it, and whatever the checks found. Rewriting rather than refusing
+	 * wherever rewriting will do: stripping a smuggled character is better
+	 * than turning away a customer whose keyboard produced one.
+	 *
+	 * @param string $text What the visitor sent.
+	 * @return array{text: string, signals: array<int, array{category: string, score: float, reason: string}>}
+	 */
+	public static function check_input( $text ) {
+		$text    = self::strip_invisible( (string) $text );
+		$signals = array();
+
+		$payment = self::redact_payment( $text );
+		if ( ! empty( $payment['redacted'] ) ) {
+			$text      = $payment['text'];
+			$signals[] = array(
+				'category' => 'pii',
+				'score'    => 1.0,
+				'reason'   => sprintf(
+					/* translators: %s: what was found, such as "a card number". */
+					__( 'the message contained %s, removed before it was sent on', 'recourse' ),
+					implode( ' and ', array_unique( $payment['redacted'] ) )
+				),
+			);
+		}
+
+		$override = self::inspect( $text );
+		if ( $override['score'] > 0.0 ) {
+			$signals[] = array(
+				'category' => 'injection',
+				'score'    => $override['score'],
+				'reason'   => $override['why'],
+			);
+		}
+
+		foreach ( self::encoded_payload( $text ) as $signal ) {
+			$signals[] = $signal;
+		}
+
+		foreach ( self::floods( $text ) as $signal ) {
+			$signals[] = $signal;
+		}
+
+		return array(
+			'text'    => $text,
+			'signals' => $signals,
+		);
+	}
+
+	/**
+	 * Reads the answer before the visitor does.
+	 *
+	 * @param string                           $text    The answer.
+	 * @param array<int, array<string, mixed>> $matches The passages it was written from.
+	 * @return array<int, array{category: string, score: float, reason: string}>
+	 */
+	public static function check_output( $text, $matches = array() ) {
+		$text    = (string) $text;
+		$signals = array();
+
+		if ( self::refuses( $text ) ) {
+			$signals[] = array(
+				'category' => 'refusal',
+				'score'    => 0.9,
+				'reason'   => __( 'the answer is a refusal rather than an answer', 'recourse' ),
+			);
+		}
+
+		$credential = self::leaked_credential( $text );
+		if ( '' !== $credential ) {
+			$signals[] = array(
+				'category' => 'leak',
+				'score'    => 1.0,
+				'reason'   => sprintf(
+					/* translators: %s: what kind of secret, such as "an API key". */
+					__( 'the answer contains %s', 'recourse' ),
+					$credential
+				),
+			);
+		}
+
+		if ( self::recites_instructions( $text ) ) {
+			$signals[] = array(
+				'category' => 'leak',
+				'score'    => 0.9,
+				'reason'   => __( 'the answer repeats its own instructions', 'recourse' ),
+			);
+		}
+
+		foreach ( self::ungrounded_contacts( $text, $matches ) as $signal ) {
+			$signals[] = $signal;
+		}
+
+		return $signals;
+	}
+
+	/**
+	 * The strongest thing found, and what its category says to do about it.
+	 *
+	 * @param array<int, array{category: string, score: float, reason: string}> $signals Found signals.
+	 * @return array{action: string, category: string, message: string, reason: string}|null
+	 */
+	public static function verdict( $signals ) {
+		$categories = self::categories();
+		$thresholds = self::thresholds();
+		$worst      = null;
+
+		foreach ( $signals as $signal ) {
+			$policy = isset( $categories[ $signal['category'] ] ) ? $categories[ $signal['category'] ] : null;
+			if ( null === $policy ) {
+				continue;
+			}
+
+			$threshold = $thresholds[ $policy['sensitivity'] ];
+			if ( $signal['score'] < $threshold ) {
+				continue;
+			}
+
+			// `flag` never outranks something that would actually stop the
+			// turn, however sure it is: recording a fact is not a decision.
+			$rank = 'flag' === $policy['action'] ? 0 : 1;
+			if ( null !== $worst && ( $rank < $worst['rank'] || ( $rank === $worst['rank'] && $signal['score'] <= $worst['score'] ) ) ) {
+				continue;
+			}
+
+			$worst = array(
+				'rank'     => $rank,
+				'score'    => $signal['score'],
+				'action'   => $policy['action'],
+				'category' => $signal['category'],
+				'message'  => $policy['message'],
+				'reason'   => $signal['reason'],
+			);
+		}
+
+		if ( null === $worst ) {
+			return null;
+		}
+
+		unset( $worst['rank'], $worst['score'] );
+
+		return $worst;
+	}
+
+	/**
+	 * Long encoded runs, which carry an instruction past a reader's eye.
+	 *
+	 * Links are taken out first. A signed URL is a long alphanumeric run that
+	 * customers paste in good faith every day, and without this the rule
+	 * spends its life refusing them.
+	 *
+	 * @param string $text The message.
+	 * @return array<int, array{category: string, score: float, reason: string}>
+	 */
+	private static function encoded_payload( $text ) {
+		$prose   = preg_replace( '#https?://\S+#i', ' ', $text );
+		$prose   = null === $prose ? $text : $prose;
+		$signals = array();
+
+		// Sixty characters is roughly forty of source text: enough to carry an
+		// instruction, longer than the order numbers and ids in real messages.
+		if ( preg_match( '#[A-Za-z0-9+/]{60,}={0,2}#', $prose, $found ) ) {
+			$signals[] = array(
+				'category' => 'injection',
+				'score'    => 0.7,
+				'reason'   => sprintf(
+					/* translators: %d: number of characters. */
+					__( 'contains a %d-character encoded block', 'recourse' ),
+					strlen( $found[0] )
+				),
+			);
+		}
+
+		if ( preg_match( '/(?:[0-9a-f]{2}[\s:]?){40,}/i', $prose ) ) {
+			$signals[] = array(
+				'category' => 'injection',
+				'score'    => 0.6,
+				'reason'   => __( 'contains a long hex block', 'recourse' ),
+			);
+		}
+
+		return $signals;
+	}
+
+	/**
+	 * A message pretending to be a conversation, or padded to bury something.
+	 *
+	 * @param string $text The message.
+	 * @return array<int, array{category: string, score: float, reason: string}>
+	 */
+	private static function floods( $text ) {
+		$signals = array();
+
+		$turns = preg_match_all( '/^\s*(human|user|assistant|ai|system)\s*:/im', $text );
+		if ( $turns >= 6 ) {
+			$signals[] = array(
+				'category' => 'injection',
+				'score'    => min( 0.5 + $turns * 0.05, 0.95 ),
+				'reason'   => sprintf(
+					/* translators: %d: number of fake turns. */
+					__( 'contains %d fake conversation turns', 'recourse' ),
+					$turns
+				),
+			);
+		}
+
+		if ( preg_match( '/(.){200,}/u', $text ) ) {
+			$signals[] = array(
+				'category' => 'injection',
+				'score'    => 0.6,
+				'reason'   => __( 'contains a long repeated-character run', 'recourse' ),
+			);
+		}
+
+		return $signals;
+	}
+
+	/**
 	 * The passages worth showing the model, with the poisoned ones removed.
 	 *
 	 * Loud on purpose. A knowledge base carrying an instruction is something
@@ -183,5 +474,244 @@ class Safety {
 		}
 
 		return $kept;
+	}
+
+	/**
+	 * Numbers a customer should not have sent, taken out before anyone keeps them.
+	 *
+	 * "My card 4111 1111 1111 1111 was charged twice" is an ordinary support
+	 * message. Without this it reaches the model provider and the database,
+	 * and every export afterwards. Checked with Luhn rather than by shape,
+	 * because an order number is also sixteen digits.
+	 *
+	 * @param string $text The message.
+	 * @return array{text: string, redacted: array<int, string>}
+	 */
+	private static function redact_payment( $text ) {
+		$redacted = array();
+
+		$out = preg_replace_callback(
+			'/\b(?:\d[ -]?){12,18}\d\b/',
+			function ( $found ) use ( &$redacted ) {
+				$digits = preg_replace( '/\D/', '', $found[0] );
+
+				if ( strlen( $digits ) < 13 || strlen( $digits ) > 19 || ! Safety::luhn( $digits ) ) {
+					return $found[0];
+				}
+
+				$redacted[] = __( 'a card number', 'recourse' );
+
+				return '[card ending ' . substr( $digits, -4 ) . ']';
+			},
+			$text
+		);
+		$out = null === $out ? $text : $out;
+
+		$next = preg_replace_callback(
+			'/\b\d{3}-\d{2}-\d{4}\b/',
+			function () use ( &$redacted ) {
+				$redacted[] = __( 'a national insurance or social security number', 'recourse' );
+
+				return '[removed]';
+			},
+			$out
+		);
+		$out  = null === $next ? $out : $next;
+
+		$next = preg_replace_callback(
+			'/\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/',
+			function ( $found ) use ( &$redacted ) {
+				if ( ! Safety::mod97( $found[0] ) ) {
+					return $found[0];
+				}
+
+				$redacted[] = __( 'a bank account number', 'recourse' );
+
+				return '[removed]';
+			},
+			$out
+		);
+		$out  = null === $next ? $out : $next;
+
+		return array(
+			'text'     => $out,
+			'redacted' => $redacted,
+		);
+	}
+
+	/**
+	 * The checksum every card number carries and an order number does not.
+	 *
+	 * @param string $digits Digits only.
+	 * @return bool
+	 */
+	public static function luhn( $digits ) {
+		$sum    = 0;
+		$double = false;
+
+		for ( $at = strlen( $digits ) - 1; $at >= 0; $at-- ) {
+			$value = (int) $digits[ $at ];
+
+			if ( $double ) {
+				$value *= 2;
+				if ( $value > 9 ) {
+					$value -= 9;
+				}
+			}
+
+			$sum   += $value;
+			$double = ! $double;
+		}
+
+		return 0 === $sum % 10;
+	}
+
+	/**
+	 * The same idea for an account number: move the country code to the end.
+	 *
+	 * @param string $iban The candidate.
+	 * @return bool
+	 */
+	public static function mod97( $iban ) {
+		$moved     = substr( $iban, 4 ) . substr( $iban, 0, 4 );
+		$remainder = 0;
+
+		foreach ( str_split( $moved ) as $character ) {
+			$value = preg_match( '/[A-Z]/', $character ) ? (string) ( ord( $character ) - 55 ) : $character;
+
+			foreach ( str_split( $value ) as $digit ) {
+				$remainder = ( $remainder * 10 + (int) $digit ) % 97;
+			}
+		}
+
+		return 1 === $remainder;
+	}
+
+	/**
+	 * Whether the answer declines rather than answers.
+	 *
+	 * Only the opening. A refusal is how a reply starts; the same words in the
+	 * middle are usually the agent explaining a policy it does have.
+	 *
+	 * @param string $text The answer.
+	 * @return bool
+	 */
+	private static function refuses( $text ) {
+		$opening = substr( ltrim( $text ), 0, 140 );
+
+		return 1 === preg_match(
+			"/^(i'?m sorry,? but|i am sorry,? but|i apologi[sz]e,? but|unfortunately,? i (can'?t|cannot|am unable)|i (can'?t|cannot|am not able to|am unable to) (help|assist|answer|provide|comply|do that)|as an ai(,| language model)|i'?m (not able|unable) to)/i",
+			$opening
+		);
+	}
+
+	/**
+	 * A secret in the answer, which is a secret in somebody's browser.
+	 *
+	 * @param string $text The answer.
+	 * @return string What was found, or an empty string.
+	 */
+	private static function leaked_credential( $text ) {
+		$patterns = array(
+			'/\bsk-[A-Za-z0-9]{20,}\b/'            => __( 'an API key', 'recourse' ),
+			'/\bghp_[A-Za-z0-9]{30,}\b/'           => __( 'a GitHub token', 'recourse' ),
+			'/\bAKIA[0-9A-Z]{16}\b/'               => __( 'an AWS key id', 'recourse' ),
+			'/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/'   => __( 'a Slack token', 'recourse' ),
+			'/-----BEGIN [A-Z ]*PRIVATE KEY-----/' => __( 'a private key', 'recourse' ),
+			'/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/' => __( 'a signed token', 'recourse' ),
+		);
+
+		foreach ( $patterns as $pattern => $what ) {
+			if ( preg_match( $pattern, $text ) ) {
+				return $what;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Whether the answer is reciting the instructions it was given.
+	 *
+	 * The first tell is anchored to the start on purpose. Unanchored it caught
+	 * the agent introducing itself, which is the one answer it is told to
+	 * always give and the worst possible thing to withhold.
+	 *
+	 * @param string $text The answer.
+	 * @return bool
+	 */
+	private static function recites_instructions( $text ) {
+		$tells = array(
+			'/^you are [a-z ]{0,30}, a customer support agent/im',
+			'/Cite the sources you used inline as \[1\]/i',
+			'/Never invent a price, a policy, a date/i',
+			'/work out what they want, then follow the matching step/i',
+			'/reply to that part with exactly this and nothing more/i',
+		);
+
+		foreach ( $tells as $tell ) {
+			if ( preg_match( $tell, $text ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Contact details and links the answer produced from nowhere.
+	 *
+	 * Deliberately still runs when nothing was retrieved. That is the turn
+	 * where the model has nothing to answer from and is most likely to invent
+	 * a number to be helpful with.
+	 *
+	 * @param string                           $text    The answer.
+	 * @param array<int, array<string, mixed>> $matches The passages it had.
+	 * @return array<int, array{category: string, score: float, reason: string}>
+	 */
+	private static function ungrounded_contacts( $text, $matches ) {
+		$grounded = '';
+		foreach ( $matches as $match ) {
+			$grounded .= ' ' . ( isset( $match['text'] ) ? $match['text'] : '' );
+		}
+		$grounded = strtolower( $grounded );
+
+		$found = array();
+
+		if ( preg_match_all( '/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/', $text, $emails ) ) {
+			foreach ( $emails[0] as $address ) {
+				if ( false === strpos( $grounded, strtolower( $address ) ) ) {
+					$found[] = __( 'an email address', 'recourse' );
+				}
+			}
+		}
+
+		if ( preg_match_all( "#https?://[^\\s<>()\\[\\]\"']+#", $text, $links ) ) {
+			foreach ( $links[0] as $link ) {
+				$trimmed = rtrim( $link, '.,;:!?)' );
+				$cut     = strcspn( $trimmed, '?#' );
+				$bare    = substr( $trimmed, 0, $cut );
+
+				if ( false === strpos( $grounded, strtolower( $bare ) ) ) {
+					$found[] = __( 'a link', 'recourse' );
+				}
+			}
+		}
+
+		if ( empty( $found ) ) {
+			return array();
+		}
+
+		return array(
+			array(
+				'category' => 'ungrounded-contact',
+				'score'    => 0.9,
+				'reason'   => sprintf(
+					/* translators: %s: what was found, such as "a link". */
+					__( 'the answer gives %s that appears in no source', 'recourse' ),
+					implode( ', ', array_unique( $found ) )
+				),
+			),
+		);
 	}
 }

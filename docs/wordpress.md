@@ -65,13 +65,21 @@ switched off by the first person whose page load slowed down. `Safety::screen()`
 drops a passage and fires `recourse_passage_refused` so the owner can see it,
 rather than failing quietly.
 
-**What it does not have, and you should know before deploying it somewhere
-sensitive:** the input and output classifier. The plugin refuses a poisoned
-*page*; it does not classify a visitor's *message*, and it does not check the
-answer before it is sent. Both of those live in the Node core, which means the
-plugin has no jailbreak refusal, no crisis routing, no leaked-credential check
-and no grounding check on contacts or links. If that matters for your site, put
-the Node library in front of it.
+It reads the visitor's message before spending anything on it, and reads the
+answer before the visitor does. A message telling the assistant to ignore its
+instructions is refused without retrieval or a model call; a card number is
+taken out and the question carries on; an answer that recites its own
+instructions, leaks a key, invents a link or simply declines is stopped or
+routed rather than shown. `recourse_message_refused` and
+`recourse_answer_refused` fire so a site can log what happened.
+
+**What it does not have:** the model-backed tier. The Node core can put a small
+model behind these checks for the phrasings no pattern catches, and the plugin
+cannot, because a model call on every inbound message is not a cost a shared
+host should pay by default. So the plugin catches what is written plainly and
+misses what is written cleverly. Crisis routing in particular is regex-only
+here, which is the tier the Node core explicitly calls a recall signal rather
+than the classifier of record.
 
 Eleven channels, voice, attachments, the four database
 stores, procedures and the eval harness are all in the Node core and none of
