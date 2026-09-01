@@ -122,10 +122,19 @@ export default {
             // paragraph is more than anybody can hold in their head.
             instructions:
               'You are being read aloud on a call. Answer in one or two short spoken sentences, ' +
-              'with no markdown and no citation markers.',
+              'with no markdown and no citation markers. ' +
+              'Reply in the language the caller is speaking.',
             fallback: "I can't find that in our help pages. Shall I put you through to someone?",
           },
-          maxOutputTokens: 120,
+          // Sized for the thinking as well as the answer. At 120 a reasoning
+          // model spent 106 tokens thinking and had fourteen left, so a caller
+          // asking how to pause a subscription heard "To pause your" and
+          // nothing else. The instruction above is what keeps replies short;
+          // this is only the backstop.
+          maxOutputTokens: 400,
+          // English pages, callers in any language. The search key is put into
+          // the language the content is written in; the reply is not.
+          searchLanguage: { language: 'English', model: models.fromEnvironment(env as Record<string, string | undefined>) },
         }),
         transcriber: openAiCompatibleTranscriber({
           baseURL: env.TRANSCRIBE_BASE_URL,
