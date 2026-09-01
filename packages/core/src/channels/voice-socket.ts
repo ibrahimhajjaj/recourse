@@ -28,7 +28,33 @@ export interface HelloMessage {
   sampleRate?: number
   /** Ties the call to the conversation the chat panel is already using. */
   conversationId?: string
+  /**
+   * What the binary frames will contain.
+   *
+   * Absent means sixteen bit samples, which is what every client sent before
+   * this existed and is still the fallback when a browser cannot record
+   * compressed. Naming a media type means the frames are that instead, and
+   * loudness arrives separately in `levels` messages.
+   */
+  audio?: { mimeType: string }
 }
+
+/**
+ * How loud the caller was, measured by the browser.
+ *
+ * Only sent alongside compressed audio, where this side cannot measure it.
+ * Batched rather than one message per slice, because a slice is twenty
+ * milliseconds and fifty messages a second to carry fifty numbers is waste.
+ */
+export interface LevelsMessage {
+  type: 'levels'
+  /** Root mean square per slice, from 0 to 1, oldest first. */
+  values: number[]
+  /** How long each of those covers. */
+  frameMs: number
+}
+
+type ClientMessage = HelloMessage | LevelsMessage
 
 export type AttachOptions = Omit<CallSessionOptions, 'send' | 'speak' | 'sampleRate' | 'conversationId'> & {
   /** Used when the browser does not say. */
@@ -42,7 +68,13 @@ export function attachCall(socket: CallSocket, options: AttachOptions): { close:
   let session: CallSession | null = null
   let closed = false
 
+  /** Set once the browser says it is sending compressed audio. */
+  let compressed: string | null = null
+  /** The container header arrives once and is kept for the whole call. */
+  let seenHeader = false
+
   const start = (hello: HelloMessage) => {
+    compressed = hello.audio?.mimeType ?? null
     const rate = hello.sampleRate ?? options.sampleRate ?? 16_000
     const conversationId = hello.conversationId ?? options.conversationId
 
@@ -81,11 +113,23 @@ export function attachCall(socket: CallSocket, options: AttachOptions): { close:
     // Node socket hands over a Buffer whose bytes may sit at a non-zero offset
     // inside a larger pool, and reading it as Int16 from zero is noise.
     if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
-      const samples = asSamples(data)
-
       // Audio before hello means a client that did not introduce itself. Take
       // it at the default rate rather than dropping the call.
       if (!session) start({ type: 'hello' })
+
+      if (compressed) {
+        // Passed through exactly as recorded. Nothing here decodes it: the
+        // transcription endpoint opens the container itself, which is the
+        // whole reason this costs a tenth of the bandwidth and no CPU.
+        const chunk = asBytes(data)
+        const first = !seenHeader
+        seenHeader = true
+        session?.pushCompressed(chunk, first, compressed)
+
+        return
+      }
+
+      const samples = asSamples(data)
       if (samples.length > 0) session?.push(samples)
 
       return
@@ -93,15 +137,26 @@ export function attachCall(socket: CallSocket, options: AttachOptions): { close:
 
     if (typeof data !== 'string') return
 
-    let message: HelloMessage
+    let message: ClientMessage
     try {
-      message = JSON.parse(data) as HelloMessage
+      message = JSON.parse(data) as ClientMessage
     } catch {
       // A frame we cannot read is not a reason to hang up on somebody.
       return
     }
 
     if (message.type === 'hello' && !session) start(message)
+
+    if (message.type === 'levels' && session) {
+      const frameMs = message.frameMs > 0 ? message.frameMs : 20
+      for (const value of message.values ?? []) {
+        // Clamped rather than trusted. These come from a browser, and a level
+        // outside the range would move the noise floor somewhere it can never
+        // come back from.
+        if (typeof value !== 'number' || !Number.isFinite(value)) continue
+        session.pushLevel(Math.min(1, Math.max(0, value)), frameMs)
+      }
+    }
   })
 
   socket.addEventListener('close', finish)
@@ -135,4 +190,17 @@ function asSamples(data: ArrayBuffer | ArrayBufferView): Int16Array {
   copy.set(new Uint8Array(buffer as ArrayBuffer, offset, copy.length))
 
   return new Int16Array(copy.buffer)
+}
+
+/**
+ * A binary frame as plain bytes, copied rather than reinterpreted.
+ *
+ * The same trap as `asSamples`: a Node socket hands over a Buffer whose bytes
+ * sit at an offset inside a shared pool, so reading it from zero would send
+ * somebody else's audio to the transcriber.
+ */
+function asBytes(data: ArrayBuffer | ArrayBufferView): Uint8Array {
+  if (data instanceof ArrayBuffer) return new Uint8Array(data.slice(0))
+
+  return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength))
 }

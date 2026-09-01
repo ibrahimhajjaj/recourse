@@ -112,6 +112,23 @@ export interface CallSession {
   open(): void
   /** One slice of audio from the caller. */
   push(samples: Int16Array): void
+  /**
+   * Loudness of one slice, when the audio itself arrives compressed.
+   *
+   * The detector was always a function of a number and a duration rather than
+   * of samples, so a client that measures its own microphone can drive it
+   * without sending the microphone. That is the whole reason compressed audio
+   * is possible here without decoding anything on this side.
+   */
+  pushLevel(level: number, durationMs: number): void
+  /**
+   * One chunk of compressed audio, as recorded.
+   *
+   * `first` marks the chunk carrying the container header. It is kept and put
+   * in front of every later run, because a run of clusters on its own is not a
+   * file anything can open.
+   */
+  pushCompressed(chunk: Uint8Array, first: boolean, mimeType: string): void
   /** Whatever has been said so far, for the transcript. */
   readonly history: Message[]
   close(): void
@@ -124,6 +141,11 @@ export function createCallSession(options: CallSessionOptions): CallSession {
 
   /** The current turn's audio, gathered until the caller stops. */
   let recording: Int16Array[] = []
+  /** The container header, kept for the life of the call. */
+  let header: Uint8Array | null = null
+  /** Compressed chunks since the last turn ended. */
+  let compressed: Uint8Array[] = []
+  let compressedType = 'audio/webm'
   let closed = false
   /**
    * Cancels everything belonging to the turn being answered.
@@ -170,7 +192,7 @@ export function createCallSession(options: CallSessionOptions): CallSession {
     detector.setAgentSpeaking(false)
   }
 
-  async function answer(clip: Int16Array) {
+  async function answer(clip: { audio: Uint8Array; mimeType: string }) {
     const began = Date.now()
     const controller = new AbortController()
     inFlight = controller
@@ -180,8 +202,12 @@ export function createCallSession(options: CallSessionOptions): CallSession {
       options.send({ type: 'thinking' })
 
       
-      const heard = await options.transcriber.transcribe(toWav(clip, rate), {
-        mimeType: 'audio/wav',
+      // Already a file: either the wav wrapped around the raw slices, or
+      // exactly what the browser's own recorder produced. Both are formats a
+      // transcription endpoint opens without anything being decoded here,
+      // which is what lets compressed audio cross this boundary untouched.
+      const heard = await options.transcriber.transcribe(clip.audio, {
+        mimeType: clip.mimeType,
         signal: controller.signal,
       })
 
@@ -239,6 +265,73 @@ export function createCallSession(options: CallSessionOptions): CallSession {
     }
   }
 
+  /**
+   * One slice of time, whatever carried it.
+   *
+   * Both codecs land here. The detector only ever needed how loud it was and
+   * for how long, so the audio path and the decision path are separate and
+   * only the audio path changes when the codec does.
+   */
+  function advance(level: number, durationMs: number) {
+    for (const event of detector.push(level, durationMs)) {
+      if (event.type === 'speech-start') {
+        // Deliberately does not clear what has been gathered. The detector
+        // needs a couple of hundred milliseconds to be sure somebody is
+        // talking, and those slices are the first syllable of the word.
+        options.send({ type: 'listening' })
+      }
+
+      if (event.type === 'barge-in') {
+        // Abandon the answer before anything else, so the next sentence is
+        // never synthesised and never queued.
+        abandon()
+        options.send({ type: 'interrupted' })
+      }
+
+      if (event.type === 'turn-end') {
+        const clip = takeTurn()
+        recording = []
+        compressed = []
+
+        if (clip) void answer(clip)
+      }
+    }
+  }
+
+  /**
+   * The turn's audio, in whatever form it arrived.
+   *
+   * Compressed wins when there is any, because it is what the microphone
+   * actually recorded; the raw slices are only kept to measure loudness when
+   * the browser is sending both.
+   */
+  function takeTurn(): { audio: Uint8Array; mimeType: string } | null {
+    if (compressed.length > 0) {
+      const parts = header ? [header, ...compressed] : compressed
+      const total = parts.reduce((count, part) => count + part.byteLength, 0)
+      const joined = new Uint8Array(total)
+      let at = 0
+      for (const part of parts) {
+        joined.set(part, at)
+        at += part.byteLength
+      }
+
+      return { audio: joined, mimeType: compressedType }
+    }
+
+    const total = recording.reduce((count, part) => count + part.length, 0)
+    if (total === 0) return null
+
+    const clip = new Int16Array(total)
+    let at = 0
+    for (const part of recording) {
+      clip.set(part, at)
+      at += part.length
+    }
+
+    return { audio: toWav(clip, rate), mimeType: 'audio/wav' }
+  }
+
   return {
     history,
 
@@ -280,43 +373,38 @@ export function createCallSession(options: CallSessionOptions): CallSession {
         })
     },
 
+    pushLevel(level: number, durationMs: number) {
+      if (closed) return
+      advance(level, durationMs)
+    },
+
+    pushCompressed(chunk: Uint8Array, first: boolean, mimeType: string) {
+      if (closed || chunk.byteLength === 0) return
+
+      compressedType = mimeType
+      if (first && !header) {
+        header = chunk
+
+        return
+      }
+
+      compressed.push(chunk)
+      // Bounded like the raw buffer, so a call that never stops making noise
+      // cannot grow without limit.
+      if (compressed.length > 900) compressed.shift()
+    },
+
     push(samples: Int16Array) {
       if (closed) return
 
       const durationMs = (samples.length / rate) * 1000
+      advance(levelOf(samples), durationMs)
 
-      for (const event of detector.push(levelOf(samples), durationMs)) {
-        if (event.type === 'speech-start') {
-          // Deliberately does not clear what has been gathered. The detector
-          // needs a couple of hundred milliseconds to be sure somebody is
-          // talking, and those slices are the first syllable of the word.
-          options.send({ type: 'listening' })
-        }
-
-        if (event.type === 'barge-in') {
-          // Abandon the answer before anything else, so the next sentence is
-          // never synthesised and never queued.
-          abandon()
-          options.send({ type: 'interrupted' })
-        }
-
-        if (event.type === 'turn-end') {
-          const total = recording.reduce((count, part) => count + part.length, 0)
-          const clip = new Int16Array(total)
-          let at = 0
-          for (const part of recording) {
-            clip.set(part, at)
-            at += part.length
-          }
-          recording = []
-
-          if (clip.length > 0) void answer(clip)
-        }
-      }
-
-      // Kept whether or not a turn is open, for the reason above. The cap
-      // bounds a call that never stops making noise; at 20ms a slice this is
-      // about thirty seconds, comfortably past the detector's own limit.
+      // Kept whether or not a turn is open, because the detector needs a
+      // couple of hundred milliseconds to be sure somebody is talking and
+      // those slices are the first syllable of the word. The cap bounds a call
+      // that never stops making noise; at 20ms a slice this is about thirty
+      // seconds, comfortably past the detector's own limit.
       recording.push(samples)
       if (recording.length > 1500) recording.shift()
     },
