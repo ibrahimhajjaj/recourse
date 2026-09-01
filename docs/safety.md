@@ -171,10 +171,15 @@ What ships, and what each one does before you change anything:
 - `leak` **refuses**. An answer carrying a key, a token, or the agent's own
   instructions read back.
 - `ungrounded` **flags**. A number that appears in no source it was given.
-- `ungrounded-contact` **flags**. An email address or phone number from nowhere,
-  which at worst is one customer's details shown to another.
+- `ungrounded-contact` **flags**. An email address, phone number or link from
+  nowhere, which at worst is one customer's details shown to another.
+- `refusal` **hands off**. The model declined instead of answering. Shown in the
+  panel that is a dead end; routed to a person it is a lead.
+- `pii` **flags**. A card number, national insurance number or bank account
+  arrived in the message. It is taken out before the turn goes anywhere, so
+  this records what happened rather than refusing it.
 
-The first three read the question, the last three read the answer. Flagging
+The first three read the question, the rest read the answer. Flagging
 records and sends; refusing withholds. Promote one by naming it in `categories`
 with a different action.
 

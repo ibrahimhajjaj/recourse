@@ -217,6 +217,22 @@ export const DEFAULT_CATEGORIES: CategoryPolicy[] = [
     action: 'flag',
     sensitivity: 'high',
   },
+  {
+    // The model declining rather than answering. Rendered in the panel a
+    // refusal is a dead end; routed to a person it is a lead, and the customer
+    // has by definition just asked for something the agent could not do.
+    name: 'refusal',
+    action: 'handoff',
+    sensitivity: 'high',
+  },
+  {
+    // Recorded, never refused. The number is already out of the message by the
+    // time this is raised, so the turn is safe to answer, and refusing would
+    // only teach the customer to send it again in another shape.
+    name: 'pii',
+    action: 'flag',
+    sensitivity: 'high',
+  },
 ]
 
 export function thresholdFor(policy: CategoryPolicy): number {
