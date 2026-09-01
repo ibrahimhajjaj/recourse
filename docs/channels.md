@@ -192,6 +192,28 @@ listening to is worse than saying nothing.
 `examples/worker` has it wired, and its bundle guard proves the whole path runs
 on the edge with no Node built-ins.
 
+#### Why this is a socket and not WebRTC
+
+WebRTC is the better transport on a bad network. It runs over UDP, so one lost
+packet does not stall everything behind it the way it does on a socket, and it
+brings a jitter buffer and loss concealment with it. It is not shipped here, and
+the reasons are worth stating rather than leaving as an omission.
+
+A Worker cannot terminate a peer connection. Cloudflare's own WebRTC offering is
+a separate managed TURN and SFU service, not something the runtime does, so
+adding WebRTC would take this feature off the one platform it runs on best.
+On Node the pure implementation is four megabytes and nine dependencies, against
+a whole core package of three hundred kilobytes. And it needs STUN and TURN
+behind it to cross a NAT at all, which is infrastructure to run or a service to
+pay for.
+
+None of that stops you using it. `attachCall` asks for anything that sends and
+receives, and the widget takes a `connect` that returns anything socket-shaped.
+A WebRTC data channel already has `send`, `close` and the four handlers, so it
+satisfies both without a line of code changing here; the only adjustment is that
+a channel reports `readyState` as a string. The protocol is deliberately
+transport-agnostic so that decision stays yours.
+
 ### The model is the latency, not the retrieval
 
 Worth knowing before you point this at whatever answers your chat. A voice tool

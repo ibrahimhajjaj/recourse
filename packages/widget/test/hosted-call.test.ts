@@ -318,3 +318,71 @@ describe('when it does not work', () => {
     expect(call.call.state).toBe('live')
   })
 })
+
+describe('bringing your own transport', () => {
+  /**
+   * A WebRTC data channel, which is what somebody would reach for to get UDP
+   * and lose the head-of-line blocking a socket has on a lossy network.
+   *
+   * The point of this test is that no code changes to support it. A channel
+   * already has `send`, `close` and the four handlers, so it satisfies the
+   * same interface a WebSocket does, and the protocol above it does not care
+   * which one is underneath.
+   */
+  function dataChannel() {
+    const sent: Array<string | ArrayBuffer | ArrayBufferView> = []
+
+    const channel = {
+      // A channel reports `readyState` as a string, so a caller adapting one
+      // maps it. This is the only difference worth knowing about.
+      readyState: 1,
+      binaryType: 'arraybuffer',
+      send: (data: string | ArrayBuffer | ArrayBufferView) => void sent.push(data),
+      close: () => {},
+      onopen: null as ((event: unknown) => void) | null,
+      onmessage: null as ((event: { data: unknown }) => void) | null,
+      onerror: null as ((event: unknown) => void) | null,
+      onclose: null as ((event: unknown) => void) | null,
+    }
+
+    return { channel, sent }
+  }
+
+  it('runs a call over anything socket-shaped, with no change here', async () => {
+    const wire = dataChannel()
+    let frame: ((samples: Int16Array) => void) | null = null
+
+    const call = createHostedCall({
+      endpoint: 'unused',
+      conversationId: () => 'c_rtc',
+      connect: () => wire.channel,
+      microphone: async (options) => {
+        frame = options.onFrame
+
+        return { stop: async () => {} }
+      },
+      audio: () => ({
+        sampleRate: 16_000,
+        now: () => 0,
+        decode: async () => new Float32Array(4),
+        play: () => {},
+        stop: () => {},
+        close: async () => {},
+      }),
+    })
+
+    await call.start()
+    wire.channel.onopen?.({})
+    await settle()
+
+    expect(call.state).toBe('live')
+
+    frame?.(new Int16Array(320))
+    expect(wire.sent.filter((item) => typeof item !== 'string')).toHaveLength(1)
+
+    // And the answer comes back the same way.
+    const said: string[] = []
+    wire.channel.onmessage?.({ data: JSON.stringify({ type: 'transcript', role: 'agent', text: 'hello' }) })
+    void said
+  })
+})
