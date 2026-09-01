@@ -64,6 +64,12 @@ class Providers {
 				'model'    => 'openai/gpt-oss-120b',
 				'note'     => __( 'Fast, which a chat widget notices.', 'recourse' ),
 			),
+			'meta'       => array(
+				'label'    => 'Meta',
+				'base_url' => 'https://api.meta.ai/v1',
+				'model'    => 'muse-spark-1.1',
+				'note'     => __( 'Keys from dev.meta.ai. Thinks before answering, so replies are considered but slower.', 'recourse' ),
+			),
 			'openrouter' => array(
 				'label'    => 'OpenRouter',
 				'base_url' => 'https://openrouter.ai/api/v1',

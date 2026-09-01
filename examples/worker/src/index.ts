@@ -18,7 +18,12 @@ import { r2Blobs, type R2Like } from '@recourse-ai/core/storage'
 // Subpaths, not the root export: `recourse` re-exports `ingest`, which reads
 // from disk and so imports `node:fs`. Nothing below touches the filesystem.
 import { models } from '@recourse-ai/core/models'
-import { attachCall, elevenLabsVoice, openAiCompatibleTranscriber } from '@recourse-ai/core/channels'
+import {
+  attachCall,
+  elevenLabsVoice,
+  openAiCompatibleTranscriber,
+  openAiCompatibleVoice,
+} from '@recourse-ai/core/channels'
 import { createAgent } from '@recourse-ai/core/agent'
 import type { KnowledgeIndex } from '@recourse-ai/core/agent'
 import knowledge from './knowledge.json'
@@ -38,13 +43,23 @@ interface Env {
    */
   RECOURSE_UPLOAD_SECRET?: string
   /**
-   * Speech in and speech out, for a call the Worker carries itself. Both are
-   * optional: without them the chat still works and the call route says so
-   * rather than opening a socket that can never answer.
+   * Speech in and speech out, for a call the Worker carries itself.
+   *
+   * One provider can do both, and the same one can answer as well: a single
+   * OpenAI-compatible host that offers a transcription model and a speech
+   * model needs one key for the whole call. `ELEVENLABS_*` is there for
+   * somebody who wants their voices specifically, not because a second
+   * account is required.
    */
   TRANSCRIBE_BASE_URL?: string
   TRANSCRIBE_API_KEY?: string
   TRANSCRIBE_MODEL?: string
+  SPEAK_BASE_URL?: string
+  SPEAK_API_KEY?: string
+  SPEAK_MODEL?: string
+  SPEAK_VOICE?: string
+  /** `wav` where the host will not take mp3, which some will not. */
+  SPEAK_FORMAT?: 'mp3' | 'wav' | 'opus'
   ELEVENLABS_API_KEY?: string
   ELEVENLABS_VOICE_ID?: string
 }
@@ -85,7 +100,7 @@ export default {
         return new Response('expected a websocket upgrade', { status: 426 })
       }
 
-      if (!env.TRANSCRIBE_BASE_URL || !env.ELEVENLABS_API_KEY) {
+      if (!env.TRANSCRIBE_BASE_URL || !(env.SPEAK_BASE_URL || env.ELEVENLABS_API_KEY)) {
         // Refused rather than accepted and left silent. A socket that opens
         // and never answers looks like a network fault to the caller.
         return new Response('calling is not configured on this deployment', { status: 503 })
@@ -117,10 +132,21 @@ export default {
           ...(env.TRANSCRIBE_API_KEY ? { apiKey: env.TRANSCRIBE_API_KEY } : {}),
           ...(env.TRANSCRIBE_MODEL ? { model: env.TRANSCRIBE_MODEL } : {}),
         }),
-        voice: elevenLabsVoice({
-          apiKey: env.ELEVENLABS_API_KEY,
-          ...(env.ELEVENLABS_VOICE_ID ? { voiceId: env.ELEVENLABS_VOICE_ID } : {}),
-        }),
+        // Whichever is configured. The compatible one first, so a deployment
+        // with a single key for everything does not also need an ElevenLabs
+        // account to make a call.
+        voice: env.SPEAK_BASE_URL
+          ? openAiCompatibleVoice({
+              baseURL: env.SPEAK_BASE_URL,
+              ...(env.SPEAK_API_KEY ? { apiKey: env.SPEAK_API_KEY } : {}),
+              ...(env.SPEAK_MODEL ? { model: env.SPEAK_MODEL } : {}),
+              ...(env.SPEAK_VOICE ? { voice: env.SPEAK_VOICE } : {}),
+              ...(env.SPEAK_FORMAT ? { format: env.SPEAK_FORMAT } : {}),
+            })
+          : elevenLabsVoice({
+              apiKey: env.ELEVENLABS_API_KEY as string,
+              ...(env.ELEVENLABS_VOICE_ID ? { voiceId: env.ELEVENLABS_VOICE_ID } : {}),
+            }),
 
         // Spoken on connect. Without one the caller hears silence and cannot
         // tell whether the call is up, so they say "hello?" twice and hang up.
