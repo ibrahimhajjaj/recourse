@@ -260,6 +260,10 @@ keyword index does with a script that writes no spaces between words.
 
 #### Why this is a socket and not WebRTC
 
+There is a shorter version of this in [calls](calls.md), along with what a call
+costs and how to pick between the two paths. What follows is the detail.
+
+
 WebRTC is the better transport on a bad network. It runs over UDP, so one lost
 packet does not stall everything behind it the way it does on a socket, and it
 brings a jitter buffer and loss concealment with it. It is not shipped here, and
@@ -275,10 +279,16 @@ pay for.
 
 None of that stops you using it. `attachCall` asks for anything that sends and
 receives, and the widget takes a `connect` that returns anything socket-shaped.
-A WebRTC data channel already has `send`, `close` and the four handlers, so it
-satisfies both without a line of code changing here; the only adjustment is that
-a channel reports `readyState` as a string. The protocol is deliberately
-transport-agnostic so that decision stays yours.
+A WebRTC data channel has `send`, `close` and the four handlers, and it reports
+itself open in words where a WebSocket uses a number, so both spellings are
+accepted and a channel needs no wrapper.
+
+That last detail is worth one sentence because it was wrong here for a while.
+Checking only for the number is not a type quibble: the guard runs per frame, so
+a data channel would connect, report the call live, and drop every slice of
+audio, with nothing anywhere raising an error. The test covering this now uses
+the string a real channel actually reports, having previously used the number
+and proved nothing.
 
 ### The model is the latency, not the retrieval
 

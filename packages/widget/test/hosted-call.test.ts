@@ -333,9 +333,12 @@ describe('bringing your own transport', () => {
     const sent: Array<string | ArrayBuffer | ArrayBufferView> = []
 
     const channel = {
-      // A channel reports `readyState` as a string, so a caller adapting one
-      // maps it. This is the only difference worth knowing about.
-      readyState: 1,
+      // The real thing: a channel reports `readyState` as a string. An earlier
+      // version of this test wrote `1` here, which is what a WebSocket says,
+      // and so proved nothing. Against a real channel the frame guard rejected
+      // every slice: the call went live and sent silence, with no error
+      // anywhere to notice.
+      readyState: 'open',
       binaryType: 'arraybuffer',
       send: (data: string | ArrayBuffer | ArrayBufferView) => void sent.push(data),
       close: () => {},
@@ -348,7 +351,7 @@ describe('bringing your own transport', () => {
     return { channel, sent }
   }
 
-  it('runs a call over anything socket-shaped, with no change here', async () => {
+  it('runs a call over a data channel, which reports itself open in words', async () => {
     const wire = dataChannel()
     let frame: ((samples: Int16Array) => void) | null = null
 
@@ -378,7 +381,8 @@ describe('bringing your own transport', () => {
     expect(call.state).toBe('live')
 
     frame?.(new Int16Array(320))
-    expect(wire.sent.filter((item) => typeof item !== 'string')).toHaveLength(1)
+    frame?.(new Int16Array(320))
+    expect(wire.sent.filter((item) => typeof item !== 'string')).toHaveLength(2)
 
     // And the answer comes back the same way.
     const said: string[] = []

@@ -27,7 +27,14 @@ interface ServerMessage {
 
 /** The part of a socket this needs, so a test can pass something small. */
 export interface Socket {
-  readonly readyState: number
+  /**
+   * Number on a WebSocket, string on a WebRTC data channel.
+   *
+   * Both are accepted because the whole point of this interface is that the
+   * call does not care what is underneath, and a transport that has to be
+   * wrapped before it fits is not really supported. See `isOpen`.
+   */
+  readonly readyState: number | string
   binaryType: string
   send(data: string | ArrayBuffer | ArrayBufferView): void
   close(): void
@@ -187,7 +194,7 @@ export function createHostedCall(options: HostedCallOptions): Call {
         onFrame: (samples) => {
           // Checked per frame rather than once: a hang-up mid-call must stop
           // the stream immediately, not at the next state change.
-          if (mine !== attempt || wire.readyState !== 1) return
+          if (mine !== attempt || !isOpen(wire)) return
           // The view, not its backing buffer. They are the same thing today
           // because the conversion allocates a fresh array, but a slice would
           // send the whole pool it was cut from and the far end would hear
@@ -241,6 +248,18 @@ export function createHostedCall(options: HostedCallOptions): Call {
       else await start()
     },
   }
+}
+
+/**
+ * Whether the transport will actually carry a frame.
+ *
+ * A WebSocket says `1`. A WebRTC data channel says `'open'`. Checking only for
+ * the number is how you get a call that connects, reports itself live, and
+ * silently drops every slice of audio, because the guard rejects all of them
+ * and nothing anywhere is an error.
+ */
+function isOpen(wire: Socket): boolean {
+  return wire.readyState === 1 || wire.readyState === 'open'
 }
 
 /** A path becomes a socket URL on the page's own host, keeping the scheme right. */
