@@ -134,6 +134,20 @@ stores entries differently, two of them not at all by default, and a plugin
 that writes into another plugin's tables breaks the week that plugin changes
 them.
 
+Add `relevant_when` to hold an action back until the conversation is about it:
+
+```php
+'relevant_when' => 'call meeting demo appointment book',
+```
+
+Every action's name, description and inputs are sent to the model on every
+message, including "hi", and a small model choosing between twenty tools
+chooses worse than one choosing between three. The test reads the visitor's
+words together with the passages retrieval just found, so a question phrased in
+words the action was never described with still reaches it through the page it
+matched. Leave it off unless a site has enough actions for it to matter: one
+the model cannot see is one it cannot use.
+
 **An order number is not identity.** Order numbers are sequential, so anybody
 holding one of their own can guess a hundred others. The lookup demands the
 email the order was placed with, compares it in constant time, and answers a

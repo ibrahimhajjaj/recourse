@@ -55,10 +55,15 @@ class Model {
 	 * @param array<int, array<string, string>> $messages     Conversation.
 	 * @param array<string, string>             $config       Keys: base_url, api_key, model.
 	 * @param array<string, mixed>              $context      Passed to action callbacks.
+	 * @param string                            $about        What the turn is about, for `relevant_when`.
 	 * @return array{ok: bool, text: string, error: string, used: array<int, string>}
 	 */
-	public static function answer( $instructions, $messages, $config, $context = array() ) {
-		$actions = Actions::all();
+	public static function answer( $instructions, $messages, $config, $context = array(), $about = '' ) {
+		// Held back before anything is built, so the prompt describes exactly
+		// the tools the model is given. An action named in the prompt but
+		// absent from the request is one the model reaches for and cannot
+		// find, which it reports to the customer as a failure.
+		$actions = Relevance::offered( Actions::all(), $about );
 		$tools   = Actions::to_tools( $actions );
 
 		// Nothing configured here, but the site has WordPress's own AI client

@@ -21,6 +21,7 @@ namespace Recourse\Tests;
 use Recourse\Bm25;
 use Recourse\Chunker;
 use Recourse\Index;
+use Recourse\Relevance;
 use Recourse\Retriever;
 use Recourse\Tokenizer;
 use PHPUnit\Framework\TestCase;
@@ -98,6 +99,24 @@ class ParityTest extends TestCase {
 				$expected,
 				Bm25::query_term_count( (string) $query ),
 				sprintf( 'counting terms in "%s"', $query )
+			);
+		}
+	}
+
+	/**
+	 * Both ports judge the same phrase relevant to the same conversation.
+	 *
+	 * This decides which actions reach the model, so a port that disagrees
+	 * offers a site a different set of tools from the same words.
+	 *
+	 * @return void
+	 */
+	public function test_relevance_agrees() {
+		foreach ( $this->fixture()['relevance'] as $case ) {
+			$this->assertSame(
+				$case['mentions'],
+				Relevance::mentions( $case['about'], $case['conversation'] ),
+				sprintf( 'is "%s" about "%s"', $case['conversation'], $case['about'] )
 			);
 		}
 	}

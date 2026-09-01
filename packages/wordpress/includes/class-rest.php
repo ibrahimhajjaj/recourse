@@ -139,14 +139,41 @@ class Rest {
 
 		$settings = Settings::all();
 
+		// The passages are read as part of the conversation, because matching on
+		// the visitor's words alone misses the paraphrase: "do you have this in
+		// a medium" is a stock question containing none of the words a stock
+		// action would be described with, while the sizing page it retrieves
+		// contains all of them.
+		$about = implode(
+			"\n",
+			array_merge(
+				array_map(
+					function ( $message ) {
+						return isset( $message['content'] ) ? (string) $message['content'] : '';
+					},
+					$messages
+				),
+				array_map(
+					function ( $passage ) {
+						return isset( $passage['text'] ) ? (string) $passage['text'] : '';
+					},
+					$matches
+				)
+			)
+		);
+
 		$answer = Model::answer(
-			Prompt::instructions( $matches, $settings['persona'], ! empty( Actions::all() ) ),
+			// Asked of the gated set, not of everything registered. Telling the
+			// model it has actions on a turn where none were offered is how it
+			// comes to promise a lookup it cannot perform.
+			Prompt::instructions( $matches, $settings['persona'], ! empty( Relevance::offered( Actions::all(), $about ) ) ),
 			$messages,
 			$settings['model'],
 			array(
 				'conversation' => sanitize_text_field( (string) $request->get_param( 'conversationId' ) ),
 				'caller'       => $caller,
-			)
+			),
+			$about
 		);
 
 		if ( ! $answer['ok'] ) {

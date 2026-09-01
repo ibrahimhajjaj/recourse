@@ -401,6 +401,53 @@
     "shipping shipping shipping": 1,
     "الشحن": 1
   },
+  "relevance": [
+    {
+      "about": "stock availability sizes in store",
+      "conversation": "do you have it in stock?",
+      "mentions": true
+    },
+    {
+      "about": "stock availability sizes in store",
+      "conversation": "where is my parcel?",
+      "mentions": false
+    },
+    {
+      "about": "refund money back",
+      "conversation": "my order has not arrived",
+      "mentions": false
+    },
+    {
+      "about": "order",
+      "conversation": "my order has not arrived",
+      "mentions": true
+    },
+    {
+      "about": "refund an order",
+      "conversation": "what are your opening hours",
+      "mentions": false
+    },
+    {
+      "about": "退款",
+      "conversation": "我想申请退款",
+      "mentions": true
+    },
+    {
+      "about": "退款",
+      "conversation": "你们几点开门",
+      "mentions": false
+    },
+    {
+      "about": "استرداد",
+      "conversation": "اريد الأسترداد",
+      "mentions": true
+    },
+    {
+      "about": "استرداد",
+      "conversation": "متى يفتح المحل",
+      "mentions": false
+    }
+  ],
   "documents": [
     {
       "id": "shipping",
