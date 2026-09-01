@@ -134,7 +134,21 @@ class Rest {
 
 		self::count_message( $caller );
 
-		return self::stream( $matches, '', $answer['text'] );
+		/**
+		 * Filters the answer before the visitor reads it.
+		 *
+		 * The counterpart to the filters that shape what goes in. House style
+		 * lives here: cutting an opening pleasantry, swapping a product name,
+		 * appending a line the legal team wants on every reply. Anything that
+		 * is a matter of taste belongs in a theme or a plugin rather than in
+		 * this one's opinion of how a support agent should sound.
+		 *
+		 * @param string $text    The answer as the model wrote it.
+		 * @param array  $matches The passages it was written from.
+		 */
+		$text = (string) apply_filters( 'recourse_answer', $answer['text'], $matches );
+
+		return self::stream( $matches, '', $text );
 	}
 
 	/**
