@@ -267,6 +267,12 @@ seconds** for a single question, and a smaller local model **37**. Published
 work on voice agents puts retrieval at 50 to 300ms and model generation at 500
 to 8000ms, which matches: the model is the whole cost.
 
+Moving only the model, changing nothing else, the same question over the same
+index answers in **0.6 seconds**, end to end including retrieval. That is at the
+bottom of the published range for generation alone, because the retrieval half
+costs nothing here: the index is read from memory in the same process, so there
+is no database round trip to remove.
+
 Two things follow. Give voice its own fast provider rather than sharing the one
 answering chat, since the fast option is usually a different host entirely. And
 cap the answer with `maxOutputTokens`, because a reply written for a screen can

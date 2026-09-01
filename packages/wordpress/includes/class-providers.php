@@ -61,7 +61,7 @@ class Providers {
 			'groq'       => array(
 				'label'    => 'Groq',
 				'base_url' => 'https://api.groq.com/openai/v1',
-				'model'    => 'llama-3.3-70b-versatile',
+				'model'    => 'openai/gpt-oss-120b',
 				'note'     => __( 'Fast, which a chat widget notices.', 'recourse' ),
 			),
 			'openrouter' => array(
