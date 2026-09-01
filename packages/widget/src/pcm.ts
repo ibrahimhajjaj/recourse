@@ -69,3 +69,20 @@ export function fromPcm16(input: Int16Array): Float32Array {
 
   return out
 }
+
+/**
+ * Loudness of a slice, from 0 to 1.
+ *
+ * The same root mean square the server computes, and it has to stay the same:
+ * when the audio goes up compressed, this number is what the turn detector
+ * runs on instead, and a different scale here would move the point at which
+ * somebody is judged to have stopped talking.
+ */
+export function levelOf(samples: Int16Array): number {
+  if (samples.length === 0) return 0
+
+  let sum = 0
+  for (const sample of samples) sum += sample * sample
+
+  return Math.min(1, Math.sqrt(sum / samples.length) / 32768)
+}

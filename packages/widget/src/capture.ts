@@ -82,13 +82,56 @@ export interface Microphone {
   stop(): Promise<void>
 }
 
+/** What the browser will actually record in, decided at open time. */
+export type Codec = 'opus' | 'pcm16'
+
+/**
+ * Container types worth asking for, best first.
+ *
+ * Opus in WebM is what Chrome and Firefox produce; Safari records into MP4.
+ * Both are formats a transcription endpoint accepts directly, so nothing has
+ * to be decoded on the way.
+ */
+const COMPRESSED_TYPES = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4']
+
+/** The first recording type this browser will actually produce, if any. */
+export function compressedType(): string | null {
+  const recorder = (globalThis as { MediaRecorder?: { isTypeSupported?: (t: string) => boolean } }).MediaRecorder
+  if (!recorder?.isTypeSupported) return null
+
+  return COMPRESSED_TYPES.find((type) => recorder.isTypeSupported?.(type)) ?? null
+}
+
 export interface MicrophoneOptions {
-  /** Handed each slice, already at the rate the server expects. */
+  /**
+   * Handed each slice, already at the rate the server expects.
+   *
+   * Called for every slice whatever the codec, because the loudness of the
+   * room is measured from these and the turn detector runs on that rather than
+   * on the audio itself.
+   */
   onFrame: (samples: Int16Array) => void
   /** Slice length in milliseconds, before resampling. */
   frameMs?: number
+  /**
+   * Asks for compressed audio as well, and reports what it got.
+   *
+   * Sixteen bit audio at 16kHz is 256 kbps up. The same speech as Opus is
+   * around 24, which is the difference between a call that survives a weak
+   * mobile connection and one that stutters through it. Transcription accuracy
+   * is unchanged above about 20 kbps.
+   *
+   * `first` marks the chunk carrying the container's header. It has to be kept
+   * and put in front of any later run of chunks, or what arrives is a
+   * fragment nothing can open.
+   */
+  onCompressed?: (chunk: ArrayBuffer, first: boolean) => void
+  /** How often compressed chunks arrive. Smaller is finer, and more overhead. */
+  chunkMs?: number
   /** Injected by the tests, which have no audio hardware. */
   open?: () => Promise<{ context: AudioContext; stream: MediaStream }>
+  /** Injected by the tests. Defaults to the browser's own recorder. */
+  record?: (stream: MediaStream, type: string, chunkMs: number, onChunk: (chunk: Blob) => void) => { stop: () => void }
 }
 
 /**
@@ -128,14 +171,61 @@ export async function createMicrophone(options: MicrophoneOptions): Promise<Micr
 
   source.connect(worklet)
 
+  // The same stream, recorded compressed alongside the raw slices. Two readers
+  // of one microphone rather than two microphones: asking twice would prompt
+  // the visitor twice and give the echo canceller two things to cancel.
+  let recorder: { stop: () => void } | null = null
+  if (options.onCompressed) {
+    const type = compressedType()
+    if (type) {
+      let first = true
+      recorder = (options.record ?? recordDefault)(stream, type, options.chunkMs ?? 200, (chunk) => {
+        const wasFirst = first
+        first = false
+        // A zero length chunk carries no cluster and no header. Sending it
+        // would put an empty message on the wire for nothing.
+        if (chunk.size === 0) return
+        void chunk.arrayBuffer().then((buffer) => options.onCompressed?.(buffer, wasFirst))
+      })
+    }
+  }
+
   return {
     async stop() {
       worklet.port.onmessage = null
+      recorder?.stop()
       source.disconnect()
       worklet.disconnect()
       // Every track, or the browser keeps showing the page as recording.
       for (const track of stream.getTracks()) track.stop()
       await context.close()
+    },
+  }
+}
+
+/**
+ * The browser's own recorder, wired to hand over each slice as it lands.
+ *
+ * `start(chunkMs)` is what makes chunks arrive during the recording rather
+ * than all at the end, which is the whole point on a live call.
+ */
+function recordDefault(
+  stream: MediaStream,
+  type: string,
+  chunkMs: number,
+  onChunk: (chunk: Blob) => void,
+): { stop: () => void } {
+  const recorder = new MediaRecorder(stream, { mimeType: type })
+  recorder.ondataavailable = (event) => onChunk(event.data)
+  recorder.start(chunkMs)
+
+  return {
+    stop: () => {
+      try {
+        if (recorder.state !== 'inactive') recorder.stop()
+      } catch {
+        // Already stopped, or the track went away first.
+      }
     },
   }
 }

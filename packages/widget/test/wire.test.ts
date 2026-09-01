@@ -202,3 +202,228 @@ describe('the two halves of a hosted call, joined', () => {
     expect(seen[0]).toMatchObject({ type: 'hello', conversationId: 'c_hello' })
   })
 })
+
+describe('sending the audio compressed', () => {
+  /**
+   * A browser that can record. Nothing in a test environment has
+   * MediaRecorder, which is exactly why the fallback below matters.
+   */
+  function canRecord(type = 'audio/webm;codecs=opus') {
+    const previous = (globalThis as Record<string, unknown>).MediaRecorder
+    ;(globalThis as Record<string, unknown>).MediaRecorder = {
+      isTypeSupported: (candidate: string) => candidate === type,
+    }
+
+    return () => void ((globalThis as Record<string, unknown>).MediaRecorder = previous)
+  }
+
+  /** A browser that can record, and a recorder this test drives by hand. */
+  function recorder() {
+    let emit!: (bytes: number[], size?: number) => void
+    let stopped = 0
+
+    const record = (
+      _stream: MediaStream,
+      _type: string,
+      _chunkMs: number,
+      onChunk: (chunk: Blob) => void,
+    ) => {
+      emit = (bytes) => onChunk(new Blob([new Uint8Array(bytes)]))
+
+      return { stop: () => void stopped++ }
+    }
+
+    return { record, get emit() { return emit }, get stopped() { return stopped } }
+  }
+
+  it('puts a whole turn on the wire as one openable file', async () => {
+    const restore = canRecord()
+    const wire = pipe()
+    const heard: Array<{ bytes: Uint8Array; mimeType: string | undefined }> = []
+    const rec = recorder()
+
+    attachCall(wire.server, {
+      agent: {
+        async *stream() {
+          yield { type: 'delta', text: 'Four to seven days.' }
+        },
+      },
+      transcriber: {
+        name: 't',
+        transcribe: async (audio, options) => {
+          heard.push({ bytes: new Uint8Array(audio), mimeType: options?.mimeType })
+
+          return { text: 'how long is delivery' }
+        },
+      },
+      voice: { name: 'v', speak: async () => ({ audio: new ArrayBuffer(8), contentType: 'audio/mpeg' }) },
+    })
+
+    let frame: ((samples: Int16Array) => void) | null = null
+    let compressed: ((chunk: ArrayBuffer, first: boolean) => void) | null = null
+
+    const call = createHostedCall({
+      endpoint: '/api/voice/call',
+      conversationId: () => 'c_opus',
+      connect: () => wire.client,
+      microphone: async (options) => {
+        frame = options.onFrame
+        compressed = options.onCompressed ?? null
+        // The real capture starts a recorder; this stands in for it.
+        void rec.record({} as MediaStream, 'audio/webm;codecs=opus', 200, () => {})
+
+        return { stop: async () => {} }
+      },
+      audio: () => ({
+        sampleRate: 16_000,
+        now: () => 0,
+        decode: async () => new Float32Array(4),
+        play: () => {},
+        stop: () => {},
+        close: async () => {},
+      }),
+    })
+
+    await call.start()
+    wire.client.onopen?.({})
+    await settle()
+
+    expect(call.state).toBe('live')
+    // The browser said what it would send, so the far end knows not to read
+    // the binary frames as samples.
+    expect(compressed).not.toBeNull()
+
+    // The header, then a turn's worth of speech, then silence to end it.
+    compressed?.(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]).buffer, true)
+    const loud = Int16Array.from({ length: 320 }, (_, at) => (at % 2 ? 9000 : -9000))
+    for (let elapsed = 0; elapsed < 600; elapsed += 20) frame?.(loud)
+    compressed?.(new Uint8Array([1, 2, 3, 4]).buffer, false)
+    for (let elapsed = 0; elapsed < 900; elapsed += 20) frame?.(new Int16Array(320))
+    await settle(5)
+
+    expect(heard).toHaveLength(1)
+    // The header is in front of the clusters, or what arrives is a fragment
+    // nothing can open.
+    expect([...(heard[0]?.bytes ?? [])]).toEqual([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4])
+    expect(heard[0]?.mimeType).toBe('audio/webm;codecs=opus')
+    restore()
+  })
+
+  it('never puts raw samples on the wire when compressing', async () => {
+    // The saving is the whole point. Sending both would be worse than sending
+    // neither compressed.
+    const restore = canRecord()
+    const wire = pipe()
+    const binary: unknown[] = []
+
+    const client: Socket = {
+      ...wire.client,
+      send: (data) => {
+        if (typeof data !== 'string') binary.push(data)
+        wire.client.send(data)
+      },
+    }
+
+    let frame: ((samples: Int16Array) => void) | null = null
+    let compressed: ((chunk: ArrayBuffer, first: boolean) => void) | null = null
+
+    const call = createHostedCall({
+      endpoint: '/api/voice/call',
+      conversationId: () => 'c_only',
+      connect: () => client,
+      microphone: async (options) => {
+        frame = options.onFrame
+        compressed = options.onCompressed ?? null
+
+        return { stop: async () => {} }
+      },
+      audio: () => ({
+        sampleRate: 16_000,
+        now: () => 0,
+        decode: async () => new Float32Array(4),
+        play: () => {},
+        stop: () => {},
+        close: async () => {},
+      }),
+    })
+
+    await call.start()
+    client.onopen?.({})
+    await settle()
+
+    for (let i = 0; i < 10; i++) frame?.(new Int16Array(320))
+    await settle()
+
+    expect(binary).toHaveLength(0)
+    compressed?.(new Uint8Array([9]).buffer, true)
+    await settle()
+    expect(binary).toHaveLength(1)
+    restore()
+  })
+
+  it('falls back to raw samples when the browser cannot record', async () => {
+    // No MediaRecorder at all, which is the state this very test file runs in.
+    // The call must still work rather than going silent.
+    const wire = pipe()
+    let compressed: unknown = 'untouched'
+
+    const call = createHostedCall({
+      endpoint: '/api/voice/call',
+      conversationId: () => 'c_fallback',
+      connect: () => wire.client,
+      microphone: async (options) => {
+        compressed = options.onCompressed
+
+        return { stop: async () => {} }
+      },
+      audio: () => ({
+        sampleRate: 16_000,
+        now: () => 0,
+        decode: async () => new Float32Array(4),
+        play: () => {},
+        stop: () => {},
+        close: async () => {},
+      }),
+    })
+
+    await call.start()
+    wire.client.onopen?.({})
+    await settle()
+
+    expect(call.state).toBe('live')
+    expect(compressed).toBeUndefined()
+  })
+
+  it('sends raw samples when a deployment turns compression off', async () => {
+    const restore = canRecord()
+    const wire = pipe()
+    let compressed: unknown = 'untouched'
+
+    const call = createHostedCall({
+      endpoint: '/api/voice/call',
+      conversationId: () => 'c_off',
+      compress: false,
+      connect: () => wire.client,
+      microphone: async (options) => {
+        compressed = options.onCompressed
+
+        return { stop: async () => {} }
+      },
+      audio: () => ({
+        sampleRate: 16_000,
+        now: () => 0,
+        decode: async () => new Float32Array(4),
+        play: () => {},
+        stop: () => {},
+        close: async () => {},
+      }),
+    })
+
+    await call.start()
+    wire.client.onopen?.({})
+    await settle()
+
+    expect(compressed).toBeUndefined()
+    restore()
+  })
+})

@@ -13,7 +13,8 @@
  * costs the host a transcriber and a voice, and it is theirs to keep fast.
  */
 
-import { createMicrophone, type Microphone, type MicrophoneOptions } from './capture.js'
+import { compressedType, createMicrophone, type Microphone, type MicrophoneOptions } from './capture.js'
+import { levelOf } from './pcm.js'
 import { createPlayback, type Playback } from './playback.js'
 import type { Call, CallState, CallTranscript } from './call.js'
 
@@ -51,6 +52,19 @@ export interface HostedCallOptions {
   onStateChange?: (state: CallState) => void
   onTranscript?: (entry: CallTranscript) => void
   onError?: (message: string) => void
+  /**
+   * Sends compressed audio instead of raw samples, when the browser can.
+   *
+   * On by default. Sixteen bit audio at 16kHz is about 256 kbps going up; the
+   * same speech as Opus is around 24, and transcription accuracy is unchanged.
+   * That difference is the whole gap between a call that survives a weak
+   * mobile connection and one that stutters through it.
+   *
+   * Falls back to raw samples on its own when the browser has no recorder or
+   * supports none of the formats, so this needs no feature detection from you.
+   * Set false to force raw samples.
+   */
+  compress?: boolean
   /** Injected by the tests, and the seam a host can use for its own transport. */
   connect?: (url: string) => Socket
   microphone?: (options: MicrophoneOptions) => Promise<Microphone>
@@ -132,8 +146,19 @@ export function createHostedCall(options: HostedCallOptions): Call {
         return
       }
 
-      wire.send(JSON.stringify({ type: 'hello', sampleRate: 16_000, conversationId: options.conversationId() }))
-      void listen(mine, wire)
+      // Decided here rather than asked of the caller: the browser is the only
+      // thing that knows what it can actually record.
+      const mimeType = options.compress === false ? null : compressedType()
+
+      wire.send(
+        JSON.stringify({
+          type: 'hello',
+          sampleRate: 16_000,
+          conversationId: options.conversationId(),
+          ...(mimeType ? { audio: { mimeType } } : {}),
+        }),
+      )
+      void listen(mine, wire, mimeType)
     }
 
     wire.onmessage = (event) => {
@@ -181,7 +206,7 @@ export function createHostedCall(options: HostedCallOptions): Call {
   }
 
   /** Opens the microphone once the socket is up, and streams it. */
-  async function listen(mine: number, wire: Socket) {
+  async function listen(mine: number, wire: Socket, mimeType: string | null) {
     try {
       speakers = (options.audio ?? openSpeakers)()
       playback = createPlayback({
@@ -190,17 +215,52 @@ export function createHostedCall(options: HostedCallOptions): Call {
         sampleRate: speakers.sampleRate,
       })
 
+      /**
+       * Loudness, batched.
+       *
+       * Only when the audio itself goes up compressed, because then the far
+       * end cannot measure it and the turn detector runs on these instead. A
+       * message per slice would be fifty a second to carry fifty numbers.
+       */
+      let levels: number[] = []
+      const flushLevels = () => {
+        if (levels.length === 0 || !isOpen(wire)) return
+        wire.send(JSON.stringify({ type: 'levels', values: levels, frameMs: 20 }))
+        levels = []
+      }
+
       microphone = await (options.microphone ?? createMicrophone)({
         onFrame: (samples) => {
           // Checked per frame rather than once: a hang-up mid-call must stop
           // the stream immediately, not at the next state change.
           if (mine !== attempt || !isOpen(wire)) return
+
+          if (mimeType) {
+            levels.push(levelOf(samples))
+            // Five slices is a tenth of a second, which is finer than any turn
+            // decision needs and still a tenth of the messages.
+            if (levels.length >= 5) flushLevels()
+
+            return
+          }
+
           // The view, not its backing buffer. They are the same thing today
           // because the conversion allocates a fresh array, but a slice would
           // send the whole pool it was cut from and the far end would hear
           // somebody else's audio.
           wire.send(samples)
         },
+        ...(mimeType
+          ? {
+              onCompressed: (chunk) => {
+                if (mine !== attempt || !isOpen(wire)) return
+                // Levels first, so the far end has measured the time this
+                // chunk covers before the chunk itself lands.
+                flushLevels()
+                wire.send(chunk)
+              },
+            }
+          : {}),
       })
 
       if (mine !== attempt) {
