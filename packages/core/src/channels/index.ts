@@ -86,6 +86,7 @@ export {
   type CallSession,
   type CallSessionOptions,
 } from './voice-session.js'
+export { attachCall, type AttachOptions, type CallSocket, type HelloMessage } from './voice-socket.js'
 export {
   listTemplates,
   sendTemplate,
