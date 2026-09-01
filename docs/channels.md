@@ -139,6 +139,59 @@ What the visitor sees is one thread. The call is marked where it starts and
 where it ends, and what was said appears as messages alongside what was typed,
 because a spoken question and a typed one are the same conversation.
 
+### Or carry the call yourself
+
+`browserVoiceRoute` hands the call to a voice service. The other way is to keep
+it, which is what `attachCall` is for: the browser opens a socket to your own
+server, sends the microphone, and gets speech back.
+
+The difference is not the transport, it is who decides what gets said. On the
+vendor path their agent composes the words and yours supplies facts through a
+tool. Here the answer comes from the same `createAgent` that answers your chat,
+so the persona, the safety classifier and the procedures all still apply. The
+cost is that you run a transcriber and a voice, and their speed is yours to own.
+
+```ts
+import { attachCall } from '@recourse-ai/core/channels'
+
+// A Worker, where a socket is native and there is no upgrade to negotiate.
+const pair = new WebSocketPair()
+const [client, server] = Object.values(pair) as [WebSocket, WebSocket]
+server.accept()
+
+attachCall(server, { agent, transcriber, voice })
+
+return new Response(null, { status: 101, webSocket: client })
+```
+
+Then in the widget, the same button with a different transport:
+
+```html
+<script
+  src="/recourse.js"
+  data-endpoint="/api/chat"
+  data-call="/api/voice/call"
+  data-call-transport="hosted"
+></script>
+```
+
+`attachCall` asks only for something that sends and receives, because every
+runtime spells a socket differently. The wire is plain: text frames are JSON
+control messages, binary frames are audio, and there is no envelope around the
+audio because a WebSocket already keeps message boundaries and a header on every
+twenty millisecond slice is a header fifty times a second.
+
+Three parts of this are worth knowing before you wire it up. The microphone is
+asked for with echo cancellation on, without which it hears the agent through
+the speakers and answers its own sentences. Speech is spoken a sentence at a
+time as the answer streams, so the caller hears the opening clause while the
+rest is still being written. And an interruption abandons the whole answer
+rather than the clause in the air, because finishing a sentence nobody is
+listening to is worse than saying nothing.
+
+`examples/worker` has it wired, and its bundle guard proves the whole path runs
+on the edge with no Node built-ins.
+
 ### The model is the latency, not the retrieval
 
 Worth knowing before you point this at whatever answers your chat. A voice tool

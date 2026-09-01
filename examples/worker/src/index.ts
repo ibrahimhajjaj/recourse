@@ -18,6 +18,8 @@ import { r2Blobs, type R2Like } from '@recourse-ai/core/storage'
 // Subpaths, not the root export: `recourse` re-exports `ingest`, which reads
 // from disk and so imports `node:fs`. Nothing below touches the filesystem.
 import { models } from '@recourse-ai/core/models'
+import { attachCall, elevenLabsVoice, openAiCompatibleTranscriber } from '@recourse-ai/core/channels'
+import { createAgent } from '@recourse-ai/core/agent'
 import type { KnowledgeIndex } from '@recourse-ai/core/agent'
 import knowledge from './knowledge.json'
 
@@ -35,6 +37,16 @@ interface Env {
    * somebody else's file. `wrangler secret put RECOURSE_UPLOAD_SECRET`.
    */
   RECOURSE_UPLOAD_SECRET?: string
+  /**
+   * Speech in and speech out, for a call the Worker carries itself. Both are
+   * optional: without them the chat still works and the call route says so
+   * rather than opening a socket that can never answer.
+   */
+  TRANSCRIBE_BASE_URL?: string
+  TRANSCRIBE_API_KEY?: string
+  TRANSCRIBE_MODEL?: string
+  ELEVENLABS_API_KEY?: string
+  ELEVENLABS_VOICE_ID?: string
 }
 
 export default {
@@ -63,6 +75,55 @@ export default {
 
     if (url.pathname === '/api/file' && storage) {
       return downloadRoute({ ...storage, cors: {} })(request)
+    }
+
+    // A call the Worker carries end to end. This is the one thing a Worker
+    // does that a serverless function cannot: `WebSocketPair` is native here,
+    // so there is no upgrade to negotiate and no server to keep running.
+    if (url.pathname === '/api/voice/call') {
+      if (request.headers.get('upgrade') !== 'websocket') {
+        return new Response('expected a websocket upgrade', { status: 426 })
+      }
+
+      if (!env.TRANSCRIBE_BASE_URL || !env.ELEVENLABS_API_KEY) {
+        // Refused rather than accepted and left silent. A socket that opens
+        // and never answers looks like a network fault to the caller.
+        return new Response('calling is not configured on this deployment', { status: 503 })
+      }
+
+      const pair = new WebSocketPair()
+      const [client, server] = Object.values(pair) as [WebSocket, WebSocket]
+      server.accept()
+
+      attachCall(server as unknown as Parameters<typeof attachCall>[0], {
+        agent: createAgent({
+          index: knowledge as unknown as KnowledgeIndex,
+          model: models.fromEnvironment(env as Record<string, string | undefined>),
+          embedder: false,
+          persona: {
+            name: 'Ada',
+            business: 'Lumen Coffee Roasters',
+            // Written for an ear. A citation marker is noise out loud and a
+            // paragraph is more than anybody can hold in their head.
+            instructions:
+              'You are being read aloud on a call. Answer in one or two short spoken sentences, ' +
+              'with no markdown and no citation markers.',
+            fallback: "I can't find that in our help pages. Shall I put you through to someone?",
+          },
+          maxOutputTokens: 120,
+        }),
+        transcriber: openAiCompatibleTranscriber({
+          baseURL: env.TRANSCRIBE_BASE_URL,
+          ...(env.TRANSCRIBE_API_KEY ? { apiKey: env.TRANSCRIBE_API_KEY } : {}),
+          ...(env.TRANSCRIBE_MODEL ? { model: env.TRANSCRIBE_MODEL } : {}),
+        }),
+        voice: elevenLabsVoice({
+          apiKey: env.ELEVENLABS_API_KEY,
+          ...(env.ELEVENLABS_VOICE_ID ? { voiceId: env.ELEVENLABS_VOICE_ID } : {}),
+        }),
+      })
+
+      return new Response(null, { status: 101, webSocket: client })
     }
 
     if (url.pathname !== '/api/chat') {

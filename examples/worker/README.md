@@ -105,3 +105,37 @@ no equivalent. So images go to the model as bytes here rather than as links,
 which is also the only thing that works for a model on a private network. If
 you want links, put a custom domain on the bucket and pass it as `publicBase` , 
 and be sure the objects are not secret, because a public base is public.
+
+## Taking a call
+
+A Worker is the one place this library can carry a spoken call without a server
+to keep running: `WebSocketPair` is native here, so there is no upgrade to
+negotiate. `/api/voice/call` accepts a socket, receives the microphone, and
+sends speech back.
+
+It needs a transcriber and a voice, and refuses the socket when it has neither.
+That is deliberate: a socket that opens and then never answers reads as a broken
+network to whoever is on the other end.
+
+```bash
+wrangler secret put TRANSCRIBE_BASE_URL   # any OpenAI-compatible transcription endpoint
+wrangler secret put TRANSCRIBE_API_KEY
+wrangler secret put ELEVENLABS_API_KEY
+```
+
+Then point the widget at it and the same call button uses this instead of a
+voice vendor:
+
+```html
+<script
+  src="/recourse.js"
+  data-endpoint="/api/chat"
+  data-call="/api/voice/call"
+  data-call-transport="hosted"
+></script>
+```
+
+What you get for running it yourself is that the answer comes from the same
+agent that answers the chat, so the persona, the classifier and the procedures
+still govern what is said. What you take on is the speed of the transcriber and
+the voice, which is the whole latency budget on a call.
