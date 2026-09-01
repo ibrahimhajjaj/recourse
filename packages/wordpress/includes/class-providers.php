@@ -65,7 +65,7 @@ class Providers {
 			'deepseek'   => array(
 				'label'    => 'DeepSeek',
 				'base_url' => 'https://api.deepseek.com/v1',
-				'model'    => 'deepseek-chat',
+				'model'    => 'deepseek-v4-flash',
 				'note'     => __( 'Inexpensive, and strong on non-English questions.', 'recourse' ),
 			),
 			'groq'       => array(
@@ -94,9 +94,9 @@ class Providers {
 			),
 			'moonshot'   => array(
 				'label'    => 'Moonshot (Kimi)',
-				'base_url' => 'https://api.moonshot.cn/v1',
-				'model'    => 'moonshot-v1-8k',
-				'note'     => __( 'Chinese provider. Strong on Chinese-language questions.', 'recourse' ),
+				'base_url' => 'https://api.moonshot.ai/v1',
+				'model'    => 'kimi-k3',
+				'note'     => __( 'Kimi, from Moonshot. Strong on Chinese-language questions.', 'recourse' ),
 			),
 			'qwen'       => array(
 				'label'    => 'Alibaba Qwen (DashScope)',
@@ -105,10 +105,10 @@ class Providers {
 				'note'     => __( 'Chinese provider. Use the compatible-mode URL, not the native one.', 'recourse' ),
 			),
 			'zhipu'      => array(
-				'label'    => 'Zhipu (GLM)',
-				'base_url' => 'https://open.bigmodel.cn/api/paas/v4',
-				'model'    => 'glm-4-flash',
-				'note'     => __( 'Chinese provider.', 'recourse' ),
+				'label'    => 'Z.ai (GLM)',
+				'base_url' => 'https://api.z.ai/api/paas/v4',
+				'model'    => 'glm-4.7',
+				'note'     => __( 'Chinese provider. `glm-4.7-flash` is their free tier if cost matters more than quality.', 'recourse' ),
 			),
 			'ollama'     => array(
 				'label'    => 'Ollama, on this server',
