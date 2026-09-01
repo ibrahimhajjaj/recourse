@@ -6,6 +6,7 @@ import type { Channel, Store, StoredMessage } from './store/types.js'
 import { renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
 import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
+import { answerFilter, type Hooks } from './hooks.js'
 import { embedderSpansLanguages, translateQuery } from './knowledge/translate-query.js'
 import { parseIndex } from './knowledge/serialize.js'
 import { createRetriever, type RetrieverOptions } from './retrieve/retriever.js'
@@ -227,6 +228,24 @@ export interface AgentOptions {
    * ```
    */
   prompt?: (context: InstructionOptions) => string
+  /**
+   * Where this agent's extensions are registered.
+   *
+   * The counterpart to `prompt`: that shapes what the model is told, this
+   * shapes what the customer reads and what gets searched for. Held as a value
+   * rather than reached through a global, so one deployment's rules cannot run
+   * on another's answers even in a process serving several.
+   *
+   * ```ts
+   * import { createHooks, openerFilter } from '@recourse-ai/core'
+   *
+   * const hooks = createHooks()
+   * hooks.filter('answer', openerFilter)
+   *
+   * createAgent({ index, hooks })
+   * ```
+   */
+  hooks?: Hooks
 }
 
 export interface StreamOptions {
@@ -543,6 +562,12 @@ export function createAgent(options: AgentOptions) {
     // this stays at zero until the whole answer has been checked.
     let released = 0
     let checkedTo = 0
+    // One per turn. A filter holding half a phrase from the last answer would
+    // put it in front of the next one.
+    const outgoing = answerFilter(options.hooks, {
+      ...(conversationId ? { conversationId } : {}),
+      question,
+    })
 
     // Gating the stream is opt-in, because it costs sentence-at-a-time delivery
     // instead of word-by-word. Looking at the finished answer costs nothing and
@@ -637,7 +662,7 @@ export function createAgent(options: AgentOptions) {
           if (!checksOutput) {
             released = answered.length
             delivered = true
-            yield { type: 'delta', text: part.text }
+            yield { type: 'delta', text: outgoing ? outgoing.push(part.text) : part.text }
           } else if (!buffering) {
             // Checked on sentence boundaries, and released only as far as it has
             // been checked. Sending the unchecked tail and inspecting it later
@@ -656,7 +681,8 @@ export function createAgent(options: AgentOptions) {
             }
             if (checkedTo > released) {
               delivered = true
-              yield { type: 'delta', text: answered.slice(released, checkedTo) }
+              const piece = answered.slice(released, checkedTo)
+              yield { type: 'delta', text: outgoing ? outgoing.push(piece) : piece }
               released = checkedTo
             }
           }
@@ -717,7 +743,7 @@ export function createAgent(options: AgentOptions) {
       noticed = verdict.signals
       if (blocks(verdict)) withheld = verdict
       else {
-        yield { type: 'delta', text: answered.slice(released) }
+        yield { type: 'delta', text: answered.slice(released) + (outgoing?.flush() ?? '') }
         released = answered.length
       }
     }

@@ -157,6 +157,8 @@ export {
   type Translated,
 } from './helpdesk/translate.js'
 export { createApiHandler, type ApiOptions } from './api/index.js'
+export { createHooks, answerFilter, type Hooks, type Filters, type Events, type AnswerFilter, type FilterContext } from './hooks.js'
+export { createOpenerFilter as openerFilter, type OpenerFilter } from './server/opener.js'
 export { createMcp, MCP_PROTOCOLS, type Mcp, type McpOptions } from './api/mcp.js'
 export { createHelpPage, type HelpPageOptions } from './api/helppage.js'
 
