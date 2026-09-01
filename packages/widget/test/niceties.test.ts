@@ -261,3 +261,96 @@ describe('showing what the agent is doing', () => {
     call.restore()
   })
 })
+
+describe('a card that changes while you watch', () => {
+  function turn() {
+    const encoder = new TextEncoder()
+    let push!: (frame: unknown) => void
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        push = (frame) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(frame)}\n\n`))
+      },
+    })
+
+    const original = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })) as typeof globalThis.fetch
+
+    const { widget, root } = mount({ endpoint: '/api/chat' })
+    void widget.ask('where is my refund')
+
+    const settle = async () => {
+      for (let tick = 0; tick < 40; tick++) await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+
+    return { root, push, settle, restore: () => void (globalThis.fetch = original) }
+  }
+
+  const cards = (root: ShadowRoot) => root.querySelectorAll('[data-ui-id]')
+
+  it('replaces a card sent again under the same id', async () => {
+    // The id was passed through and ignored, so a refund going from requested
+    // to approved left three cards stacked in the thread instead of one that
+    // changed.
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'ui', kind: 'card', id: 'refund_88', data: { title: 'Refund', subtitle: 'Requested' } })
+    await call.settle()
+    call.push({ type: 'ui', kind: 'card', id: 'refund_88', data: { title: 'Refund', subtitle: 'Approved' } })
+    await call.settle()
+
+    expect(cards(call.root)).toHaveLength(1)
+    expect(call.root.textContent).toContain('Approved')
+    expect(call.root.textContent).not.toContain('Requested')
+    call.restore()
+  })
+
+  it('keeps two cards apart when the ids differ', async () => {
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'ui', kind: 'card', id: 'refund_88', data: { title: 'Refund' } })
+    await call.settle()
+    call.push({ type: 'ui', kind: 'card', id: 'order_12', data: { title: 'Order' } })
+    await call.settle()
+
+    expect(cards(call.root)).toHaveLength(2)
+    call.restore()
+  })
+
+  it('updates in place rather than moving the card to the end', async () => {
+    // Otherwise the thread jumps under somebody who is reading it.
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'ui', kind: 'card', id: 'a', data: { title: 'First' } })
+    await call.settle()
+    call.push({ type: 'ui', kind: 'card', id: 'b', data: { title: 'Second' } })
+    await call.settle()
+    call.push({ type: 'ui', kind: 'card', id: 'a', data: { title: 'First, updated' } })
+    await call.settle()
+
+    const order = [...cards(call.root)].map((node) => node.getAttribute('data-ui-id'))
+    expect(order).toEqual(['a', 'b'])
+    expect(call.root.textContent).toContain('First, updated')
+    call.restore()
+  })
+
+  it('is not fooled by an id that looks like a selector', async () => {
+    // The id arrives from the server, so it reaches the browser untrusted.
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'ui', kind: 'card', id: 'a"] , [data-ui-id="b', data: { title: 'Odd' } })
+    await call.settle()
+    call.push({ type: 'ui', kind: 'card', id: 'b', data: { title: 'Innocent' } })
+    await call.settle()
+
+    expect(cards(call.root)).toHaveLength(2)
+    expect(call.root.textContent).toContain('Innocent')
+    call.restore()
+  })
+})

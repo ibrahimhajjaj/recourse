@@ -922,12 +922,31 @@ function readable(name: string): string {
     } else if (frame.type === 'ui') {
       const node = renderUi({ kind: frame.kind, id: frame.id, data: frame.data }, uiContext)
       if (node) {
+        // The id is what makes a card able to change. Sending the same one
+        // again replaces what is on screen rather than stacking a second copy
+        // underneath it, so a refund that goes from requested to approved is
+        // one card that updates and not three in a pile.
+        // Compared rather than put into a selector. The id comes from the
+        // server, and an id containing a quote turns a selector string into a
+        // different selector, or into one that throws and takes the whole
+        // frame handler down with it.
+        const existing = frame.id
+          ? [...log.children].find((node) => (node as HTMLElement).dataset?.uiId === frame.id)
+          : undefined
+
         const wrapper = document.createElement('div')
         wrapper.className = 'msg'
         wrapper.dataset.role = 'assistant'
+        if (frame.id) wrapper.dataset.uiId = frame.id
         wrapper.appendChild(node)
-        log.appendChild(wrapper)
-        scrollToEnd()
+
+        if (existing) {
+          // In place, so the thread does not jump under somebody reading it.
+          existing.replaceWith(wrapper)
+        } else {
+          log.appendChild(wrapper)
+          scrollToEnd()
+        }
       }
     }
   }
