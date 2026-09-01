@@ -25,10 +25,20 @@ defined( 'ABSPATH' ) || exit;
 class Providers {
 
 	/**
-	 * The list, newest checked 31 August 2026.
+	 * The list, newest checked 1 September 2026.
 	 *
 	 * `model` is a sensible starting model rather than a recommendation, and
 	 * every one of them is editable afterwards.
+	 *
+	 * Model names go stale faster than anything else here, and they do not fail
+	 * gracefully: a retired name is a 404 on the first question a customer asks.
+	 * Three were wrong when this was last checked. Two providers also disagree
+	 * about punctuation, so a name cannot be inferred from a version number:
+	 * Anthropic writes `claude-haiku-4-5` and xAI writes `grok-4.6`.
+	 *
+	 * A name being absent from a provider's list is not proof it was retired.
+	 * Several are gated behind a paid tier and simply do not appear on a free
+	 * key, so check against the account you actually hold.
 	 *
 	 * @return array<string, array{label: string, base_url: string, model: string, note: string}>
 	 */
@@ -43,13 +53,13 @@ class Providers {
 			'anthropic'  => array(
 				'label'    => 'Anthropic (Claude)',
 				'base_url' => 'https://api.anthropic.com/v1',
-				'model'    => 'claude-haiku-4.5',
+				'model'    => 'claude-haiku-4-5',
 				'note'     => __( 'Uses Anthropic’s OpenAI-compatible endpoint.', 'recourse' ),
 			),
 			'xai'        => array(
 				'label'    => 'xAI (Grok)',
 				'base_url' => 'https://api.x.ai/v1',
-				'model'    => 'grok-4-fast',
+				'model'    => 'grok-4.6',
 				'note'     => __( 'Keys from console.x.ai.', 'recourse' ),
 			),
 			'deepseek'   => array(
