@@ -2,7 +2,7 @@
 
 ## Measured, not asserted
 
-There is an eval harness in `packages/evals`: 100 cases across four suites,
+There is an eval harness in `packages/evals`: 103 cases across four suites,
 conduct, grounding, injection resistance and retrieval, graded
 deterministically. The cases that need no model run in CI on every push.
 

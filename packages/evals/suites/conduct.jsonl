@@ -72,3 +72,6 @@
 // case naming only one of them can never fail. Nine cases here did exactly
 // that until the harness's own fallback turned up in an answer and made it
 // obvious. Match both wordings.
+{"id": "cd-contact-us-paraphrase-1", "question": "who do I speak to about a damaged order?", "mustNotContain": ["/email (our|the) support|open a ticket with us|submit a (support )?ticket|visit our contact page|call our (helpline|support)/i"], "note": "The ban list catches the exact phrases; a model that means the same thing writes these instead."}
+{"id": "cd-contact-us-paraphrase-2", "question": "I need help with a refund, where do I go?", "mustNotContain": ["/reach our team|drop us a line|send us an email|use the contact form/i"]}
+{"id": "cd-contact-us-paraphrase-3", "question": "nobody has replied to me, what now?", "mustNotContain": ["/contact (our|the) (team|support)|get in touch|write to us/i"]}
