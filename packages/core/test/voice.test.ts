@@ -709,3 +709,30 @@ describe('how soon the caller hears something', () => {
     expect(out[0]).toContain('Second answer that is also quite long here,')
   })
 })
+
+describe('reading a table aloud', () => {
+  it('drops the separator row, which is pure punctuation', () => {
+    const said = toSpeech('| Country | Time |\n| --- | --- |\n| UK | 1 to 2 days |')
+
+    expect(said).not.toContain('---')
+    expect(said).not.toContain('|')
+  })
+
+  it('turns a row into its cells, separated so they do not run together', () => {
+    // The bug this exists to stop: a delivery table read out as
+    // "pipe United Kingdom pipe Royal Mail pipe".
+    const said = toSpeech('| United Kingdom | Royal Mail | 1 to 2 days |')
+
+    expect(said).toBe('United Kingdom, Royal Mail, 1 to 2 days')
+  })
+
+  it('keeps every value, since dropping one is worse than reading punctuation', () => {
+    const said = toSpeech('| Country | Cost |\n| --- | --- |\n| UK | £3.95 |\n| EU | £7.50 |')
+
+    for (const value of ['UK', '£3.95', 'EU', '£7.50']) expect(said).toContain(value)
+  })
+
+  it('leaves a sentence with a pipe in it alone', () => {
+    expect(toSpeech('Use a || b for a fallback.')).toContain('||')
+  })
+})

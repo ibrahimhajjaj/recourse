@@ -23,6 +23,19 @@ export function toSpeech(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/(^|\s)\*([^*\n]+)\*/g, '$1$2')
     .replace(/(^|\n)\s*#{1,6}\s*/g, '$1')
+    // A table is the worst thing a screen can hand a speaker. The separator
+    // row is pure punctuation and is dropped; a data row becomes its cells
+    // separated by commas, which a speech engine reads as the pauses a reader
+    // gets from the column edges. Without this a delivery table is read out as
+    // "pipe United Kingdom pipe Royal Mail pipe".
+    .replace(/(^|\n)\s*\|[\s:|-]*\|\s*(?=\n|$)/g, '$1')
+    .replace(/(^|\n)[^\S\n]*\|(.+?)\|[^\S\n]*(?=\n|$)/g, (_all, start: string, row: string) =>
+      `${start}${row
+        .split('|')
+        .map((cell) => cell.trim())
+        .filter(Boolean)
+        .join(', ')}`,
+    )
     // A bullet becomes a pause, so a list does not run together.
     .replace(/(^|\n)\s*[-*+]\s+/g, '$1')
     .replace(/(^|\n)\s*\d+[.)]\s+/g, '$1')

@@ -1,4 +1,5 @@
 import type { Agent } from '../agent.js'
+import { toSpeech } from './voice-speech.js'
 import type { Store } from '../store/types.js'
 
 /**
@@ -103,6 +104,38 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
       // nothing at all, which is the worst possible thing on a phone call.
       const answer = stripCitations(result.text)
       if (result.error || !answer) {
+        // The caller hears one calm sentence either way, but an operator
+        // reading the log needs to know which of the two happened: a provider
+        // that failed, or a turn that produced no words. Without this the only
+        // symptom is an agent that politely cannot help, and no way to tell why.
+        console.error(
+          `[recourse] voice lookup gave nothing back: ${result.error ? `error: ${result.error}` : 'the model returned no text'}`,
+        )
+
+        // Retrieval is the half that rarely fails, and it already ran. A model
+        // that answered with an action instead of a sentence has left perfectly
+        // good passages on the floor, and handing those over lets the voice
+        // agent say something true rather than apologise.
+        const matches = await options.agent.search(question)
+        if (matches.length > 0) {
+          return json({
+            // Through the speech cleaner, not raw. A passage is written for a
+            // screen, and a table read aloud is "pipe destination pipe carrier",
+            // which is worse than saying nothing.
+            answer: toSpeech(
+              matches
+                .slice(0, 2)
+                .map((match) => match.chunk.text)
+                // A newline, not a space. Joining with a space welds the last
+                // line of one passage to the first of the next, and a table row
+                // that no longer ends a line stops being recognised as one.
+                .join('\n'),
+            ).slice(0, 600),
+            found: true,
+            sources: matches.slice(0, 2).map((match) => match.chunk.title),
+          })
+        }
+
         return json({ answer: 'I could not look that up just now.', found: false, sources: [] })
       }
 
