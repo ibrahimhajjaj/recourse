@@ -49,8 +49,15 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r --filter "./packages/*" lint
+
+      # Build first, which is the order `pnpm verify` uses and the order the
+      # packages actually depend on. The store adapters lint by typechecking
+      # against core's generated declarations, so linting a fresh checkout
+      # before building it reports a hundred phantom `any` errors from a
+      # `dist` that does not exist yet. It passed on a developer's machine
+      # only because theirs was already built.
       - run: pnpm -r --filter "./packages/*" build
+      - run: pnpm -r --filter "./packages/*" lint
       - run: pnpm -r --filter "./packages/*" test
 
       # Retrieval quality, asserted rather than assumed. Deterministic, needs no
