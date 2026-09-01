@@ -188,6 +188,76 @@ createAgent({ index, repeatLimit: 3 })  // or 0 to turn it off
 The count is per turn, so a customer asking the same thing again later is
 answered normally.
 
+## A call costs more than a conversation
+
+Typing is billed in tokens. Talking is billed in tokens, plus every second of
+audio going in, plus every character of speech coming out, and the last of
+those is most of the bill.
+
+Measured on this library, one provider doing all three parts, for a minute of
+call where the caller talks for about twenty seconds and the agent for thirty:
+
+```
+speech recognition   $0.0002    twenty seconds of audio
+the model            $0.0005    four exchanges
+speech synthesis     $0.0051    about 230 characters spoken
+                     -------
+                     $0.0058    call it six tenths of a cent
+```
+
+**Synthesis is around ninety per cent of that**, so it is the only line worth
+optimising and the voice you choose is the whole decision. At the time of
+writing, per million characters: OpenAI `tts-1` $15, Groq's Orpheus $22,
+Deepgram Aura-2 $30, ElevenLabs Flash $50. Across that range a minute of call
+costs between four tenths of a cent and about one and a fifth.
+
+Two things follow from the shape of that bill rather than its size.
+
+**Brevity is a cost control on a call in a way it is not in chat.** A reply
+twice as long costs twice as much to speak, takes twice as long to say, and is
+worse to listen to. `maxOutputTokens` and an instruction to answer in two
+sentences are doing double duty here.
+
+**A greeting is synthesised on every single call**, and it is the same sentence
+every time. Nothing here caches it for you. If you take enough calls for that
+to matter, wrap the `Voice` you pass in and keep the bytes for that one string:
+
+```ts
+const remembered = new Map<string, Awaited<ReturnType<Voice['speak']>>>()
+
+const voice: Voice = {
+  name: 'cached',
+  speak: async (text, signal) => {
+    const held = remembered.get(text)
+    if (held) return held
+
+    const clip = await underlying.speak(text, signal)
+    // The greeting and little else. Caching every sentence a model writes
+    // would fill memory with strings said once.
+    if (text.length < 120) remembered.set(text, clip)
+
+    return clip
+  },
+}
+```
+
+### Against letting somebody else carry the call
+
+The other way to answer a call is to hand the whole thing to a voice platform,
+which this library also supports. That is about eight cents a minute, with the
+model billed separately on top, and the comparable bundled services sit between
+six and eight.
+
+So carrying it yourself is roughly ten times cheaper, and the honest version of
+that sentence is that you are paying the difference in operations rather than
+saving it outright: you run a transcriber, a voice and a model, and their speed
+and uptime become yours. A shop taking a few calls a day should take the easy
+one. A shop taking a thousand minutes a month is looking at eighty dollars
+against six.
+
+The reason both are here is that the choice changes with volume, and it should
+not require rewriting the agent. See [calls](calls.md) for how to switch.
+
 ## What it costs to have all of this on
 
 Nothing measurable. The budget check is one counter read, the repeat guard is a

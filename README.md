@@ -184,6 +184,7 @@ the thing you came for.
 | Get your content in, and keep the index small | [docs/retrieval.md](docs/retrieval.md) |
 | Let it look things up and change things | [docs/actions.md](docs/actions.md) |
 | Answer on WhatsApp, Slack, email, the phone | [docs/channels.md](docs/channels.md) |
+| Let someone talk to it from the page | [docs/calls.md](docs/calls.md) |
 | Open tickets, route them, respect working hours | [docs/helpdesk.md](docs/helpdesk.md) |
 | Hand off to Zendesk, Intercom or another desk | [docs/escalation.md](docs/escalation.md) |
 | Answer someone who did not write in English | [docs/languages.md](docs/languages.md) |
