@@ -21,11 +21,11 @@ import { resolveEmbedder, resolveVoiceModel } from '../../../../lib/model'
 const agent = createAgent({
   index: knowledge as unknown as KnowledgeIndex,
   model: resolveVoiceModel(),
-  // A spoken answer is finished when the caller has what they asked for. The
-  // instruction below asks for brevity and this is the backstop for a model
-  // that ignores it, measured after one returned 59 words for a one-line
-  // question. Roughly two or three sentences of speech.
-  maxOutputTokens: 120,
+  // Sized for the thinking as well as the answer. At 120 this model spent 106
+  // tokens reasoning and had fourteen left, so a caller asking how to pause a
+  // subscription heard "To pause your" and nothing else. The instruction below
+  // is what keeps replies short; this is only the backstop.
+  maxOutputTokens: 400,
   embedder: resolveEmbedder(),
   store,
 

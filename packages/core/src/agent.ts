@@ -56,6 +56,12 @@ export interface AgentOptions {
    *
    * Use it with an instruction asking for brevity rather than instead of one.
    * The cap is the backstop for a model that ignores the prompt, not the plan.
+   *
+   * Reasoning counts against it. A thinking model spends this budget before it
+   * says a word, so a cap sized for the answer alone truncates mid-sentence and
+   * the caller hears half a clause. Measured on one: 106 of 120 tokens went on
+   * reasoning, leaving fourteen, and the reply was "To pause your". Size it for
+   * the thinking plus the answer, or turn the thinking off.
    */
   maxOutputTokens?: number
   /** Passages given to the model per question. */
