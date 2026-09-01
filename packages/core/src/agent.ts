@@ -333,10 +333,10 @@ export function createAgent(options: AgentOptions) {
   const maxSteps = options.maxSteps ?? 6
   const takeover = options.takeover === true ? {} : options.takeover === false ? null : (options.takeover ?? null)
 
-  // Resolved once at construction: which procedures this agent can actually
-  // run, and which procedure-only actions they unlock.
+  // Which procedures this agent can run at all. Which of their actions are
+  // reachable is decided per turn, below: an action resolved once here is an
+  // action bound on every turn, including the ones where nothing unlocked it.
   const { usable: procedures, dropped } = usableProcedures(options.procedures ?? [], actions)
-  const unlocked = unlockedBy(procedures)
 
   for (const { name, missing } of dropped) {
     console.warn(`[recourse] procedure "${name}" disabled: no action named ${missing.join(', ')}`)
@@ -643,7 +643,16 @@ export function createAgent(options: AgentOptions) {
         abortSignal: signal,
         tools: actionsToTools(actions, {
           context,
-          unlocked,
+          // Decided from the whole conversation, so an action stays available
+          // for a flow that is halfway through and is absent from a turn that
+          // never mentioned the thing it belongs to. `procedureOnly` promises
+          // an action fires "only as a step inside a procedure"; resolving this
+          // once at construction meant a refund tool was bound and callable on
+          // every turn, merely undocumented in the prompt.
+          unlocked: unlockedBy(
+            procedures,
+            messages.map((message) => message.content).join('\n'),
+          ),
           ...(options.actionResults ? { results: options.actionResults } : {}),
           ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
         }),
