@@ -77,6 +77,29 @@ the `AI` author subtype makes Sunshine append its own disclaimer in the
 customer's own client, per channel, for text, image and file messages alike. Set
 `disclosure` as well and the customer is told twice, so use one or the other.
 
+## The same agent, different rules per channel
+
+One agent answers in a chat panel, in WhatsApp and out loud on a phone call,
+and those want different things. Markdown is fine on the web and arrives as
+literal asterisks on SMS. A citation marker is useful on screen and is noise
+read aloud.
+
+```ts
+persona: {
+  instructions: 'Ask for an order number before looking anything up.',
+  perChannel: {
+    sms: 'No markdown and no lists. One or two short sentences.',
+    phone: 'You are being read aloud. No markdown, no citation markers.',
+  },
+}
+```
+
+Appended after the general instructions, so where the two disagree the channel
+wins: the specific rule is the one that knows where the answer is going. A
+channel with no entry gets the persona exactly as written.
+
+The alternative is a second agent with a copied persona, which then drifts.
+
 ## Three ways to answer a phone, and the one you can use today
 
 `voiceChannel` uses Twilio's Conversation Relay over a WebSocket. It is the best

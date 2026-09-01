@@ -547,6 +547,7 @@ export function createAgent(options: AgentOptions) {
         ...(options.procedureVariables ? { extra: options.procedureVariables() } : {}),
       }),
       clientResults: call.clientResults,
+      channel,
       ...(prepared?.context ? { attachments: prepared.context } : {}),
       ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),
     }

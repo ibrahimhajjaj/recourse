@@ -34,6 +34,29 @@ export interface PersonaOptions {
   tone?: Tone | (string & {})
   /** Extra rules appended verbatim: escalation policy, languages, anything. */
   instructions?: string
+  /**
+   * More rules, for one channel only.
+   *
+   * The same agent answers in a chat panel, in WhatsApp and out loud on a
+   * phone call, and those want different things. Markdown is fine on the web
+   * and arrives as literal asterisks on SMS. A citation marker is useful on
+   * screen and is noise read aloud. Without this the only way to say so is a
+   * second agent with a copied persona, which then drifts.
+   *
+   * Keyed by channel, appended after `instructions` and nothing else changed.
+   * A channel with no entry gets the persona as written.
+   *
+   * ```ts
+   * persona: {
+   *   instructions: 'Ask for an order number before looking anything up.',
+   *   perChannel: {
+   *     sms: 'No markdown and no lists. One or two short sentences.',
+   *     phone: 'You are being read aloud. No markdown, no citation markers.',
+   *   },
+   * }
+   * ```
+   */
+  perChannel?: Record<string, string>
   /** Said when the retrieved context does not contain the answer. */
   fallback?: string
 }
@@ -166,6 +189,8 @@ export interface InstructionOptions {
   attachments?: string
   /** Files that arrived but could not be read, by name and reason. */
   unreadable?: Array<{ name: string; reason: string }>
+  /** Where the answer is going, so a channel's own rules can be added. */
+  channel?: string
 }
 
 /**
@@ -318,6 +343,11 @@ export function buildInstructions(options: InstructionOptions): string {
   }
 
   if (persona.instructions) lines.push('', persona.instructions)
+
+  // After the general instructions, so a channel rule wins where the two
+  // disagree: the specific one is the one that knows where the answer is going.
+  const forChannel = options.channel ? persona.perChannel?.[options.channel] : undefined
+  if (forChannel) lines.push('', forChannel)
 
   if (matches.length === 0) {
     // A citation with nothing behind it is worse than none: it invites the
