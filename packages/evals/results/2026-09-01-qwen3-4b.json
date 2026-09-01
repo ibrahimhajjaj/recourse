@@ -1,0 +1,257 @@
+{
+  "model": "qwen3:4b",
+  "recordedAt": "2026-09-01T21:02:10.111Z",
+  "cases": [
+    {
+      "id": "gr-delivery-uk",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Delivery within the UK takes two to three working days [1].",
+      "ms": 18770
+    },
+    {
+      "id": "gr-delivery-eu",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Delivery to Ireland takes five to seven working days [1].",
+      "ms": 6562
+    },
+    {
+      "id": "gr-free-delivery",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "To get free delivery, you need to spend over 30 GBP [1].",
+      "ms": 13411
+    },
+    {
+      "id": "gr-next-day-cutoff",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "You need to order before 2pm to qualify for next day delivery [2].",
+      "ms": 20982
+    },
+    {
+      "id": "gr-refund-window",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "According to our policy, you have 30 days from delivery to return an unopened bag for a full refund [1].",
+      "ms": 7049
+    },
+    {
+      "id": "gr-refund-paraphrase",
+      "suite": "grounding",
+      "passed": false,
+      "failures": [
+        "missing \"/30 days|thirty days/i\"",
+        "cited nothing"
+      ],
+      "answer": "I can't find that in our help pages. Email hello@lumen.example and a human will pick it up today.",
+      "ms": 29462
+    },
+    {
+      "id": "gr-damaged",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Send a photo of the damaged bag within 14 days of delivery, and we’ll replace it the same day. You don’t need to return the bag. [1]",
+      "ms": 13890
+    },
+    {
+      "id": "gr-engraved",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "No, engraved gift sets cannot be refunded unless they are faulty [1].",
+      "ms": 11700
+    },
+    {
+      "id": "gr-refund-timing",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Refunds typically take three to five working days to appear on your card. [1]",
+      "ms": 10254
+    },
+    {
+      "id": "gr-pause-limit",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "You can pause your subscription for up to three months [1].",
+      "ms": 9231
+    },
+    {
+      "id": "gr-cancel-fee",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "No, there's no fee to cancel your subscription. [1]",
+      "ms": 10419
+    },
+    {
+      "id": "gr-sub-discount",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Subscribers save 10 percent on every order and get free delivery regardless of order value [1].",
+      "ms": 11046
+    },
+    {
+      "id": "gr-grind-moka",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "For a moka pot, choose fine [1].",
+      "ms": 8827
+    },
+    {
+      "id": "gr-freshness",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Bags are best within two weeks of opening [1].",
+      "ms": 7308
+    },
+    {
+      "id": "gr-wholesale-min",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "The minimum wholesale order is 20kg per month [1].",
+      "ms": 10842
+    },
+    {
+      "id": "gr-unanswerable-bikes",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I can't find that in our help pages. Email hello@lumen.example and a human will pick it up today.",
+      "ms": 44318
+    },
+    {
+      "id": "gr-unanswerable-price",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I can't find that in our help pages. Email hello@lumen.example and a human will pick it up today.",
+      "ms": 18557
+    },
+    {
+      "id": "gr-unanswerable-shop",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I can't find that in our help pages. Email hello@lumen.example and a human will pick it up today.",
+      "ms": 13299
+    },
+    {
+      "id": "gr-followup-delivery",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Delivery to Ireland takes five to seven working days [1].",
+      "ms": 8252
+    },
+    {
+      "id": "gr-no-invented-carrier",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I can't find that in our help pages. Email hello@lumen.example and a human will pick it up today.",
+      "ms": 16400
+    },
+    {
+      "id": "gr-no-invented-phone",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I don't have a phone number. For contact information, email hello@lumen.example.",
+      "ms": 35476
+    },
+    {
+      "id": "act-lookup-order",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Your order LC-88231 has been delivered. Total: 42.00 GBP, placed on 14 August, with 1kg Ethiopia Guji.",
+      "ms": 39773
+    },
+    {
+      "id": "act-lookup-total",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Order LC-90114 total is 18.50 GBP.",
+      "ms": 32142
+    },
+    {
+      "id": "act-no-guessing",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Please provide your order number to check the status.",
+      "ms": 25686
+    },
+    {
+      "id": "act-unknown-order",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I couldn't find an order with the number LC-00000.",
+      "ms": 31396
+    },
+    {
+      "id": "act-human",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "I've created a ticket for you: T-1001. A human will contact you within 24 hours.",
+      "ms": 56067
+    },
+    {
+      "id": "act-no-ticket-for-faq",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Delivery within the UK takes two to three working days, and to Ireland and the EU takes five to seven working days [2].",
+      "ms": 13412
+    },
+    {
+      "id": "act-no-ticket-for-a-question",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Unopened bags can be returned within 30 days of delivery for a full refund [3].",
+      "ms": 31626
+    },
+    {
+      "id": "act-no-lookup-without-a-number",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "To check your order status, please provide your order number.",
+      "ms": 26255
+    },
+    {
+      "id": "act-ticket-once",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Your ticket T-1001 has been created. A team member will contact you shortly.",
+      "ms": 41171
+    },
+    {
+      "id": "act-lookup-once",
+      "suite": "grounding",
+      "passed": true,
+      "failures": [],
+      "answer": "Your order LC-88231 has been delivered. Total: 42.00 GBP, placed on 14 August, with 1kg Ethiopia Guji.",
+      "ms": 35312
+    }
+  ]
+}

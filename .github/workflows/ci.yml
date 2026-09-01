@@ -24,8 +24,12 @@ jobs:
           POSTGRES_DB: recourse
         ports:
           - 5432:5432
+        # Named, because bare `pg_isready` connects as the runner's own user and
+        # the server logs a FATAL for a role that does not exist every ten
+        # seconds. It exits zero anyway, so the job went green on a check that
+        # only proved the port was open rather than that the test database was.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d recourse"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
