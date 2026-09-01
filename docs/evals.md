@@ -35,6 +35,23 @@ page is named in the logs rather than quietly dropped.
 Assume this is the failure mode of any RAG support agent you are evaluating,
 including ones you did not build.
 
+## Things the harness talked us out of
+
+A suite earns its keep as much by refusing a change as by catching a bug.
+
+Published work on prompt layout says a lot about where evidence should sit
+relative to the instructions, and some of it says the strongest passages should
+sit at the edges of the list rather than buried in the middle. Rather than
+rearrange the prompt on the strength of a paper, the grounding suite was run
+against `qwen3:4b` with the passages in retrieval order and then with the order
+reversed, which is the largest change position can make at `topK: 6`.
+
+Both scored 30 of 31, and both failed the same case, which fails on recall
+rather than on position: the corpus never uses the customer's words. Passage
+order was not what was holding that back, so nothing was rearranged. Reordering
+would also have had to keep the citation numbers in step with `toSourceRefs`,
+which is a real bug waiting to happen in exchange for a measured nothing.
+
 
 ## The cost of a turn, with the model taken out
 
