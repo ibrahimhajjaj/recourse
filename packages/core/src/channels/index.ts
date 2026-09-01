@@ -72,6 +72,13 @@ export {
   type TranscriptionRouteOptions,
 } from './voice-stt.js'
 export {
+  createTurnDetector,
+  levelOf,
+  type TurnDetector,
+  type TurnEvent,
+  type TurnOptions,
+} from './voice-turns.js'
+export {
   listTemplates,
   sendTemplate,
   templateSender,
