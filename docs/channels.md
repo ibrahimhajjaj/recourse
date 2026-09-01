@@ -139,6 +139,38 @@ What the visitor sees is one thread. The call is marked where it starts and
 where it ends, and what was said appears as messages alongside what was typed,
 because a spoken question and a typed one are the same conversation.
 
+### The model is the latency, not the retrieval
+
+Worth knowing before you point this at whatever answers your chat. A voice tool
+has a timeout measured in seconds, and when it passes the agent stops talking,
+which the caller hears as the line dropping rather than as an error.
+
+Measured here against a 30 second timeout: a local reasoning model took **53
+seconds** for a single question, and a smaller local model **37**. Published
+work on voice agents puts retrieval at 50 to 300ms and model generation at 500
+to 8000ms, which matches: the model is the whole cost.
+
+Two things follow. Give voice its own fast provider rather than sharing the one
+answering chat, since the fast option is usually a different host entirely. And
+cap the answer with `maxOutputTokens`, because a reply written for a screen can
+be skimmed and one read aloud cannot: a wordy paragraph is half a minute of
+somebody waiting for their turn to speak.
+
+```ts
+import { createAgent } from '@recourse-ai/core'
+
+createAgent({
+  index: knowledge,
+  model: fastModel,
+  // Roughly two or three sentences of speech. The instruction asks for
+  // brevity; this is the backstop for a model that ignores it.
+  maxOutputTokens: 120,
+})
+```
+
+Retrieval is not worth optimising here. The index is read from memory in the
+same process, so there is no database round trip to remove.
+
 ## Two that are not here, on purpose
 
 **3CX.** There is nothing to build against. Their own forums say 3CX cannot

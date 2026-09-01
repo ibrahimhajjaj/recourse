@@ -2,7 +2,8 @@ import { createAgent, httpAction, type KnowledgeIndex } from '@recourse-ai/core'
 import { elevenLabsToolRoute } from '@recourse-ai/core/channels'
 import knowledge from '../../../../lib/knowledge.json'
 import { store } from '../../../../lib/helpdesk'
-import { resolveEmbedder, resolveModel } from '../../../../lib/model'
+import { siteUrl } from '../../../../lib/site'
+import { resolveEmbedder, resolveVoiceModel } from '../../../../lib/model'
 
 /**
  * What the voice agent asks when it does not know something.
@@ -19,7 +20,12 @@ import { resolveEmbedder, resolveModel } from '../../../../lib/model'
 
 const agent = createAgent({
   index: knowledge as unknown as KnowledgeIndex,
-  model: resolveModel(),
+  model: resolveVoiceModel(),
+  // A spoken answer is finished when the caller has what they asked for. The
+  // instruction below asks for brevity and this is the backstop for a model
+  // that ignores it, measured after one returned 59 words for a one-line
+  // question. Roughly two or three sentences of speech.
+  maxOutputTokens: 120,
   embedder: resolveEmbedder(),
   store,
 
@@ -40,7 +46,7 @@ const agent = createAgent({
       name: 'lookup_order',
       whenToUse: 'Look up an order by its number, when the customer gives you one.',
       collect: [{ name: 'orderNumber', type: 'string', description: 'The order number, like LUM-1234.' }],
-      url: 'http://localhost:3000/api/orders/{{orderNumber}}',
+      url: `${siteUrl()}/api/orders/{{orderNumber}}`,
       allowFields: ['orderNumber', 'placedAt', 'weightKg', 'status', 'wholesale'],
     }),
   ],

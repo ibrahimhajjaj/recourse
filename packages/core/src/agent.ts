@@ -46,6 +46,18 @@ export interface AgentOptions {
    * two such runs invites a conclusion neither of them supports.
    */
   temperature?: number
+  /**
+   * A ceiling on how much the model may say in one answer.
+   *
+   * Left off by default, because a truncated sentence reads worse than a long
+   * one and a chat panel can scroll. It earns its place on a voice call, where
+   * the answer is read aloud and the caller cannot skim: a paragraph that would
+   * be merely wordy on screen is thirty seconds of somebody waiting to speak.
+   *
+   * Use it with an instruction asking for brevity rather than instead of one.
+   * The cap is the backstop for a model that ignores the prompt, not the plan.
+   */
+  maxOutputTokens?: number
   /** Passages given to the model per question. */
   topK?: number
   /**
@@ -529,6 +541,7 @@ export function createAgent(options: AgentOptions) {
       const result = streamText({
         model: spoke,
         ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+        ...(options.maxOutputTokens === undefined ? {} : { maxOutputTokens: options.maxOutputTokens }),
         instructions: (options.prompt ?? buildInstructions)(instructionContext),
         messages: messages.map((message, position) => {
           // The file parts belong on the message they arrived with, which is the

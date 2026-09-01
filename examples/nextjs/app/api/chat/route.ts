@@ -11,6 +11,7 @@ import {
 import { helpdesk, store } from '../../../lib/helpdesk'
 import type { KnowledgeIndex } from '@recourse-ai/core'
 import knowledge from '../../../lib/knowledge.json'
+import { siteUrl } from '../../../lib/site'
 import { resolveEmbedder, resolveModel } from '../../../lib/model'
 
 /**
@@ -69,7 +70,7 @@ const handler = createChatHandler({
       whenToUse: 'Look up an order by its number.',
       procedureOnly: true,
       collect: [{ name: 'orderNumber', type: 'string', description: 'The order number, like LUM-1234.' }],
-      url: 'http://localhost:3000/api/orders/{{orderNumber}}',
+      url: `${siteUrl()}/api/orders/{{orderNumber}}`,
       allowFields: ['orderNumber', 'placedAt', 'weightKg', 'status', 'wholesale'],
     }),
 
