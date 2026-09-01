@@ -850,7 +850,7 @@ registerProcessor('recourse-capture', Capture)
         });
         microphone = await (options.microphone ?? createMicrophone)({
           onFrame: (samples) => {
-            if (mine !== attempt || wire.readyState !== 1) return;
+            if (mine !== attempt || !isOpen(wire)) return;
             wire.send(samples);
           }
         });
@@ -889,6 +889,9 @@ registerProcessor('recourse-capture', Capture)
         else await start();
       }
     };
+  }
+  function isOpen(wire) {
+    return wire.readyState === 1 || wire.readyState === "open";
   }
   function resolve(endpoint) {
     if (/^wss?:\/\//i.test(endpoint)) return endpoint;
