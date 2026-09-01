@@ -44,9 +44,13 @@ if (process.argv.includes('--watch')) {
   // The demo and the landing page serve the bundle from their own public
   // folders. Copying here rather than by hand is the only way they stay in
   // step: a stale copy shows visitors a widget that is months old.
+  //
+  // The minified one, because these are served to browsers. Copying the
+  // readable build put 88 KB in front of visitors where 53 KB was the intent,
+  // and the size printed below described a file nobody was being sent.
   for (const destination of ['../../public/recourse.js', '../../examples/nextjs/public/recourse.js']) {
     const folder = destination.slice(0, destination.lastIndexOf('/'))
-    if (existsSync(folder)) copyFileSync('dist/recourse.js', destination)
+    if (existsSync(folder)) copyFileSync('dist/recourse.min.js', destination)
   }
 
   console.log(`recourse.min.js  ${(statSync('dist/recourse.min.js').size / 1024).toFixed(1)} KB`)
