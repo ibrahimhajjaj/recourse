@@ -188,39 +188,81 @@ createAgent({ index, repeatLimit: 3 })  // or 0 to turn it off
 The count is per turn, so a customer asking the same thing again later is
 answered normally.
 
-## A call costs more than a conversation
+## What a call costs
 
-Typing is billed in tokens. Talking is billed in tokens, plus every second of
-audio going in, plus every character of speech coming out, and the last of
-those is most of the bill.
+Short answer: **about half a cent a minute if you run it yourself, about eight
+cents if you let a voice platform run it.** Everything below is why, and how to
+decide.
 
-Measured on this library, one provider doing all three parts, for a minute of
-call where the caller talks for about twenty seconds and the agent for thirty:
+### What you will actually pay in a month
+
+A support call runs about four minutes. So:
+
+| Calls a day | Minutes a month | You run it | A platform runs it |
+| --- | --- | --- | --- |
+| 5 | 600 | **$3** | $48 |
+| 20 | 2,400 | **$14** | $192 |
+| 50 | 6,000 | **$35** | $480 |
+| 200 | 24,000 | **$138** | $1,920 |
+
+Both columns are the whole bill for the conversation. The platform column has
+the model billed on top of it; ours does not, the model is already in there.
+
+### Which to pick
+
+**Taking fewer than about twenty calls a day: let the platform run it.** You are
+arguing over the price of a sandwich, and you get the turn-taking, the
+interruption handling and the uptime for free. Set it up in an afternoon and
+stop thinking about it.
+
+**Taking more than that, or fussy about what the agent says: run it yourself.**
+At fifty calls a day you are saving four hundred and fifty dollars a month, and
+the answer comes from the same agent that answers your chat, so your rules about
+what it may say still apply. You are paying for that in operations, not saving
+it outright: three services become yours to keep fast and keep up.
+
+You can start on the first and move to the second without rewriting the agent.
+That is the point of both being here.
+
+### Where the money goes
+
+For one minute, running it yourself:
 
 ```
-speech recognition   $0.0002    twenty seconds of audio
+speech recognition   $0.0002    the caller talking, about twenty seconds
 the model            $0.0005    four exchanges
-speech synthesis     $0.0051    about 230 characters spoken
+speech synthesis     $0.0051    the agent talking, about 230 characters
                      -------
-                     $0.0058    call it six tenths of a cent
+                     $0.0058
 ```
 
-**Synthesis is around ninety per cent of that**, so it is the only line worth
-optimising and the voice you choose is the whole decision. At the time of
-writing, per million characters: OpenAI `tts-1` $15, Groq's Orpheus $22,
-Deepgram Aura-2 $30, ElevenLabs Flash $50. Across that range a minute of call
-costs between four tenths of a cent and about one and a fifth.
+**Synthesis is ninety per cent of the bill.** Speech recognition and the model
+together are a tenth of a cent. So there is exactly one number worth caring
+about, which is what you pay for a voice.
 
-Two things follow from the shape of that bill rather than its size.
+### Voices, cheapest first
 
-**Brevity is a cost control on a call in a way it is not in chat.** A reply
-twice as long costs twice as much to speak, takes twice as long to say, and is
-worse to listen to. `maxOutputTokens` and an instruction to answer in two
-sentences are doing double duty here.
+| Voice | Per million characters | Per minute of call | 20 calls a day |
+| --- | --- | --- | --- |
+| OpenAI `tts-1` | $15 | $0.0042 | $10 |
+| Groq Orpheus | $22 | $0.0058 | $14 |
+| Deepgram Aura-2 | $30 | $0.0076 | $18 |
+| ElevenLabs Flash | $50 | $0.0122 | $29 |
 
-**A greeting is synthesised on every single call**, and it is the same sentence
-every time. Nothing here caches it for you. If you take enough calls for that
-to matter, wrap the `Voice` you pass in and keep the bytes for that one string:
+The whole range is twenty dollars a month at twenty calls a day. **Pick the one
+that sounds best to you and stop optimising**, unless you are doing hundreds of
+calls a day, where the same choice is a couple of hundred dollars and worth
+five minutes of listening to samples.
+
+### Two things that cut the bill for free
+
+**Keep the answers short.** A reply twice as long costs twice as much to speak,
+takes twice as long to say, and is worse to listen to. `maxOutputTokens` and an
+instruction to answer in two sentences pay for themselves twice.
+
+**Stop paying to say hello.** The greeting is synthesised on every single call
+and it is the same sentence every time. Nothing here caches it for you. Wrap the
+`Voice` you pass in and keep the bytes:
 
 ```ts
 const remembered = new Map<string, Awaited<ReturnType<Voice['speak']>>>()
@@ -241,22 +283,14 @@ const voice: Voice = {
 }
 ```
 
-### Against letting somebody else carry the call
+At a hundred calls a day that is one synthesis instead of three thousand.
 
-The other way to answer a call is to hand the whole thing to a voice platform,
-which this library also supports. That is about eight cents a minute, with the
-model billed separately on top, and the comparable bundled services sit between
-six and eight.
+### The prices these came from
 
-So carrying it yourself is roughly ten times cheaper, and the honest version of
-that sentence is that you are paying the difference in operations rather than
-saving it outright: you run a transcriber, a voice and a model, and their speed
-and uptime become yours. A shop taking a few calls a day should take the easy
-one. A shop taking a thousand minutes a month is looking at eighty dollars
-against six.
-
-The reason both are here is that the choice changes with volume, and it should
-not require rewriting the agent. See [calls](calls.md) for how to switch.
+Checked September 2026, and they move. Groq Whisper turbo $0.04 an hour, Groq
+`gpt-oss-20b` $0.075 per million in and $0.30 out, voices as in the table above.
+For the platform column: ElevenLabs Agents $0.08 a minute with the model billed
+separately, Deepgram Voice Agent $0.075, Cartesia $0.06.
 
 ## What it costs to have all of this on
 

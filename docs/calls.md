@@ -37,11 +37,14 @@ working today. Take your own if you are taking a lot of them, or if what the
 agent is allowed to say matters enough that you do not want a third party
 composing it.
 
-The numbers, because they are the whole argument: **carrying it yourself is
-about ten times cheaper.** Roughly six tenths of a cent a minute against eight
-cents. A thousand minutes a month is six dollars against eighty. See
-[costs](costs.md) for where that goes, and the short version is that speech
-synthesis is ninety per cent of it and the voice you pick is the whole decision.
+The numbers, because they are the whole argument. A support call runs about four
+minutes, so at twenty calls a day you are paying **$14 a month running it
+yourself against $192 letting a platform run it.** At five calls a day it is $3
+against $48, which is not worth thinking about, so do not: take the platform.
+
+The crossover is somewhere around twenty calls a day. Below it the saving is a
+sandwich. Above it, at fifty calls a day you are keeping four hundred and fifty
+dollars a month. [costs](costs.md) has the table and where the money goes.
 
 You are not saving that outright, you are paying it in operations instead. Start
 on the vendor path and move when the minutes hurt. Moving does not mean
