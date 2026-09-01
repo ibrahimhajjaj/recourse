@@ -103,7 +103,10 @@ class Rest {
 			);
 		}
 
-		$matches = Retriever::retrieve( $index, Prompt::retrieval_query( $messages ) );
+		// Screened before anything reads them. An indexed page carrying text
+		// written at the assistant reaches the model as evidence otherwise,
+		// with the same standing as the shipping policy.
+		$matches = Safety::screen( Retriever::retrieve( $index, Prompt::retrieval_query( $messages ) ) );
 
 		// The bare question first, and the previous turn folded in only when
 		// that finds nothing. Doing it the other way round drags the old
@@ -112,7 +115,7 @@ class Rest {
 			$contextual = Prompt::contextual_query( $messages );
 
 			if ( null !== $contextual ) {
-				$matches = Retriever::retrieve( $index, $contextual );
+				$matches = Safety::screen( Retriever::retrieve( $index, $contextual ) );
 			}
 		}
 

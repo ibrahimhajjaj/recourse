@@ -139,6 +139,7 @@ function get_option( $name, $fallback = false ) { // phpcs:ignore WordPress.Nami
 }
 
 $recourse_testable = array(
+	'safety',
 	'tokenizer',
 	'bm25',
 	'chunker',
@@ -180,6 +181,18 @@ function apply_filters( $hook, $value ) { // phpcs:ignore WordPress.NamingConven
  */
 function wp_parse_url( $url, $component = -1 ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 	return parse_url( $url, $component ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url
+}
+
+/**
+ * Stub. The plugin fires this when it refuses an indexed page; nothing in the
+ * suite listens, and the point of the test is what survives the screen.
+ *
+ * @param string $hook Hook name.
+ * @param mixed  ...$args Arguments.
+ * @return void
+ */
+function do_action( $hook, ...$args ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	unset( $hook, $args );
 }
 
 /**
