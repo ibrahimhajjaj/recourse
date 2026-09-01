@@ -230,6 +230,37 @@ Two things worth saying plainly to whoever writes your privacy notice: a
 country is not an identifier on its own, and `Cloudflare` sends `XX` for
 unknown and `T1` for Tor, neither of which is recorded.
 
+## Facts the model must never hold
+
+Identity has two tiers here, and the difference matters more than it looks.
+
+`contact.attributes` is the open one. It reaches procedure text, which reaches
+the prompt, which can reach an answer. That is right for a name or a plan and
+wrong for a billing id, a date of birth or an internal account reference.
+
+The second tier is signed and stops at the action:
+
+```ts
+import { signClaims } from '@recourse-ai/core'
+
+// On your server, where the secret lives.
+const token = await signClaims({ stripeId: 'cus_123', dob: '1990-04-02' }, secret)
+```
+
+The browser passes the token through with the message, it is verified here, and
+the contents arrive as `ctx.private` inside an action. Nothing that builds a
+prompt reads it, so an action can look a customer up by their billing id
+without the model ever holding the id.
+
+Signed as one blob rather than field by field, because a browser passes it
+through and an unsigned bag of facts from a browser is not a fact. A token
+signed with the wrong secret, edited after signing, truncated, or carrying
+something that is not an object all give the same answer: no verified claims,
+rather than an exception.
+
+The token carries its own proof, so it works even when the visitor's user id
+did not verify. The two halves are independent on purpose.
+
 ---
 
 [Back to the README](../README.md)

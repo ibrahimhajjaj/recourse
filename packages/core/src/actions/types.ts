@@ -36,6 +36,15 @@ export interface Contact {
 export interface ActionContext {
   conversationId?: string
   contact?: Contact
+  /**
+   * Verified facts the model never sees.
+   *
+   * `contact.attributes` reaches procedure text and therefore the prompt, so a
+   * billing id or a date of birth put there can end up in an answer. These
+   * arrive in a signed token and stop here, where an action can look something
+   * up with them without the model ever holding them.
+   */
+  private?: Record<string, unknown>
   signal?: AbortSignal
   /** Present when the agent was given one. Actions persist through it. */
   store?: Store

@@ -276,6 +276,8 @@ export function createChatHandler(options: ChatHandlerOptions) {
       userId?: string
       userHash?: string
       contact?: IdentityClaim['contact']
+      /** A signed blob of facts the model must never see. */
+      token?: string
       conversationId?: string
       actionResults?: Array<{ name?: unknown; input?: unknown; output?: unknown }>
     }
@@ -286,7 +288,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
       .slice(0, 8)
       .map((result) => ({ name: String(result.name), input: result.input, output: result.output }))
     const identity = await resolveIdentity(
-      { userId: claim?.userId, userHash: claim?.userHash, contact: claim?.contact },
+      { userId: claim?.userId, userHash: claim?.userHash, contact: claim?.contact, token: claim?.token },
       options.identity,
     )
 
@@ -316,6 +318,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
           const streamed = agent.stream(recent, [], {
             signal: request.signal,
             contact: identity.contact,
+            ...(identity.private ? { private: identity.private } : {}),
             conversationId: typeof claim?.conversationId === 'string' ? claim.conversationId : undefined,
             ...(options.analytics?.country?.(request) ? { country: countryFrom(request) } : {}),
             clientResults,

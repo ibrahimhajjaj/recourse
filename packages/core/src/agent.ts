@@ -253,6 +253,8 @@ export interface StreamOptions {
   /** Groups turns into one thread. Generated when absent. */
   conversationId?: string
   contact?: Contact
+  /** Verified facts for actions only. Never reaches the prompt. */
+  private?: Record<string, unknown>
   channel?: Channel
   /**
    * Two-letter country, when the deployment asked for it and the visitor
@@ -543,6 +545,8 @@ export function createAgent(options: AgentOptions) {
     const context: ActionContext = {
       conversationId,
       contact,
+      // Stops here on purpose. Nothing below builds a prompt from this.
+      ...(call.private ? { private: call.private } : {}),
       signal,
       store: options.store,
       webhooks: options.webhooks,

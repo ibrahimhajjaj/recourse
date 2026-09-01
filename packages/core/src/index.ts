@@ -90,13 +90,7 @@ export {
 } from './retrieve/index.js'
 export { createEmbedder, canReachGateway, type EmbedderOptions } from './embed.js'
 
-export {
-  signIdentity,
-  verifyIdentity,
-  resolveIdentity,
-  type IdentityOptions,
-  type IdentityClaim,
-} from './identity.js'
+export { signIdentity, verifyIdentity, resolveIdentity, type IdentityOptions, type IdentityClaim, signClaims, readClaims } from './identity.js'
 
 export {
   defineProcedure,
