@@ -46,7 +46,19 @@ export async function loadParser<T>(
   }
 }
 
-/** Extracts the text layer. A scanned PDF has none, and yields nothing. */
+/**
+ * Extracts the text layer.
+ *
+ * A scanned PDF is a stack of photographs with no text layer at all, and the
+ * only honest thing to return for one is nothing. Saying so out loud is the
+ * point: a business that points this at two hundred pages of scanned policy
+ * gets an index with nothing in it, an agent that cannot answer anything, and
+ * no indication that the file was the problem rather than the agent.
+ *
+ * Reading it properly needs OCR, which is a different kind of dependency and a
+ * decision for whoever owns the documents. Naming the file is what lets them
+ * make it.
+ */
 export const parsePdf: DocumentParser = async (data) => {
   const pdfjs = await loadParser<{
     getDocument(source: { data: Uint8Array; useSystemFonts?: boolean }): { promise: Promise<PdfDocument> }
@@ -65,6 +77,16 @@ export const parsePdf: DocumentParser = async (data) => {
       .trim()
     // Page breaks become paragraph breaks so the chunker has somewhere to split.
     if (text) pages.push(text)
+  }
+
+  // Every page empty on a document that has pages. A partly scanned file still
+  // indexes what it can, so only the total absence is worth saying anything
+  // about; a warning on every mixed document would be noise nobody reads.
+  if (pdf.numPages > 0 && pages.length === 0) {
+    console.warn(
+      '[recourse] a PDF produced no text at all. It is almost certainly scanned images rather ' +
+        'than text, and nothing from it has been indexed. Reading it needs OCR.',
+    )
   }
 
   return pages.join('\n\n')
