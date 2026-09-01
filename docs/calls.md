@@ -113,10 +113,20 @@ also sells an adapter where their edge terminates the WebRTC and hands your
 Worker plain audio, which is the one way to have both without leaving the
 platform.
 
-**The transport is not your bandwidth problem.** We send raw 16-bit audio at
-16kHz, which is about 256 kbps up. Opus would be around 24. On a weak mobile
-connection that gap matters more than TCP versus UDP does, and it is the thing
-to fix first if calls are rough in the field.
+**The bandwidth was the real problem, and it is fixed.** The microphone goes up
+compressed, which is about 24 kbps rather than the 256 raw audio costs. On a
+weak mobile connection that gap matters more than TCP against UDP does.
+
+Nothing to configure. The browser records in whatever it supports, tells the
+server what it sent, and falls back to raw audio on its own when it cannot
+record at all. Transcription is unchanged: the same clip transcribed both ways
+gives the same words, because nothing decodes it on the way and the container
+goes to the transcriber exactly as recorded.
+
+Turn detection still happens on your server. The detector was always a function
+of how loud it was and for how long rather than of the audio, so the browser
+measures that and sends the numbers alongside. Set `compress: false` to send raw
+audio instead.
 
 ## How long a caller waits
 
