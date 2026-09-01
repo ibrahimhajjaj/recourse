@@ -16,7 +16,14 @@
 
 export interface Transcript {
   text: string
-  /** BCP-47, when the provider detected one. */
+  /**
+   * Two-letter code, when the provider detected one.
+   *
+   * Normalised here rather than passed on raw. Providers disagree about what
+   * to return for the same audio: a code from one, an English name like
+   * "Arabic" from another, a capitalised name from a third. A caller routing a
+   * voice on this should not have to know which one it is talking to.
+   */
   language?: string
 }
 
@@ -105,6 +112,11 @@ export function openAiCompatibleTranscriber(options: OpenAiTranscriberOptions = 
       form.append('file', new Blob([audio as BlobPart], { type: transcribeOptions.mimeType ?? 'audio/webm' }), 'audio.webm')
       form.append('model', model)
       if (transcribeOptions.language) form.append('language', transcribeOptions.language)
+      // The plain `json` format returns the text and nothing else, so the
+      // detected language was always undefined and anything routing on it,
+      // such as picking a voice that can pronounce the reply, silently got the
+      // default. Asking for the verbose form costs nothing and answers it.
+      form.append('response_format', 'verbose_json')
 
       const response = await fetch(`${base.replace(/\/+$/, '')}/audio/transcriptions`, {
         method: 'POST',
@@ -119,9 +131,70 @@ export function openAiCompatibleTranscriber(options: OpenAiTranscriberOptions = 
       }
 
       const body = (await response.json()) as { text?: string; language?: string }
-      return { text: body.text ?? '', ...(body.language ? { language: body.language } : {}) }
+      const language = asCode(body.language)
+
+      return { text: body.text ?? '', ...(language ? { language } : {}) }
     },
   }
+}
+
+/**
+ * A two-letter code, from whatever the provider felt like returning.
+ *
+ * Whisper behind an OpenAI-compatible endpoint answers with an English name.
+ * Others answer with a code. Both arrive here and one thing leaves.
+ */
+function asCode(reported: string | undefined): string | undefined {
+  if (!reported) return undefined
+
+  const value = reported.trim().toLowerCase()
+  if (!value) return undefined
+
+  // Already a code, with or without a region: "ar", "ar-SA", "zh-Hans".
+  if (/^[a-z]{2,3}([-_]|$)/.test(value) && value.length <= 3) return value.slice(0, 2)
+  if (/^[a-z]{2}[-_]/.test(value)) return value.slice(0, 2)
+
+  return NAMES[value]
+}
+
+/**
+ * The languages a support line actually receives, by the name Whisper gives
+ * them. An unlisted one falls through to undefined, which reads as "no idea"
+ * and leaves the caller on its default rather than guessing wrongly.
+ */
+const NAMES: Record<string, string> = {
+  english: 'en',
+  arabic: 'ar',
+  french: 'fr',
+  spanish: 'es',
+  german: 'de',
+  portuguese: 'pt',
+  italian: 'it',
+  dutch: 'nl',
+  turkish: 'tr',
+  russian: 'ru',
+  polish: 'pl',
+  swedish: 'sv',
+  danish: 'da',
+  norwegian: 'no',
+  finnish: 'fi',
+  greek: 'el',
+  hebrew: 'he',
+  persian: 'fa',
+  urdu: 'ur',
+  indonesian: 'id',
+  malay: 'ms',
+  vietnamese: 'vi',
+  thai: 'th',
+  chinese: 'zh',
+  mandarin: 'zh',
+  cantonese: 'yue',
+  japanese: 'ja',
+  korean: 'ko',
+  ukrainian: 'uk',
+  czech: 'cs',
+  romanian: 'ro',
+  hungarian: 'hu',
 }
 
 export interface TranscriptionRouteOptions {
