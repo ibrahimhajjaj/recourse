@@ -57,6 +57,19 @@ export interface CallSessionOptions {
   agent: Answering
   transcriber: Transcriber
   voice: Voice
+  /**
+   * A voice per language, for providers whose voices speak only one.
+   *
+   * Keyed by two-letter code, as the transcriber reports it: `{ ar: arabic }`.
+   * A call that arrives in a language with no entry uses `voice`, so this is
+   * additive and a deployment that needs one voice sets none of it.
+   *
+   * The reason it exists: some hosts ship a separate model per language rather
+   * than one multilingual model, and the agent will happily answer in the
+   * language it was asked in. Reading an Arabic sentence out of an
+   * English-only voice produces sounds, not words.
+   */
+  voices?: Record<string, Voice>
   /** Sends a control message to the browser. */
   send: (message: CallMessage) => void
   /** Sends synthesised speech to the browser. */
@@ -122,11 +135,21 @@ export function createCallSession(options: CallSessionOptions): CallSession {
   let expiry: ReturnType<typeof setTimeout> | null = null
   let ended = false
 
+  /**
+   * The voice for this turn: the caller's language when one is configured for
+   * it, and the default otherwise.
+   */
+  function voiceFor(language: string | undefined): Voice {
+    if (!language || !options.voices) return options.voice
+
+    return options.voices[language] ?? options.voice
+  }
+
   /** Speaks one line, cancellable, and marks the agent as talking while it does. */
-  async function say(sentence: string, signal: AbortSignal) {
+  async function say(sentence: string, signal: AbortSignal, voice: Voice = options.voice) {
     if (signal.aborted || !sentence.trim()) return
 
-    const clip = await options.voice.speak(sentence, signal)
+    const clip = await voice.speak(sentence, signal)
     if (signal.aborted) return
 
     options.speak(clip.audio, clip.contentType)
@@ -168,6 +191,10 @@ export function createCallSession(options: CallSessionOptions): CallSession {
       options.send({ type: 'transcript', role: 'visitor', text: said })
       history.push({ role: 'user', content: said })
 
+      // Chosen from what was actually heard rather than from a setting, so one
+      // call can change language halfway through and be followed.
+      const voice = voiceFor(heard.language)
+
       // Speaking starts before the answer is finished, so the caller hears the
       // opening clause while the rest is still arriving.
       const sentences = createSentenceBuffer()
@@ -182,16 +209,16 @@ export function createCallSession(options: CallSessionOptions): CallSession {
 
         if (frame.type === 'delta' && frame.text) {
           spoken += frame.text
-          for (const sentence of sentences.push(frame.text)) await say(sentence, mine.signal)
+          for (const sentence of sentences.push(frame.text)) await say(sentence, mine.signal, voice)
         }
 
         // A handover or a refusal is a sentence the caller has to hear, and it
         // arrives on its own frame rather than as a delta.
-        if (frame.type === 'handoff' && frame.message) await say(frame.message, mine.signal)
+        if (frame.type === 'handoff' && frame.message) await say(frame.message, mine.signal, voice)
       }
 
       const rest = sentences.flush()
-      if (rest) await say(rest, mine.signal)
+      if (rest) await say(rest, mine.signal, voice)
 
       if (!mine.signal.aborted && spoken.trim()) {
         history.push({ role: 'assistant', content: spoken.trim() })

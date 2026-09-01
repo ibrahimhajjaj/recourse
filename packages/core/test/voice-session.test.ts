@@ -363,3 +363,90 @@ describe('what a business gets to decide', () => {
     expect(call.endings).toEqual(['hangup'])
   })
 })
+
+describe('a call that does not arrive in English', () => {
+  /** A voice that records what it was asked to say, so the choice is visible. */
+  function recorder(name: string, into: string[]): Voice {
+    return {
+      name,
+      speak: async (text) => {
+        into.push(`${name}: ${text}`)
+
+        return { audio: new ArrayBuffer(8), contentType: 'audio/mpeg' }
+      },
+    }
+  }
+
+  /** One whole turn, with whatever language the transcriber reports. */
+  function call(options: { detected?: string; voices?: Record<string, Voice> } = {}) {
+    const spoken: string[] = []
+
+    const session = createCallSession({
+      agent: {
+        async *stream() {
+          yield { type: 'delta', text: 'It takes four days.' }
+        },
+      },
+      transcriber: {
+        name: 'test',
+        transcribe: async () => ({
+          text: 'كم يستغرق التوصيل',
+          ...(options.detected ? { language: options.detected } : {}),
+        }),
+      },
+      voice: recorder('english', spoken),
+      ...(options.voices ? { voices: options.voices } : {}),
+      sampleRate: RATE,
+      send: () => {},
+      speak: () => {},
+    })
+
+    const say = () => {
+      for (let elapsed = 0; elapsed < 600; elapsed += 20) session.push(loud())
+      for (let elapsed = 0; elapsed < 900; elapsed += 20) session.push(quiet())
+    }
+
+    return { spoken, say }
+  }
+
+  it('answers in a voice that can pronounce the language it heard', async () => {
+    // Reading an Arabic sentence out of an English-only model produces sounds
+    // rather than words, and some hosts ship one model per language.
+    const arabic: string[] = []
+    const turn = call({ detected: 'ar', voices: { ar: recorder('arabic', arabic) } })
+    turn.say()
+    await settle()
+
+    expect(turn.spoken).toEqual([])
+    expect(arabic.length).toBeGreaterThan(0)
+    expect(arabic.every((line) => line.startsWith('arabic:'))).toBe(true)
+  })
+
+  it('keeps the default voice for a language nothing is configured for', async () => {
+    const arabic: string[] = []
+    const turn = call({ detected: 'fr', voices: { ar: recorder('arabic', arabic) } })
+    turn.say()
+    await settle()
+
+    expect(turn.spoken.length).toBeGreaterThan(0)
+    expect(arabic).toEqual([])
+  })
+
+  it('keeps the default when the provider detected nothing', async () => {
+    const arabic: string[] = []
+    const turn = call({ voices: { ar: recorder('arabic', arabic) } })
+    turn.say()
+    await settle()
+
+    expect(turn.spoken.length).toBeGreaterThan(0)
+    expect(arabic).toEqual([])
+  })
+
+  it('needs no configuration at all to keep working', async () => {
+    const turn = call({ detected: 'ar' })
+    turn.say()
+    await settle()
+
+    expect(turn.spoken.length).toBeGreaterThan(0)
+  })
+})
