@@ -33,6 +33,26 @@ export interface GatherVoiceOptions {
   language?: string
   /** Terms the transcriber should expect. */
   hints?: string[]
+  /**
+   * Pins the speech model instead of letting Twilio pick.
+   *
+   * Left alone, Twilio chooses and can fail over between its providers when
+   * one of them is down. Pinning gives that up, so it is worth doing only for
+   * a measured gain on your own audio.
+   *
+   * Setting this **requires** `speechTimeoutMs`, because Twilio rejects a
+   * pinned model alongside the automatic end-of-speech detection this
+   * otherwise uses.
+   */
+  speechModel?: string
+  /**
+   * How long a silence ends the caller's turn, in milliseconds.
+   *
+   * Left alone, Twilio decides, which is better than a fixed number for
+   * open-ended questions: it cuts as soon as the caller pauses rather than
+   * waiting out a timer.
+   */
+  speechTimeoutMs?: number
   /** Turns kept in the model call. */
   maxHistory?: number
   /** Consecutive silences before hanging up. */
@@ -167,12 +187,17 @@ function gather(options: GatherVoiceOptions, request: Request, silence: number):
   const url = new URL(request.url)
   url.searchParams.set('silence', String(silence))
 
+  // Twilio refuses a pinned `speechModel` alongside `speechTimeout="auto"`, and
+  // the two used to be emitted together here. Rather than picking one for
+  // everybody, the default is now neither pinned nor timed: `auto` cuts as
+  // soon as the caller pauses, and an unpinned model lets Twilio fail over to
+  // another provider when one is down. Pin it only with a timeout to match.
+  const speechTimeout = options.speechTimeoutMs ? String(options.speechTimeoutMs) : 'auto'
+
   const attributes = [
     'input="speech dtmf"',
-    // `auto` lets Twilio decide when the caller has finished, which is far
-    // better than a fixed timeout for open-ended questions.
-    'speechTimeout="auto"',
-    'speechModel="phone_call"',
+    `speechTimeout="${escapeXml(speechTimeout)}"`,
+    options.speechModel ? `speechModel="${escapeXml(options.speechModel)}"` : '',
     `action="${escapeXml(url.toString())}"`,
     'method="POST"',
     options.language ? `language="${escapeXml(options.language)}"` : '',

@@ -16,7 +16,7 @@ import {
   toSpeech,
   voiceChannel,
 } from '../src/channels/index.js'
-import { signTwilio } from '../src/channels/verify.js'
+import { signTwilio, verifyRelayHandshake } from '../src/channels/verify.js'
 import type { InboundVoiceMessage, OutboundVoiceMessage } from '../src/channels/index.js'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
@@ -408,6 +408,34 @@ describe('the plain TwiML voice channel', () => {
     return gatherVoiceChannel({ agent, authToken, publicUrl: url, ...extra })
   }
 
+  it('does not pin a speech model alongside automatic end-of-speech', async () => {
+    // Twilio rejects the pair: a pinned `speechModel` requires an integer
+    // `speechTimeout`. Both were emitted here at once, so every gather this
+    // produced carried a combination the documentation forbids.
+    const handle = await channel()
+    const xml = await (await handle(await post({ CallSid: 'CA1', From: '+1', CallStatus: 'ringing' }))).text()
+
+    expect(xml).toContain('speechTimeout="auto"')
+    expect(xml).not.toContain('speechModel=')
+  })
+
+  it('pins the model only when given a timeout to match', async () => {
+    const handle = await channel({ speechModel: 'deepgram_nova-3', speechTimeoutMs: 1200 })
+    const xml = await (await handle(await post({ CallSid: 'CA1', From: '+1', CallStatus: 'ringing' }))).text()
+
+    expect(xml).toContain('speechModel="deepgram_nova-3"')
+    expect(xml).toContain('speechTimeout="1200"')
+    expect(xml).not.toContain('speechTimeout="auto"')
+  })
+
+  it('leaves the model unpinned so Twilio can fail over between transcribers', async () => {
+    const handle = await channel({ speechTimeoutMs: 900 })
+    const xml = await (await handle(await post({ CallSid: 'CA1', From: '+1', CallStatus: 'ringing' }))).text()
+
+    expect(xml).not.toContain('speechModel=')
+    expect(xml).toContain('speechTimeout="900"')
+  })
+
   it('greets and listens on the first request', async () => {
     const handle = await channel({ greeting: 'Hello, Lumen Coffee.' })
     const xml = await (await handle(await post({ CallSid: 'CA1', From: '+1', CallStatus: 'ringing' }))).text()
@@ -764,5 +792,46 @@ describe('what the voice tool hands back', () => {
     expect(spoken).not.toContain('|')
     expect(spoken).toContain('UK, 1 to 2 days')
     expect(spoken).toContain('£3.95')
+  })
+})
+
+describe('the socket Twilio opens', () => {
+  const authToken = 'test-token'
+  const url = 'wss://agent.example.com/voice/relay'
+
+  it('accepts a handshake Twilio signed', async () => {
+    // Signed over the url alone: an upgrade request has no form body.
+    const signature = await signTwilio(url, {}, authToken)
+
+    expect(await verifyRelayHandshake({ signature, url, authToken })).toBe(true)
+  })
+
+  it('refuses one nobody signed', async () => {
+    // Without this the socket answers anybody who learns the url, and every
+    // turn on it costs a model call and a synthesis.
+    expect(await verifyRelayHandshake({ signature: null, url, authToken })).toBe(false)
+    expect(await verifyRelayHandshake({ signature: 'not-a-signature', url, authToken })).toBe(false)
+  })
+
+  it('refuses a handshake signed for a different socket', async () => {
+    const signature = await signTwilio('wss://somewhere-else.example.com/relay', {}, authToken)
+
+    expect(await verifyRelayHandshake({ signature, url, authToken })).toBe(false)
+  })
+
+  it('is signed over the wss url, not the https one', async () => {
+    // The trap: a framework hands you `https://` rebuilt from the request, and
+    // Twilio signed the `wss://` string from the TwiML. The mismatch surfaces
+    // as error 64102, "Unable to Connect to Websocket URL", which reads like a
+    // network fault rather than a rejected signature.
+    const signature = await signTwilio(url, {}, authToken)
+
+    expect(await verifyRelayHandshake({ signature, url: url.replace('wss://', 'https://'), authToken })).toBe(false)
+  })
+
+  it('is exact about a trailing slash', async () => {
+    const signature = await signTwilio(url, {}, authToken)
+
+    expect(await verifyRelayHandshake({ signature, url: `${url}/`, authToken })).toBe(false)
   })
 })
