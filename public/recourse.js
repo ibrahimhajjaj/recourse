@@ -851,7 +851,7 @@ registerProcessor('recourse-capture', Capture)
         microphone = await (options.microphone ?? createMicrophone)({
           onFrame: (samples) => {
             if (mine !== attempt || wire.readyState !== 1) return;
-            wire.send(samples.buffer);
+            wire.send(samples);
           }
         });
         if (mine !== attempt) {
