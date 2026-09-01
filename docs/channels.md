@@ -90,6 +90,10 @@ real, no barge-in and a pause while the whole answer is generated before any of
 it is spoken. Take this to get a number answering today and move to Relay when
 the latency starts to matter.
 
+[twilio](twilio.md) is the wiring guide for the first two: the console steps,
+the signature rule that is not in Twilio's own documentation, and how to make a
+number ring from your terminal without a handset.
+
 `elevenLabsToolRoute` is neither. ElevenLabs owns the call and this library is
 the webhook tool their agent calls, which is the only one of the three that
 needs no Twilio account at all. It is also the one proved against a live
