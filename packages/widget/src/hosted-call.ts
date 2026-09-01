@@ -188,7 +188,11 @@ export function createHostedCall(options: HostedCallOptions): Call {
           // Checked per frame rather than once: a hang-up mid-call must stop
           // the stream immediately, not at the next state change.
           if (mine !== attempt || wire.readyState !== 1) return
-          wire.send(samples.buffer as ArrayBuffer)
+          // The view, not its backing buffer. They are the same thing today
+          // because the conversion allocates a fresh array, but a slice would
+          // send the whole pool it was cut from and the far end would hear
+          // somebody else's audio.
+          wire.send(samples)
         },
       })
 

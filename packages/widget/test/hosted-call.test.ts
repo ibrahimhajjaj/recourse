@@ -134,6 +134,22 @@ describe('placing a call the server carries', () => {
     expect(call.wire.audio).toHaveLength(2)
   })
 
+  it('sends only its own slice, not the buffer behind it', async () => {
+    // Sending `.buffer` is right only while the conversion allocates fresh.
+    // A slice of a larger pool would put the whole pool on the wire, and the
+    // far end would hear audio that was never part of this frame.
+    const call = harness()
+    await call.call.start()
+    call.wire.open()
+    await settle()
+
+    const pool = new Int16Array(1000)
+    call.sendFrame(pool.subarray(100, 420))
+
+    const sent = call.wire.audio[0] as ArrayBufferView
+    expect(sent.byteLength).toBe(320 * 2)
+  })
+
   it('puts what was said into the thread', async () => {
     const call = harness()
     await call.call.start()
