@@ -62,7 +62,14 @@ function readConfig(): WidgetOptions | null {
     // route that mints a signed URL. A path rather than a flag, because there
     // is nothing sensible to default it to: only the host knows where they
     // mounted it.
-    ...(data.call ? { call: data.call } : {}),
+    ...(data.call
+      ? {
+          call:
+            data.callTransport === 'hosted'
+              ? { endpoint: data.call, transport: 'hosted' as const }
+              : data.call,
+        }
+      : {}),
     // `data-copy="false"` and `data-delete="true"`, since a data attribute is
     // a string and everything else here reads one.
     copy: data.copy !== 'false',

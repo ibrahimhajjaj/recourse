@@ -624,6 +624,314 @@
     return module.Conversation;
   }
 
+  // src/pcm.ts
+  var TARGET_RATE = 16e3;
+  function downsample(input, from, to = TARGET_RATE) {
+    if (to >= from || input.length === 0) return input;
+    const ratio = from / to;
+    const out = new Float32Array(Math.floor(input.length / ratio));
+    for (let index = 0; index < out.length; index++) {
+      const start = Math.floor(index * ratio);
+      const end = Math.min(input.length, Math.floor((index + 1) * ratio));
+      let sum = 0;
+      for (let at = start; at < end; at++) sum += input[at];
+      out[index] = end > start ? sum / (end - start) : 0;
+    }
+    return out;
+  }
+  function toPcm16(input) {
+    const out = new Int16Array(input.length);
+    for (let index = 0; index < input.length; index++) {
+      const sample = Math.max(-1, Math.min(1, input[index]));
+      out[index] = sample < 0 ? sample * 32768 : sample * 32767;
+    }
+    return out;
+  }
+
+  // src/capture.ts
+  var CAPTURE_WORKLET = `
+class Capture extends AudioWorkletProcessor {
+  constructor(options) {
+    super()
+    this.wanted = options.processorOptions.frameSamples
+    this.buffer = new Float32Array(this.wanted)
+    this.filled = 0
+  }
+
+  process(inputs) {
+    const channel = inputs[0] && inputs[0][0]
+    if (!channel) return true
+
+    let read = 0
+    while (read < channel.length) {
+      const room = this.wanted - this.filled
+      const take = Math.min(room, channel.length - read)
+
+      this.buffer.set(channel.subarray(read, read + take), this.filled)
+      this.filled += take
+      read += take
+
+      if (this.filled === this.wanted) {
+        // A copy, because the buffer is reused for the next slice and the
+        // receiving side may still be holding this one.
+        this.port.postMessage(this.buffer.slice(0))
+        this.filled = 0
+      }
+    }
+
+    return true
+  }
+}
+
+registerProcessor('recourse-capture', Capture)
+`;
+  var MICROPHONE_CONSTRAINTS = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: 1
+  };
+  async function createMicrophone(options) {
+    const frameMs = options.frameMs ?? 20;
+    const { context, stream } = await (options.open ?? openDefault)();
+    const frameSamples = Math.round(context.sampleRate * frameMs / 1e3);
+    const source = context.createMediaStreamSource(stream);
+    const url = URL.createObjectURL(new Blob([CAPTURE_WORKLET], { type: "application/javascript" }));
+    try {
+      await context.audioWorklet.addModule(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    const worklet = new AudioWorkletNode(context, "recourse-capture", {
+      numberOfInputs: 1,
+      numberOfOutputs: 0,
+      processorOptions: { frameSamples }
+    });
+    worklet.port.onmessage = (event) => {
+      const dropped = downsample(event.data, context.sampleRate, TARGET_RATE);
+      options.onFrame(toPcm16(dropped));
+    };
+    source.connect(worklet);
+    return {
+      async stop() {
+        worklet.port.onmessage = null;
+        source.disconnect();
+        worklet.disconnect();
+        for (const track of stream.getTracks()) track.stop();
+        await context.close();
+      }
+    };
+  }
+  async function openDefault() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: MICROPHONE_CONSTRAINTS });
+    return { context: new AudioContext(), stream };
+  }
+
+  // src/playback.ts
+  function createPlayback(options) {
+    const cushion = options.cushionSeconds ?? 0.05;
+    let nextAt = 0;
+    return {
+      get endsAt() {
+        return nextAt;
+      },
+      get playing() {
+        return nextAt > options.now();
+      },
+      push(chunk) {
+        if (chunk.length === 0) return;
+        const now = options.now();
+        const at = nextAt > now ? nextAt : now + cushion;
+        options.play(chunk, at);
+        nextAt = at + chunk.length / options.sampleRate;
+      },
+      clear() {
+        nextAt = 0;
+      }
+    };
+  }
+
+  // src/hosted-call.ts
+  function createHostedCall(options) {
+    let state = "idle";
+    let socket = null;
+    let microphone = null;
+    let speakers = null;
+    let playback = null;
+    let attempt = 0;
+    const move = (next) => {
+      if (state === next) return;
+      state = next;
+      options.onStateChange?.(next);
+    };
+    const fail = (message) => {
+      move("failed");
+      options.onError?.(message);
+    };
+    async function teardown() {
+      const mic = microphone;
+      const out = speakers;
+      const wire = socket;
+      microphone = null;
+      speakers = null;
+      playback = null;
+      socket = null;
+      try {
+        wire?.close();
+      } catch {
+      }
+      await mic?.stop().catch(() => {
+      });
+      out?.stop();
+      await out?.close().catch(() => {
+      });
+    }
+    async function start() {
+      if (state === "connecting" || state === "live") return;
+      const mine = ++attempt;
+      move("connecting");
+      let wire;
+      try {
+        wire = (options.connect ?? openSocket)(resolve(options.endpoint));
+      } catch {
+        if (mine === attempt) fail("Could not reach the server to start the call.");
+        return;
+      }
+      wire.binaryType = "arraybuffer";
+      socket = wire;
+      wire.onopen = () => {
+        if (mine !== attempt) {
+          wire.close();
+          return;
+        }
+        wire.send(JSON.stringify({ type: "hello", sampleRate: 16e3, conversationId: options.conversationId() }));
+        void listen(mine, wire);
+      };
+      wire.onmessage = (event) => {
+        if (mine !== attempt) return;
+        if (typeof event.data === "string") {
+          let message;
+          try {
+            message = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (message.type === "transcript" && message.text && message.role) {
+            options.onTranscript?.({ role: message.role, text: message.text });
+          }
+          if (message.type === "interrupted") {
+            speakers?.stop();
+            playback?.clear();
+          }
+          if (message.type === "error") options.onError?.(message.message ?? "Something went wrong.");
+          return;
+        }
+        if (event.data instanceof ArrayBuffer) void hear(mine, event.data);
+      };
+      wire.onerror = () => {
+        if (mine === attempt) {
+          void teardown();
+          fail("The call was cut off.");
+        }
+      };
+      wire.onclose = () => {
+        if (mine !== attempt) return;
+        void teardown();
+        if (state === "live" || state === "connecting") move("ended");
+      };
+    }
+    async function listen(mine, wire) {
+      try {
+        speakers = (options.audio ?? openSpeakers)();
+        playback = createPlayback({
+          now: speakers.now,
+          play: speakers.play,
+          sampleRate: speakers.sampleRate
+        });
+        microphone = await (options.microphone ?? createMicrophone)({
+          onFrame: (samples) => {
+            if (mine !== attempt || wire.readyState !== 1) return;
+            wire.send(samples.buffer);
+          }
+        });
+        if (mine !== attempt) {
+          await teardown();
+          return;
+        }
+        move("live");
+      } catch {
+        if (mine !== attempt) return;
+        await teardown();
+        fail("Could not use your microphone. It may be blocked for this site.");
+      }
+    }
+    async function hear(mine, clip) {
+      try {
+        const samples = await speakers?.decode(clip);
+        if (mine !== attempt || !samples) return;
+        playback?.push(samples);
+      } catch {
+      }
+    }
+    async function stop() {
+      attempt++;
+      await teardown();
+      move(state === "failed" ? "failed" : "ended");
+    }
+    return {
+      get state() {
+        return state;
+      },
+      start,
+      stop,
+      async toggle() {
+        if (state === "connecting" || state === "live") await stop();
+        else await start();
+      }
+    };
+  }
+  function resolve(endpoint) {
+    if (/^wss?:\/\//i.test(endpoint)) return endpoint;
+    const url = new URL(endpoint, location.href);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return url.toString();
+  }
+  function openSocket(url) {
+    return new WebSocket(url);
+  }
+  function openSpeakers() {
+    const context = new AudioContext();
+    let live = [];
+    return {
+      sampleRate: context.sampleRate,
+      now: () => context.currentTime,
+      decode: async (clip) => {
+        const buffer = await context.decodeAudioData(clip);
+        return buffer.getChannelData(0);
+      },
+      play: (chunk, at) => {
+        const buffer = context.createBuffer(1, chunk.length, context.sampleRate);
+        buffer.getChannelData(0).set(chunk);
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(context.destination);
+        source.onended = () => void (live = live.filter((node) => node !== source));
+        source.start(at);
+        live.push(source);
+      },
+      stop: () => {
+        for (const source of live) {
+          try {
+            source.stop();
+          } catch {
+          }
+        }
+        live = [];
+      },
+      close: () => context.close()
+    };
+  }
+
   // src/styles.ts
   var styles = `
 :host {
@@ -1414,6 +1722,7 @@
     }
     const callEndpoint = typeof options.call === "string" ? options.call : options.call ? options.call.endpoint : null;
     const callRuntime = typeof options.call === "object" ? options.call.load : void 0;
+    const callTransport = typeof options.call === "object" ? options.call.transport : void 0;
     const callButton = document.createElement("button");
     callButton.type = "button";
     callButton.className = "call";
@@ -1421,9 +1730,8 @@
     callButton.appendChild(icon(ICONS.phone, false));
     let call = null;
     if (callEndpoint) {
-      call = createCall({
+      const shared = {
         endpoint: callEndpoint,
-        ...callRuntime ? { load: callRuntime } : {},
         // Read per dial rather than captured, so a call placed after the thread
         // was cleared belongs to the conversation now on screen.
         conversationId: () => state.conversationId,
@@ -1432,7 +1740,8 @@
         // the same conversation, and splitting them makes the visitor read two.
         onTranscript: ({ role, text: text2 }) => void paintMessage({ role: role === "visitor" ? "user" : "assistant", content: text2 }),
         onError: (message) => showError(message)
-      });
+      };
+      call = callTransport === "hosted" ? createHostedCall(shared) : createCall({ ...shared, ...callRuntime ? { load: callRuntime } : {} });
       callButton.addEventListener("click", () => void call?.toggle());
     }
     function paintCallState(next) {
@@ -2037,9 +2346,9 @@
     }
   }
   function readAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
+      reader.onload = () => resolve2(String(reader.result));
       reader.onerror = () => reject(new Error("unreadable"));
       reader.readAsDataURL(file);
     });
@@ -2090,7 +2399,9 @@
       // route that mints a signed URL. A path rather than a flag, because there
       // is nothing sensible to default it to: only the host knows where they
       // mounted it.
-      ...data.call ? { call: data.call } : {},
+      ...data.call ? {
+        call: data.callTransport === "hosted" ? { endpoint: data.call, transport: "hosted" } : data.call
+      } : {},
       // `data-copy="false"` and `data-delete="true"`, since a data attribute is
       // a string and everything else here reads one.
       copy: data.copy !== "false",

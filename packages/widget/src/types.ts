@@ -87,7 +87,19 @@ export interface WidgetOptions {
    * a host says otherwise: it is the one feature here that costs them money
    * per use, so it is never on by accident.
    */
-  call?: { endpoint: string; load?: () => Promise<VoiceRuntime> } | string
+  call?:
+    | string
+    | {
+        endpoint: string
+        /**
+         * Who carries the call. `vendor` hands it to a voice service through a
+         * signed URL your server mints. `hosted` keeps it on your own socket,
+         * where your persona, classifier and procedures still govern the
+         * answer, and the transcriber and voice are yours to run.
+         */
+        transport?: 'vendor' | 'hosted'
+        load?: () => Promise<VoiceRuntime>
+      }
 }
 
 export interface DictationSettings {

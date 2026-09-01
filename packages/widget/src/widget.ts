@@ -3,6 +3,7 @@ import { renderForm, renderUi, type UiContext } from './ui.js'
 import { streamChat } from './stream.js'
 import { createDictation, type Dictation } from './dictation.js'
 import { createCall, type Call, type CallState } from './call.js'
+import { createHostedCall, type HostedCallOptions } from './hosted-call.js'
 import { styles } from './styles.js'
 import { resolveStrings, fill } from './strings.js'
 import { openDeepLink } from './deeplink.js'
@@ -286,6 +287,7 @@ export function createWidget(options: WidgetOptions) {
   // A site with a strict content policy cannot fetch the runtime from a CDN,
   // so it can hand one over instead. Also the seam the tests use.
   const callRuntime = typeof options.call === 'object' ? options.call.load : undefined
+  const callTransport = typeof options.call === 'object' ? options.call.transport : undefined
 
   const callButton = document.createElement('button')
   callButton.type = 'button'
@@ -296,9 +298,10 @@ export function createWidget(options: WidgetOptions) {
   let call: Call | null = null
 
   if (callEndpoint) {
-    call = createCall({
+    // Both satisfy the same interface, so everything below this line is the
+    // same whichever one is running.
+    const shared: HostedCallOptions = {
       endpoint: callEndpoint,
-      ...(callRuntime ? { load: callRuntime } : {}),
       // Read per dial rather than captured, so a call placed after the thread
       // was cleared belongs to the conversation now on screen.
       conversationId: () => state.conversationId,
@@ -308,7 +311,12 @@ export function createWidget(options: WidgetOptions) {
       onTranscript: ({ role, text }) =>
         void paintMessage({ role: role === 'visitor' ? 'user' : 'assistant', content: text }),
       onError: (message) => showError(message),
-    })
+    }
+
+    call =
+      callTransport === 'hosted'
+        ? createHostedCall(shared)
+        : createCall({ ...shared, ...(callRuntime ? { load: callRuntime } : {}) })
 
     callButton.addEventListener('click', () => void call?.toggle())
   }

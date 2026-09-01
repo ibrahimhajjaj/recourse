@@ -128,3 +128,22 @@ describe('what the thread shows during a call', () => {
     restore()
   })
 })
+
+describe('choosing who carries the call', () => {
+  it('uses the vendor path by default, which needs no transcriber of your own', () => {
+    const { root } = mount({ endpoint: '/api/chat', call: '/api/voice/token' })
+    expect(dial(root)).not.toBeNull()
+  })
+
+  it('takes the hosted path when asked for it', () => {
+    // Same button, same states, same thread. Only the transport differs.
+    const { root } = mount({
+      endpoint: '/api/chat',
+      call: { endpoint: '/api/voice/call', transport: 'hosted' },
+    } as Parameters<typeof createWidget>[0])
+
+    const button = dial(root)
+    expect(button).not.toBeNull()
+    expect(button?.getAttribute('aria-label')).toBe(DEFAULT_STRINGS.call)
+  })
+})
