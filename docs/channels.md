@@ -206,6 +206,7 @@ The parts of a call people ask to change, and where each one lives.
 | Longest one turn may run | `turns.maxTurnMs` |
 | Longest the whole call may run | `maxCallMs` |
 | Which voice, and its speed and stability | the `Voice` you pass |
+| A different voice per language | `voices`, keyed by two-letter code |
 | Which speech recogniser | the `Transcriber` you pass |
 | What it says and refuses to say | the `Agent` you pass |
 | Logging, analytics, billing | `onTurn` and `onEnded` |
@@ -233,6 +234,29 @@ attachCall(socket, {
 
 The greeting is interruptible like anything else, so somebody who already knows
 what they want can talk straight over it.
+
+#### A caller who does not speak English
+
+The language is taken from what they actually said, not from a setting, so one
+call can change language halfway through and be followed. The agent answers in
+the language it was asked in, and `voices` picks something that can pronounce
+it:
+
+```ts
+attachCall(socket, { agent, transcriber, voice: english, voices: { ar: arabic } })
+```
+
+You need that only when your speech provider ships one model per language
+rather than one multilingual model, which several do. Reading an Arabic
+sentence out of an English-only model produces sounds, not words. A language
+with no entry uses `voice`, so a deployment that needs one voice sets none of
+this.
+
+The other half is retrieval, and it is the half that fails silently: English
+help pages match nothing against a question asked in Arabic, so the agent
+reports it has no answer to something it has a page about. That is
+`searchLanguage`, and [languages](languages.md) covers it along with what the
+keyword index does with a script that writes no spaces between words.
 
 #### Why this is a socket and not WebRTC
 
@@ -285,14 +309,36 @@ import { createAgent } from '@recourse-ai/core'
 createAgent({
   index: knowledge,
   model: fastModel,
-  // Roughly two or three sentences of speech. The instruction asks for
-  // brevity; this is the backstop for a model that ignores it.
-  maxOutputTokens: 120,
+  // Size it for the thinking as well as the answer. The instruction asks for
+  // brevity; this is only the backstop for a model that ignores it.
+  maxOutputTokens: 400,
 })
 ```
 
+Size that for the model you actually chose. A reasoning model spends the cap
+before it says anything, and the tokens it spends thinking come out of the same
+budget: at 120 one spent 106 of them reasoning, had fourteen left, and a caller
+asking how to pause a subscription heard "To pause your" and then silence. It
+did not error, because nothing was wrong. The reply simply ended.
+
 Retrieval is not worth optimising here. The index is read from memory in the
 same process, so there is no database round trip to remove.
+
+That 0.6 seconds is the model answering, which is the number to compare against
+published work. It is not what a caller waits, because on a call there is
+speech recognition in front of it and synthesis behind it. Carrying the whole
+thing ourselves, one provider for all three parts, a real recording in and real
+audio out:
+
+```
+English question   2.4s to the first audio, 5.7s to the last
+Arabic question    3.3s to the first audio, 6.0s to the last
+```
+
+The caller hears the opening clause at the first number, not the second, which
+is the whole reason speech is spoken a sentence at a time rather than after the
+answer finishes. The gap between the two languages is the extra call that puts
+the question into the language the index is written in.
 
 ## Two that are not here, on purpose
 

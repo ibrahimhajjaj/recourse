@@ -150,6 +150,13 @@ real webhook signature verification.
 turn: ConversationRelay, plain TwiML `<Gather>`, your own speech provider, or
 ElevenLabs driving the whole conversation.
 
+**Takes a call from the page itself.** A Call button in the widget, with no
+phone number and no telephony account. Either a voice vendor carries it, or
+your own server does over a plain WebSocket, in which case the same agent that
+answers the chat answers the call and the persona, the classifier and the
+procedures all still apply. The caller can interrupt it, and it answers in
+whatever language they speak.
+
 **Reads what the customer sends.** Photos of a damaged item go to the model as
 image parts; PDFs, Word files and text are extracted server-side, so documents
 work with any model and not only a vision one.
