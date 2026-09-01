@@ -56,6 +56,40 @@ accepts `deleteConversation` and keeps the data has turned a legal obligation
 into a lie, and one that drops `meta` has an agent talking over the person who
 took the conversation over. The suite catches both.
 
+## Reading a conversation without opening it
+
+A stored conversation is only useful if you can skim it. Finding the one that
+went badly last Tuesday otherwise means opening thirty.
+
+```ts
+import { markChanged, summariseStale } from '@recourse-ai/core'
+
+// Free. One field on the conversation, called when a turn ends.
+hooks.on('turn.end', ({ conversationId }) => void markChanged(store, conversationId!))
+
+// Expensive, and on your schedule rather than the customer's.
+await summariseStale({ store, model: fastModel, limit: 20 })
+```
+
+That split is the whole design. A version that summarises on every message
+makes a busy shop pay for a model call per message all day; this marks the
+conversation as changed for nothing and summarises ten messages once.
+
+You get a title, a one-sentence summary, and how the customer seems: `angry`,
+`unhappy`, `neutral`, `happy` or `delighted`. They live on the conversation's
+own metadata, so no store needs a migration, and `insightOf(conversation)`
+reads them back without asking the model anything.
+
+The mood is carried forward rather than judged fresh. Given only the last two
+messages a model flips it every turn; told what it decided last time, it changes
+when something actually changed.
+
+Two failure modes are handled the way you would want. A reply the parser cannot
+read is discarded rather than half-applied, because a title with no summary
+looks like a conversation nobody has looked at. And a conversation the model
+keeps choking on has its mark cleared anyway, so it cannot hold up the sweep
+behind it for ever.
+
 ---
 
 [Back to the README](../README.md)
