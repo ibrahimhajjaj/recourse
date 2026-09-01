@@ -29,6 +29,14 @@ const agent = createAgent({
   embedder: resolveEmbedder(),
   store,
 
+  // The help pages are in English and the callers are not. Without this a
+  // question about delivery asked in Arabic matches nothing in an English
+  // index, and the agent apologises for not knowing something it has written
+  // down. Only the search key is translated; the reply is still in whatever
+  // the caller used. Skipped by itself when the index was built with an
+  // embedder that spans languages, which needs no translation at all.
+  searchLanguage: { language: 'English', model: resolveVoiceModel() },
+
   persona: {
     name: 'Nadia',
     business: 'Lumen Coffee Roasters',
@@ -36,7 +44,11 @@ const agent = createAgent({
     // too long to listen to, so the answer is written for an ear.
     instructions:
       'You are being read aloud on a phone call. Answer in one or two short sentences, ' +
-      'in plain spoken English, with no markdown and no citation markers. ' +
+      'in plain spoken language, with no markdown and no citation markers. ' +
+      // Pinned to English here once, which quietly beat the standing rule to
+      // mirror the caller: somebody opening in Arabic was answered in English
+      // for the whole call.
+      'Reply in the language the caller is speaking. ' +
       'If the customer asks about a specific order, ask for the order number and look it up.',
     fallback: "I can't find that in our help pages. Shall I put you through to someone?",
   },

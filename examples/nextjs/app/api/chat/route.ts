@@ -12,7 +12,7 @@ import { helpdesk, store } from '../../../lib/helpdesk'
 import type { KnowledgeIndex } from '@recourse-ai/core'
 import knowledge from '../../../lib/knowledge.json'
 import { siteUrl } from '../../../lib/site'
-import { resolveEmbedder, resolveModel } from '../../../lib/model'
+import { resolveEmbedder, resolveModel, resolveVoiceModel } from '../../../lib/model'
 
 /**
  * The whole server side of the agent. The index is imported, so it is bundled
@@ -25,6 +25,10 @@ const handler = createChatHandler({
   model: resolveModel(),
   embedder: resolveEmbedder(),
   store,
+
+  // Somebody typing in Arabic, French or Turkish gets the same English help
+  // pages as everybody else. The search key is translated, the answer is not.
+  searchLanguage: { language: 'English', model: resolveVoiceModel() },
 
   // A photo of a damaged bag or a PDF invoice answers a question that three
   // rounds of typing would not. Images need a model that can see; documents
