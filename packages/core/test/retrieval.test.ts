@@ -12,9 +12,10 @@ describe('tokenize', () => {
   })
 
   it('keeps non-latin scripts instead of discarding them', () => {
-    // The hamza is normalised away, which is the point rather than a loss:
-    // most people do not type it, and the two spellings have to meet.
-    expect(tokenize('كيف يمكنني الإلغاء')).toEqual(['كيف', 'يمكنني', 'الالغاء'])
+    // The hamza is normalised away and the article comes off, both for the
+    // same reason: most people do not type either consistently, and the
+    // spellings have to meet somewhere.
+    expect(tokenize('كيف يمكنني الإلغاء')).toEqual(['كيف', 'يمكنني', 'الغاء'])
   })
 
   it('finds one Arabic word however it was spelled', () => {
@@ -56,6 +57,24 @@ describe('tokenize', () => {
   it('ignores punctuation and single characters', () => {
     expect(tokenize('a b -- ??? refund!!')).toEqual(['refund'])
   })
+
+  it('reads a word with the Arabic article as the same word without it', () => {
+    // The article is written joined to the noun, so a page saying "shipping"
+    // and a customer asking about "the shipping" share no term without this.
+    expect(tokenize('الشحن')).toEqual(tokenize('شحن'))
+    expect(tokenize('بالبريد')).toEqual(tokenize('بريد'))
+  })
+
+  it('leaves a short word alone rather than stripping it to nothing', () => {
+    // Two letters left over is the wrong reading of a short word, not a stem.
+    expect(tokenize('الله')).toEqual(['الله'])
+  })
+
+  it('does not treat a leading waw as a prefix', () => {
+    // "and" is spelled with the same letter that starts ordinary words.
+    expect(tokenize('ولد')).toEqual(['ولد'])
+  })
+
 })
 
 describe('ranking a corpus with no spaces in it', () => {

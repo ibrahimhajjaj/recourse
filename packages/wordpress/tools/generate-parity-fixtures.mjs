@@ -44,7 +44,7 @@ const WORDS = [
   'use', 'used', 'using', 'call', 'calling', 'called',
   'is', 'a', 'the', 'and', 'i', 'ok',
   'Größe', 'Grösse', 'CAFÉ', 'café', 'ÜBER',
-  'فاتورة', 'الشحن', 'التوصيل',
+  'فاتورة', 'الشحن', 'التوصيل', 'بالبريد', 'الله', 'ولد',
   // The same word spelled the ways people actually spell it. Each pair has to
   // land on one term or a customer's spelling misses the page's.
   'التَّوْصِيل', 'أحمد', 'احمد', 'مدرسة', 'مدرسه', 'على', 'علي', 'كتابی',

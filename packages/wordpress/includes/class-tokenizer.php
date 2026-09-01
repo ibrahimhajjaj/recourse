@@ -125,16 +125,17 @@ class Tokenizer {
 
 			// The common path, and nearly always the answer.
 			if ( ! preg_match( self::UNSPACED, $raw ) ) {
-				$length = self::length( $raw );
+				$word   = self::without_article( $raw );
+				$length = self::length( $word );
 
 				if ( $length < 2 || $length > 40 ) {
 					continue;
 				}
-				if ( isset( $stopwords[ $raw ] ) ) {
+				if ( isset( $stopwords[ $word ] ) ) {
 					continue;
 				}
 
-				$out[] = self::stem( $raw );
+				$out[] = self::stem( $word );
 				continue;
 			}
 
@@ -153,16 +154,17 @@ class Tokenizer {
 					continue;
 				}
 
-				$length = self::length( $run );
+				$word   = self::without_article( $run );
+				$length = self::length( $word );
 
 				if ( $length < 2 || $length > 40 ) {
 					continue;
 				}
-				if ( isset( $stopwords[ $run ] ) ) {
+				if ( isset( $stopwords[ $word ] ) ) {
 					continue;
 				}
 
-				$out[] = self::stem( $run );
+				$out[] = self::stem( $word );
 			}
 		}
 
@@ -283,6 +285,36 @@ class Tokenizer {
 		}
 
 		return $text;
+	}
+
+	/**
+	 * Arabic attaches the definite article to the front of the word, so a
+	 * customer writing "the refund" and a page saying "refund" are using the
+	 * same word and never match.
+	 *
+	 * Only alef-lam and the one-letter particles that fuse with it. Bare waw
+	 * (and) is left alone deliberately: it is also the first letter of ordinary
+	 * words, and stripping it changes what they mean.
+	 *
+	 * The length floor is what keeps the name of God whole: two letters left
+	 * over is usually the wrong reading of a short word rather than a stem.
+	 *
+	 * @param string $word One word, already normalised and lowercased.
+	 * @return string The word without its article, or unchanged.
+	 */
+	private static function without_article( $word ) {
+		$articles = array( "\xD9\x88\xD8\xA7\xD9\x84", "\xD8\xA8\xD8\xA7\xD9\x84", "\xD9\x83\xD8\xA7\xD9\x84", "\xD9\x81\xD8\xA7\xD9\x84", "\xD9\x84\xD9\x84", "\xD8\xA7\xD9\x84" );
+		$length   = self::length( $word );
+
+		foreach ( $articles as $article ) {
+			$size = self::length( $article );
+
+			if ( 0 === strpos( $word, $article ) && $length - $size >= 3 ) {
+				return function_exists( 'mb_substr' ) ? mb_substr( $word, $size, null, 'UTF-8' ) : substr( $word, strlen( $article ) );
+			}
+		}
+
+		return $word;
 	}
 
 	/**

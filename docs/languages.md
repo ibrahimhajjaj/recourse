@@ -56,6 +56,13 @@ collapsed the same way: alef with and without its hamza, final ya against alef
 maqsura, ta marbuta against ha. Accents are composed first, so the same word
 matches itself whichever editor typed it.
 
+Arabic also writes the definite article joined to the noun, so a page about
+shipping and a customer asking about the shipping share no term at all. The
+article comes off, along with the one-letter particles that fuse with it, but
+only where three letters remain: below that the leftover is usually the wrong
+reading of a short word rather than a stem. A leading waw is left alone, since
+it is also the first letter of ordinary words.
+
 Stemming is English and only English. Content in another language is still
 indexed and still found, it just gets no help connecting a plural to its
 singular.

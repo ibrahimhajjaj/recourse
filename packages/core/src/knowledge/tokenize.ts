@@ -209,6 +209,32 @@ function normalise(text: string): string {
   return out
 }
 
+/**
+ * Arabic attaches the definite article to the front of the word, so "استرداد"
+ * and "الاسترداد" are the same word written twice and never match.
+ *
+ * Only the article and the one-letter particles that fuse with it. Bare "و"
+ * (and) is left alone deliberately: it is also the first letter of ordinary
+ * words, and stripping it turns "ورد" into "رد".
+ */
+const ARABIC_ARTICLES = ['\u0648\u0627\u0644', '\u0628\u0627\u0644', '\u0643\u0627\u0644', '\u0641\u0627\u0644', '\u0644\u0644', '\u0627\u0644']
+
+/**
+ * The word without its article, when what is left is still a word.
+ *
+ * The length floor is what keeps "\u0627\u0644\u0644\u0647" whole: two letters left over is
+ * usually the wrong reading of a short word rather than a stem.
+ */
+function withoutArticle(word: string): string {
+  for (const article of ARABIC_ARTICLES) {
+    if (word.startsWith(article) && word.length - article.length >= 3) {
+      return word.slice(article.length)
+    }
+  }
+
+  return word
+}
+
 export function tokenize(text: string): string[] {
   const out: string[] = []
 
@@ -223,9 +249,10 @@ export function tokenize(text: string): string[] {
     // The common path, unchanged. Checked first because it is nearly always
     // the answer and the test is one regex against a short string.
     if (!UNSPACED.test(raw)) {
-      if (raw.length < 2 || raw.length > 40) continue
-      if (STOPWORDS.has(raw)) continue
-      out.push(stem(raw))
+      const word = withoutArticle(raw)
+      if (word.length < 2 || word.length > 40) continue
+      if (STOPWORDS.has(word)) continue
+      out.push(stem(word))
       continue
     }
 
@@ -237,9 +264,10 @@ export function tokenize(text: string): string[] {
         continue
       }
 
-      if (run.length < 2 || run.length > 40) continue
-      if (STOPWORDS.has(run)) continue
-      out.push(stem(run))
+      const word = withoutArticle(run)
+      if (word.length < 2 || word.length > 40) continue
+      if (STOPWORDS.has(word)) continue
+      out.push(stem(word))
     }
   }
 
