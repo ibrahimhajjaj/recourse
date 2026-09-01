@@ -149,3 +149,115 @@ describe('deleting your own conversation', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('showing what the agent is doing', () => {
+  /**
+   * A turn held open, so the panel can be inspected mid-flight.
+   *
+   * The indicator only exists while the agent is working, so a stream that
+   * finishes before the assertion runs proves nothing: the cleanup on `done`
+   * has already removed it.
+   */
+  function turn() {
+    const encoder = new TextEncoder()
+    let push!: (frame: unknown) => void
+    let finish!: () => void
+
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        push = (frame) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(frame)}\n\n`))
+        finish = () => {
+          controller.enqueue(encoder.encode('data: {"type":"done"}\n\n'))
+          controller.close()
+        }
+      },
+    })
+
+    const original = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })) as typeof globalThis.fetch
+
+    const { widget, root } = mount({ endpoint: '/api/chat' })
+    void widget.ask('where is my order')
+
+    const settle = async () => {
+      for (let tick = 0; tick < 40; tick++) await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+
+    return { root, push, finish, settle, restore: () => void (globalThis.fetch = original) }
+  }
+
+  it('says what it is checking instead of showing three dots', async () => {
+    // The frame already crossed the whole stack to get here. Before this it
+    // reached the browser, fired a host event, and rendered nothing at all.
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'action', name: 'look_up_billing', status: 'running' })
+    await call.settle()
+
+    expect(call.root.querySelector('.working')?.textContent).toBe('Checking look up billing')
+    expect(call.root.querySelector('.typing')).toBeNull()
+    call.finish()
+    call.restore()
+  })
+
+  it('prefers the summary the action wrote over its name', async () => {
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'action', name: 'look_up_billing', status: 'running', summary: 'invoice 1234' })
+    await call.settle()
+
+    expect(call.root.querySelector('.working')?.textContent).toBe('Checking invoice 1234')
+    call.finish()
+    call.restore()
+  })
+
+  it('goes back to the dots when the action finishes with nothing said yet', async () => {
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'action', name: 'look_up_billing', status: 'running' })
+    await call.settle()
+    call.push({ type: 'action', name: 'look_up_billing', status: 'done' })
+    await call.settle()
+
+    expect(call.root.querySelector('.working')).toBeNull()
+    expect(call.root.querySelector('.typing')).not.toBeNull()
+    call.finish()
+    call.restore()
+  })
+
+  it('gets out of the way once the answer starts', async () => {
+    // A status line under a half-written sentence reads as a fault.
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'action', name: 'look_up_billing', status: 'running' })
+    await call.settle()
+    call.push({ type: 'delta', text: 'Your invoice is paid.' })
+    await call.settle()
+
+    expect(call.root.querySelector('.working')).toBeNull()
+    expect(call.root.textContent).toContain('Your invoice is paid.')
+    call.finish()
+    call.restore()
+  })
+
+  it('renders a summary as text, never as markup', async () => {
+    // The summary comes from an action a deployment wrote, and this is a
+    // customer's screen.
+    const call = turn()
+    await call.settle()
+
+    call.push({ type: 'action', name: 'x', status: 'running', summary: '<img src=x onerror=alert(1)>' })
+    await call.settle()
+
+    expect(call.root.querySelector('.working img')).toBeNull()
+    expect(call.root.querySelector('.working')?.textContent).toContain('<img')
+    call.finish()
+    call.restore()
+  })
+})

@@ -757,6 +757,35 @@ export function createWidget(options: WidgetOptions) {
     typing.append(document.createElement('i'), document.createElement('i'), document.createElement('i'))
     bubble.appendChild(typing)
 
+    /**
+     * Swaps the dots for what the agent is doing, and back when it stops.
+     *
+     * Only while nothing has been said yet. Once text starts arriving the
+     * answer is the thing to look at, and a status line appearing underneath a
+     * half-written sentence reads as a fault.
+     */
+    let working: HTMLElement | null = null
+    const showWorking = (label: string | null) => {
+      if (answer.content) return
+
+      if (!label) {
+        working?.remove()
+        working = null
+        if (!bubble.contains(typing)) bubble.appendChild(typing)
+
+        return
+      }
+
+      typing.remove()
+      working ??= document.createElement('div')
+      working.className = 'working'
+      // Text, never markup: the summary can come from an action a deployment
+      // wrote, and this is a customer's screen.
+      working.textContent = fill(strings.working, { name: label })
+      if (!bubble.contains(working)) bubble.appendChild(working)
+      scrollToEnd()
+    }
+
     const answer: ChatMessage = { role: 'assistant', content: '' }
     let sources: SourceRef[] = []
     const requested: Array<{
@@ -785,16 +814,20 @@ export function createWidget(options: WidgetOptions) {
         },
         onDelta: (delta) => {
           typing.remove()
+          working?.remove()
+          working = null
           answer.content += delta
           bubble.replaceChildren(renderMarkdown(answer.content))
           scrollToEnd()
         },
         onError: (message) => {
           typing.remove()
+          working?.remove()
+          working = null
           showError(message)
           emit('error', { message })
         },
-        onFrame: (frame) => handleFrame(frame, requested),
+        onFrame: (frame) => handleFrame(frame, requested, showWorking),
       },
       state.controller?.signal,
       strings,
@@ -847,6 +880,17 @@ export function createWidget(options: WidgetOptions) {
     paintSuggestions()
   }
 
+/**
+ * An action's name as something a customer can read.
+ *
+ * `look_up_billing` becomes "look up billing". Deployments name their actions
+ * for the model, not for the person waiting, so this is the fallback when the
+ * action does not supply its own summary.
+ */
+function readable(name: string): string {
+  return name.replace(/[_-]+/g, ' ').trim()
+}
+
   function handleFrame(
     frame: StreamFrame,
     requested: Array<{
@@ -855,6 +899,8 @@ export function createWidget(options: WidgetOptions) {
       input: Record<string, unknown>
       payload?: Record<string, unknown>
     }>,
+    /** Shows what the agent is doing, when the caller is a live turn. */
+    showWorking: (label: string | null) => void = () => {},
   ) {
     if (frame.type === 'client-action') {
       requested.push({ id: frame.id, name: frame.name, input: frame.input, payload: frame.payload })
@@ -862,6 +908,10 @@ export function createWidget(options: WidgetOptions) {
       state.suggestions = frame.items
     } else if (frame.type === 'action') {
       emit('action', { name: frame.name, status: frame.status })
+      // The frame already crossed the whole stack to get here. Showing it is
+      // the difference between three dots for five seconds and the visitor
+      // seeing that something is actually happening on their behalf.
+      showWorking(frame.status === 'running' ? frame.summary ?? readable(frame.name) : null)
     } else if (frame.type === 'captured') {
       emit('captured', { kind: frame.kind, name: frame.name, values: frame.values })
     } else if (frame.type === 'notice') {

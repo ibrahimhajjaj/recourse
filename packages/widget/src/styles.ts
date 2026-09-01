@@ -364,6 +364,31 @@ export const styles = `
 .feedback .icon-button svg { width: 14px; height: 14px; }
 .feedback .icon-button[aria-pressed="true"] { opacity: 1; color: var(--rc-accent); background: none; }
 
+.working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  opacity: 0.75;
+  font-style: italic;
+}
+.working::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: recourse-spin 0.7s linear infinite;
+  flex: none;
+}
+@keyframes recourse-spin {
+  to { transform: rotate(360deg); }
+}
+/* Somebody who asked for less motion gets the dot without the spin. */
+@media (prefers-reduced-motion: reduce) {
+  .working::before { animation: none; }
+}
 .notice {
   align-self: center;
   font-size: 12.5px;

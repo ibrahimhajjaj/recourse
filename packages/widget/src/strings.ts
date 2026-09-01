@@ -37,6 +37,13 @@ export interface WidgetStrings {
   calling: string
   callStarted: string
   callEnded: string
+  /**
+   * Shown in place of the typing dots while the agent looks something up.
+   *
+   * `{name}` is replaced with the action's name, tidied for reading: an action
+   * called `look_up_billing` shows as "look up billing".
+   */
+  working: string
   /** Under an answer. */
   helpful: string
   notHelpful: string
@@ -81,6 +88,7 @@ export const DEFAULT_STRINGS: WidgetStrings = {
   calling: 'Connecting',
   callStarted: 'Call started',
   callEnded: 'Call ended',
+  working: 'Checking {name}',
   helpful: 'This helped',
   notHelpful: 'This did not help',
   thanks: 'Thanks, that helps us improve.',
