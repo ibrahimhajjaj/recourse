@@ -157,6 +157,7 @@ export {
   type Translated,
 } from './helpdesk/translate.js'
 export { createApiHandler, type ApiOptions } from './api/index.js'
+export { hold, due, HOLD_KEYS, type Held, type HoldOptions } from './coalesce.js'
 export {
   markChanged,
   summarise,

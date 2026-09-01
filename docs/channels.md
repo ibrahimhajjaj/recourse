@@ -77,6 +77,44 @@ the `AI` author subtype makes Sunshine append its own disclaimer in the
 customer's own client, per channel, for text, image and file messages alike. Set
 `disclosure` as well and the customer is told twice, so use one or the other.
 
+## One thought sent as four messages
+
+People do not compose on a phone. They send "hi", then "I have a problem", then
+"with my order", then "LUM-1234", in eight seconds. Answered one at a time that
+is four model calls, four half-answers, and a reply to "hi" arriving after the
+order number has.
+
+```ts
+import { hold, due } from '@recourse-ai/core'
+
+// In the webhook, after storing the message.
+const held = await hold(conversationId, { store, windowMs: 5000 })
+if (!held.ready) return new Response(null, { status: 200 })
+
+// And from a cron, a queue, or a Durable Object alarm.
+for (const burst of await due({ store, windowMs: 5000 })) {
+  await answer(burst.conversationId, burst.messages)
+}
+```
+
+The window restarts on every message, so it ends when the person stops typing
+rather than a fixed time after they started. A timer from "hi" cuts a long
+burst in half.
+
+Err long rather than short. Too long only adds latency; too short fires
+mid-sentence and defeats the whole thing. Five seconds suits a phone keyboard.
+`windowMs: 0` turns it off, which is what the web widget wants: somebody typing
+into a box sends one message and waits for it.
+
+While a burst is held, reply with nothing at all. A "one moment" is itself a
+message the customer has to read, and they are still typing.
+
+**On two sweepers running at once**: a burst is claimed with a token that is
+written and read back, so an overlapping sweeper almost never takes the same
+one. Almost, because a `Store` has no compare and swap. If you need the
+guarantee rather than the odds, drive it from a Durable Object alarm, where the
+scheduler is the lock and none of this applies.
+
 ## The same agent, different rules per channel
 
 One agent answers in a chat panel, in WhatsApp and out loud on a phone call,
