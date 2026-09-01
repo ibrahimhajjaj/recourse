@@ -56,17 +56,23 @@ says so; without a model `ask` shows you the passages it found and says why.
 npx @recourse-ai/core ingest --url https://your-site.com
 ```
 
-## No keys to create
+## Nothing to sign up for
 
-Two things landed in 2026 that removed the usual signup wall:
+Two changes in 2026 mean you can get the whole thing working without creating an
+account anywhere.
 
-- **Firecrawl went keyless** in June 2026. `/scrape` and `/search` answer with no
-  `Authorization` header at all, and every caller gets 1,000 pages a month.
-- **Vercel's AI Gateway authenticates deployments over OIDC**, so a deployment
-  gets a token injected with no key to create.
+**Reading your website is free.** `ingest --url` fetches your pages through
+Firecrawl, a service that turns a web page into clean text. In June 2026 they
+stopped asking for an account, so the command just works, for 1,000 pages a
+month. Past that it asks you for a key.
 
-You can replace the second with any OpenAI-compatible endpoint, including Ollama
-on your own machine. This repository was built and tested against a local
+**Answering is free on Vercel.** Model calls go through Vercel's AI Gateway,
+which forwards them to a provider. When your code is running on a Vercel
+deployment, Vercel hands it a signed token proving the request really is from
+your deployment, so there is no key for you to make. Deploy it and it answers.
+
+Neither is a lock-in. Point it at any OpenAI-compatible endpoint instead,
+including Ollama on your own machine. This repository was built and tested against a local
 `qwen3:4b` with `nomic-embed-text` embeddings, on a laptop, with no cloud
 account involved at any point.
 
@@ -126,7 +132,7 @@ store on a deployment that scales, and assuming a vision model can call tools.
 ## The pieces
 
 **Answers from your content.** Crawl a site, read a folder, write question and
-answer pairs, import Notion, upload a PDF. Retrieval is BM25 and vector search
+answer pairs, import Notion, upload a PDF. Retrieval is keyword ranking and vector search
 fused, and it degrades to keyword-only when you have no embedding credential.
 
 **Acts, rather than only replying.** Capture a lead, collect custom fields, call
@@ -147,7 +153,7 @@ Instagram, Slack, Telegram, Discord, Microsoft Teams, SMS and email, all with
 real webhook signature verification.
 
 **Answers the phone.** Inbound calls over Twilio, with four ways to run the
-turn: ConversationRelay, plain TwiML `<Gather>`, your own speech provider, or
+turn: Conversation Relay, a plain call-and-response loop, your own speech provider, or
 ElevenLabs driving the whole conversation.
 
 **Takes a call from the page itself.** A Call button in the widget, with no

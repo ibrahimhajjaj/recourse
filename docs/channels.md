@@ -270,11 +270,13 @@ brings a jitter buffer and loss concealment with it. It is not shipped here, and
 the reasons are worth stating rather than leaving as an omission.
 
 A Worker cannot terminate a peer connection. Cloudflare's own WebRTC offering is
-a separate managed TURN and SFU service, not something the runtime does, so
+a separate managed service that relays and mixes the audio for you, not
+something the runtime does, so
 adding WebRTC would take this feature off the one platform it runs on best.
 On Node the pure implementation is four megabytes and nine dependencies, against
 a whole core package of three hundred kilobytes. And it needs STUN and TURN
-behind it to cross a NAT at all, which is infrastructure to run or a service to
+behind it to get through a home router or a corporate firewall at all, which is
+infrastructure to run or a service to
 pay for.
 
 None of that stops you using it. `attachCall` asks for anything that sends and
