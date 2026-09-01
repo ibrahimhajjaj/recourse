@@ -192,6 +192,48 @@ listening to is worse than saying nothing.
 `examples/worker` has it wired, and its bundle guard proves the whole path runs
 on the edge with no Node built-ins.
 
+#### What a business gets to set
+
+The parts of a call people ask to change, and where each one lives.
+
+| Setting | Where |
+| --- | --- |
+| Greeting on connect | `greeting` |
+| How eagerly it stops when talked over | `turns.bargeInMs` |
+| How long a pause ends a turn | `turns.endOfTurnSilenceMs` |
+| What counts as speech rather than a cough | `turns.minSpeechMs` |
+| How far above the room's noise speech must be | `turns.marginOverNoise` |
+| Longest one turn may run | `turns.maxTurnMs` |
+| Longest the whole call may run | `maxCallMs` |
+| Which voice, and its speed and stability | the `Voice` you pass |
+| Which speech recogniser | the `Transcriber` you pass |
+| What it says and refuses to say | the `Agent` you pass |
+| Logging, analytics, billing | `onTurn` and `onEnded` |
+
+Two of those deserve saying out loud. **Interruption is the setting people
+complain about most**, in both directions: an agent that talks over somebody
+mid-sentence, and one that will not stop when interrupted. It is five numbers
+here rather than a constant, because the right answer differs between a quiet
+office and a phone on a train.
+
+And **`maxCallMs` is a cost control, not a nicety**. A forgotten tab with an
+open microphone bills for speech recognition until the browser closes.
+
+```ts
+attachCall(socket, {
+  agent,
+  transcriber,
+  voice,
+  greeting: 'Hello, Lumen Coffee. How can I help?',
+  maxCallMs: 10 * 60_000,
+  turns: { bargeInMs: 300, endOfTurnSilenceMs: 700 },
+  onTurn: ({ question, answer, ms }) => log(question, answer, ms),
+})
+```
+
+The greeting is interruptible like anything else, so somebody who already knows
+what they want can talk straight over it.
+
 #### Why this is a socket and not WebRTC
 
 WebRTC is the better transport on a bad network. It runs over UDP, so one lost

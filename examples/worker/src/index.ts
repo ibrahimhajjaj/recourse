@@ -121,6 +121,26 @@ export default {
           apiKey: env.ELEVENLABS_API_KEY,
           ...(env.ELEVENLABS_VOICE_ID ? { voiceId: env.ELEVENLABS_VOICE_ID } : {}),
         }),
+
+        // Spoken on connect. Without one the caller hears silence and cannot
+        // tell whether the call is up, so they say "hello?" twice and hang up.
+        greeting: 'Hello, Lumen Coffee. How can I help?',
+
+        // A call with no cap is a bill with no cap: a forgotten tab with an
+        // open microphone bills for speech recognition until it is closed.
+        maxCallMs: 10 * 60_000,
+
+        // How eager the agent is to stop talking when somebody speaks over it.
+        // The single most complained-about behaviour in voice agents, so it is
+        // a setting rather than a constant.
+        turns: {
+          bargeInMs: 300,
+          endOfTurnSilenceMs: 700,
+        },
+
+        onTurn: ({ question, answer, ms }) => {
+          console.log(`[call] ${ms}ms  ${question} -> ${answer.slice(0, 60)}`)
+        },
       })
 
       return new Response(null, { status: 101, webSocket: client })

@@ -59,6 +59,9 @@ export function attachCall(socket: CallSocket, options: AttachOptions): { close:
         if (!closed) socket.send(audio)
       },
     })
+
+    // Greets, and starts the clock on any call length limit.
+    session.open()
   }
 
   const finish = () => {
