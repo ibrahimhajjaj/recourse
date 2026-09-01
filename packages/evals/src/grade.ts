@@ -68,6 +68,23 @@ export function grade(item: EvalCase, observed: Observed): CaseResult {
     )
   }
 
+  // Named, not just counted. "Called nothing" and "called the wrong one" are
+  // different failures and a report that says which is the one worth reading.
+  for (const name of [item.mustNotCallAction ?? []].flat()) {
+    if (observed.actions.includes(name)) {
+      failures.push(`called ${name}, which it must not (called ${observed.actions.join(', ')})`)
+    }
+  }
+
+  if (item.mustCallActionTimes) {
+    const { name, times } = item.mustCallActionTimes
+    const ran = observed.actions.filter((called) => called === name).length
+
+    if (ran !== times) {
+      failures.push(`called ${name} ${ran} times, expected ${times}`)
+    }
+  }
+
   for (const id of item.mustRetrieve ?? []) {
     if (!observed.retrieved.some((found) => found === id || found.startsWith(`${id}#`))) {
       failures.push(`did not retrieve ${id} (got ${observed.retrieved.slice(0, 4).join(', ') || 'nothing'})`)

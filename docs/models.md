@@ -8,7 +8,7 @@ as those suites stood that day.
 pnpm --filter @recourse-ai/evals eval --model <id> --embed
 ```
 
-The suites have grown since, to 103 cases including a conduct suite that did not
+The suites have grown since, to 107 cases including a conduct suite that did not
 exist then, so re-running gives different denominators rather than reproducing
 the table. The numbers are a dated snapshot and are left dated rather than
 quietly restated against a suite they were never run on.

@@ -30,6 +30,22 @@ export interface EvalCase {
   mustRefuse?: boolean
   /** The named action must have run. */
   mustCallAction?: string
+  /**
+   * An action that must not run.
+   *
+   * The half that was missing, and the half that matters for anything with
+   * consequences. "Answered the refund question" and "did not issue a refund
+   * while answering it" are two different assertions, and only the first was
+   * possible.
+   */
+  mustNotCallAction?: string | string[]
+  /**
+   * How many times an action ran.
+   *
+   * "Escalated exactly once" is the assertion that catches a loop, and a
+   * suite that only checks an action ran cannot make it.
+   */
+  mustCallActionTimes?: { name: string; times: number }
   /** Retrieval must return this document id in its top results. */
   mustRetrieve?: string[]
   /** Retrieval must not. For the poisoned-chunk cases. */

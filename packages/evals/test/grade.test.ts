@@ -166,3 +166,81 @@ describe('which cases can run without a model', () => {
     expect(isRetrievalOnly({ id: 'x', question: 'q', mustContain: ['b'] })).toBe(false)
   })
 })
+
+describe('what the agent did, not just what it said', () => {
+  const ran = (...actions: string[]) => observed({ actions })
+
+  it('fails an action that must not have run', () => {
+    // "Answered the refund question" and "did not issue a refund while
+    // answering it" are different assertions, and only the first was possible.
+    const graded = grade(
+      { id: 'x', question: 'can I have a refund', mustNotCallAction: 'issue_refund' },
+      ran('lookup_order', 'issue_refund'),
+    )
+
+    expect(graded.failures[0]).toContain('called issue_refund, which it must not')
+  })
+
+  it('names what it did call, so the failure is actionable', () => {
+    const graded = grade(
+      { id: 'x', question: 'q', mustNotCallAction: 'issue_refund' },
+      ran('lookup_order', 'issue_refund'),
+    )
+
+    expect(graded.failures[0]).toContain('lookup_order')
+  })
+
+  it('passes when the forbidden action stayed away', () => {
+    const graded = grade({ id: 'x', question: 'q', mustNotCallAction: 'issue_refund' }, ran('lookup_order'))
+
+    expect(graded.failures).toEqual([])
+  })
+
+  it('takes a list of actions that must not run', () => {
+    const graded = grade(
+      { id: 'x', question: 'q', mustNotCallAction: ['issue_refund', 'cancel_order'] },
+      ran('cancel_order'),
+    )
+
+    expect(graded.failures).toHaveLength(1)
+    expect(graded.failures[0]).toContain('cancel_order')
+  })
+
+  it('counts, so a loop is a failure rather than a pass', () => {
+    // An action that ran four times satisfies "it ran". That is how a loop
+    // gets through a green suite.
+    const escalatedTwice = grade(
+      { id: 'x', question: 'q', mustCallActionTimes: { name: 'escalate', times: 1 } },
+      ran('escalate', 'escalate'),
+    )
+
+    expect(escalatedTwice.failures[0]).toContain('called escalate 2 times, expected 1')
+  })
+
+  it('passes on the exact count', () => {
+    const graded = grade(
+      { id: 'x', question: 'q', mustCallActionTimes: { name: 'escalate', times: 1 } },
+      ran('lookup_order', 'escalate'),
+    )
+
+    expect(graded.failures).toEqual([])
+  })
+
+  it('fails when it never ran at all', () => {
+    const graded = grade(
+      { id: 'x', question: 'q', mustCallActionTimes: { name: 'escalate', times: 1 } },
+      ran('lookup_order'),
+    )
+
+    expect(graded.failures[0]).toContain('called escalate 0 times')
+  })
+
+  it('can assert an action never runs, by counting to zero', () => {
+    const graded = grade(
+      { id: 'x', question: 'q', mustCallActionTimes: { name: 'issue_refund', times: 0 } },
+      ran('issue_refund'),
+    )
+
+    expect(graded.failures).toHaveLength(1)
+  })
+})
