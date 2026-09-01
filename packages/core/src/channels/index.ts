@@ -53,6 +53,7 @@ export { emailChannel, parseCommonEmail, stripQuoted, type EmailOptions, type In
 export {
   verifyMeta,
   verifySlack,
+  verifyRelayHandshake,
   verifyTwilio,
   signMeta,
   signSlack,

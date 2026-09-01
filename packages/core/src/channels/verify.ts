@@ -143,3 +143,40 @@ export async function signTwilio(
   const payload = sorted.reduce((accumulated, key) => accumulated + key + params[key], url)
   return toBase64(await hmac(authToken, payload, 'SHA-1'))
 }
+
+export interface RelayHandshakeVerification {
+  /** The upgrade request Twilio sent, or just its `x-twilio-signature` header. */
+  signature: string | null
+  /**
+   * The socket url **exactly as written in the TwiML**, scheme included.
+   *
+   * This is the part that catches people out. It has to be the `wss://` string
+   * you put in the `url` attribute, not the `https://` one your framework
+   * reconstructs from the request, and not a variant with a trailing slash or
+   * an explicit `:443`. A mismatch fails the check, and the symptom Twilio
+   * shows the caller is error 64102, "Unable to Connect to Websocket URL",
+   * which reads like a network fault rather than a rejected signature.
+   */
+  url: string
+  authToken: string
+}
+
+/**
+ * Checks that a Conversation Relay socket really was opened by Twilio.
+ *
+ * The handshake carries `x-twilio-signature` the same way the webhook does,
+ * and without this the socket answers anybody who learns the url. That is not
+ * a theoretical exposure: every turn costs a model call and a synthesis, so an
+ * unverified socket is somebody else's bill.
+ *
+ * Signed over the url alone with no parameters, because an upgrade request has
+ * no form body to sort in.
+ */
+export async function verifyRelayHandshake(options: RelayHandshakeVerification): Promise<boolean> {
+  return verifyTwilio({
+    signature: options.signature,
+    url: options.url,
+    authToken: options.authToken,
+    params: {},
+  })
+}
