@@ -108,10 +108,11 @@ class Tokenizer {
 		$out       = array();
 		$stopwords = self::stopwords();
 
-		// Splitting on anything that is not a letter or a digit, by Unicode
-		// property rather than by a Latin range, so Arabic content tokenises
-		// instead of being thrown away.
-		$parts = preg_split( '/[^\p{L}\p{N}]+/u', self::lower( $text ) );
+		// Combining marks are part of a word. Leaving them out cut words apart
+		// at their own vowels: Arabic written with the marks a careful writer
+		// types came out as fragments matching neither each other nor the
+		// plain spelling, and Thai came apart the same way.
+		$parts = preg_split( '/[^\p{L}\p{N}\p{M}]+/u', self::lower( self::normalise( $text ) ) );
 
 		if ( false === $parts ) {
 			return $out;
@@ -186,6 +187,20 @@ class Tokenizer {
 	const RUNS = '/[\p{Han}\p{Hiragana}\p{Katakana}\p{Thai}\p{Khmer}\p{Lao}\p{Myanmar}]+|[^\p{Han}\p{Hiragana}\p{Katakana}\p{Thai}\p{Khmer}\p{Lao}\p{Myanmar}]+/u';
 
 	/**
+	 * Marks that are optional to write and never change which word it is.
+	 *
+	 * Arabic vowel marks and Hebrew points are pronunciation aids. Most
+	 * writing omits them, some includes them, and the same word appears both
+	 * ways in one corpus, so a reader who types the careful spelling must
+	 * still find the plain one. Tatweel is pure typography: a stretched letter
+	 * for justification.
+	 *
+	 * Thai vowel signs are deliberately not here. Those are not optional;
+	 * removing one leaves a different word.
+	 */
+	const OPTIONAL_MARKS = '/[\x{0610}-\x{061A}\x{064B}-\x{065F}\x{0670}\x{06D6}-\x{06ED}\x{0640}\x{0591}-\x{05BD}\x{05BF}\x{05C1}\x{05C2}\x{05C4}\x{05C5}\x{05C7}]/u';
+
+	/**
 	 * Overlapping character pairs, which is how you index a script with no
 	 * word boundaries and no dictionary to find them with.
 	 *
@@ -215,6 +230,59 @@ class Tokenizer {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * One spelling per word, before anything tries to match two of them.
+	 *
+	 * Composing first matters because the same "cafe" with an accent arrives
+	 * as four characters from one editor and five from another, and a rule
+	 * that keeps combining marks would keep the two apart rather than
+	 * throwing the accent away. Normalizer comes from intl, which is not on
+	 * every shared host; without it the plugin is still self-consistent,
+	 * because it both builds and queries its own index.
+	 *
+	 * The Arabic letter forms below are the ones writers use
+	 * interchangeably. The hamza on an alef is dropped constantly in ordinary
+	 * typing, final ya and alef maqsura are the same key to most people, and
+	 * ta marbuta against ha is the single most common Arabic misspelling
+	 * there is. Collapsing them is what every Arabic search does.
+	 *
+	 * @param string $text Anything.
+	 * @return string
+	 */
+	private static function normalise( $text ) {
+		if ( class_exists( '\Normalizer' ) ) {
+			$composed = \Normalizer::normalize( $text, \Normalizer::FORM_C );
+
+			if ( is_string( $composed ) ) {
+				$text = $composed;
+			}
+		}
+
+		$text = preg_replace( self::OPTIONAL_MARKS, '', $text );
+
+		if ( null === $text ) {
+			return '';
+		}
+
+		$forms = array(
+			'/[\x{0622}\x{0623}\x{0625}\x{0671}]/u' => "\xD8\xA7",
+			'/\x{0649}/u'                           => "\xD9\x8A",
+			'/\x{0629}/u'                           => "\xD9\x87",
+			'/\x{06CC}/u'                           => "\xD9\x8A",
+			'/\x{06A9}/u'                           => "\xD9\x83",
+		);
+
+		foreach ( $forms as $pattern => $replacement ) {
+			$next = preg_replace( $pattern, $replacement, $text );
+
+			if ( null !== $next ) {
+				$text = $next;
+			}
+		}
+
+		return $text;
 	}
 
 	/**

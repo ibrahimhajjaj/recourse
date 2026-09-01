@@ -119,11 +119,15 @@ function stem(word: string): string {
 }
 
 /**
- * Splits on anything that is not a letter or a digit. The unicode property
- * escapes keep accented Latin, Arabic, Cyrillic and Greek intact instead of
- * being thrown away a character at a time.
+ * Splits on anything that is not part of a word.
+ *
+ * Combining marks count. A vowel sign is not a letter, so a rule of "letters
+ * and digits" cut words apart at their own vowels: Arabic for "delivery"
+ * written with the marks a careful writer types came out as two fragments that
+ * matched neither each other nor the plain spelling of the same word, and Thai
+ * came apart the same way.
  */
-const SPLIT = /[^\p{L}\p{N}]+/u
+const SPLIT = /[^\p{L}\p{N}\p{M}]+/u
 
 /**
  * Scripts that put no spaces between words.
@@ -167,10 +171,53 @@ function pairs(run: string): string[] {
   return out
 }
 
+/**
+ * Marks that are optional to write and never change which word it is.
+ *
+ * Arabic vowel marks and Hebrew points are pronunciation aids. Most writing
+ * omits them, some includes them, and the same word appears both ways in one
+ * corpus, so a reader who types the careful spelling must still find the plain
+ * one. Tatweel is pure typography: a stretched letter for justification.
+ *
+ * Thai vowel signs are deliberately not here. Those are not optional;
+ * removing one leaves a different word.
+ */
+const OPTIONAL_MARKS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g
+
+/**
+ * Spellings of one Arabic letter that writers use interchangeably.
+ *
+ * The hamza on an alef is dropped constantly in ordinary typing, final ya and
+ * alef maqsura are the same key to most people, and ta marbuta against ha is
+ * the single most common Arabic misspelling there is. Collapsing them is what
+ * every Arabic search does, because a customer who writes a word the ordinary
+ * way should still find the page that spelled it carefully.
+ */
+const ARABIC_FORMS: Array<[RegExp, string]> = [
+  [/[\u0622\u0623\u0625\u0671]/g, '\u0627'],
+  [/\u0649/g, '\u064A'],
+  [/\u0629/g, '\u0647'],
+  [/[\u06CC]/g, '\u064A'],
+  [/[\u06A9]/g, '\u0643'],
+]
+
+/** One spelling per word, before anything tries to match two of them. */
+function normalise(text: string): string {
+  let out = text.normalize('NFC').replace(OPTIONAL_MARKS, '')
+  for (const [pattern, replacement] of ARABIC_FORMS) out = out.replace(pattern, replacement)
+
+  return out
+}
+
 export function tokenize(text: string): string[] {
   const out: string[] = []
 
-  for (const raw of text.toLowerCase().split(SPLIT)) {
+  // Composed first, so one spelling produces one term. The same "café" arrives
+  // as four characters from one editor and five from another, and without this
+  // the two are different words that never match: the accent is its own
+  // character in the second, and a rule that keeps combining marks would keep
+  // them apart rather than throwing the accent away.
+  for (const raw of normalise(text).toLowerCase().split(SPLIT)) {
     if (!raw) continue
 
     // The common path, unchanged. Checked first because it is nearly always

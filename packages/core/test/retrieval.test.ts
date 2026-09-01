@@ -12,7 +12,21 @@ describe('tokenize', () => {
   })
 
   it('keeps non-latin scripts instead of discarding them', () => {
-    expect(tokenize('كيف يمكنني الإلغاء')).toEqual(['كيف', 'يمكنني', 'الإلغاء'])
+    // The hamza is normalised away, which is the point rather than a loss:
+    // most people do not type it, and the two spellings have to meet.
+    expect(tokenize('كيف يمكنني الإلغاء')).toEqual(['كيف', 'يمكنني', 'الالغاء'])
+  })
+
+  it('finds one Arabic word however it was spelled', () => {
+    // All four of these are the same word to a reader and were four separate
+    // terms to the index, so a customer typing the ordinary spelling matched
+    // nothing on a page that used the careful one.
+    const plain = tokenize('التوصيل')
+    expect(tokenize('التَّوْصِيل')).toEqual(plain)
+
+    expect(tokenize('أحمد')).toEqual(tokenize('احمد'))
+    expect(tokenize('مدرسة')).toEqual(tokenize('مدرسه'))
+    expect(tokenize('على')).toEqual(tokenize('علي'))
   })
 
   it('splits a script that writes no spaces', () => {
@@ -34,6 +48,14 @@ describe('tokenize', () => {
     expect(tokenize('LUM-1234の配送')).toEqual(['lum', '1234', 'の配', '配送'])
   })
 
+  it('spells an accent one way whichever way it arrived', () => {
+    // The same word from two editors: one composes the accent, one does not.
+    expect(tokenize('caf\u00e9')).toEqual(tokenize('cafe\u0301'))
+  })
+
+  it('ignores punctuation and single characters', () => {
+    expect(tokenize('a b -- ??? refund!!')).toEqual(['refund'])
+  })
 })
 
 describe('ranking a corpus with no spaces in it', () => {
