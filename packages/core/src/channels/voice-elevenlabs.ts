@@ -88,7 +88,10 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
             ref: position + 1,
             title: match.chunk.title,
             section: match.chunk.section,
-            text: match.chunk.text,
+            // Cleaned for the same reason as everything else on this route:
+            // whatever comes back here is read aloud, and a passage written
+            // for a screen is full of punctuation nobody wants spoken.
+            text: toSpeech(match.chunk.text),
           })),
         })
       }
@@ -132,7 +135,7 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
                 .join('\n'),
             ).slice(0, 600),
             found: true,
-            sources: matches.slice(0, 2).map((match) => match.chunk.title),
+            sources: [...new Set(matches.slice(0, 2).map((match) => match.chunk.title))],
           })
         }
 
@@ -144,7 +147,10 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
       return json({
         answer,
         found: !result.unanswered,
-        sources: result.sources.map((source) => source.title),
+        // Deduplicated: several passages usually come from one document, and
+        // naming it three times reads as three separate sources to anyone
+        // looking at the transcript.
+        sources: [...new Set(result.sources.map((source) => source.title))],
       })
     } catch (error) {
       console.error('[recourse] elevenlabs tool call failed', error)

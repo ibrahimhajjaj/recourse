@@ -736,3 +736,33 @@ describe('reading a table aloud', () => {
     expect(toSpeech('Use a || b for a fallback.')).toContain('||')
   })
 })
+
+describe('what the voice tool hands back', () => {
+  const table = '| Country | Time |\n| --- | --- |\n| UK | 1 to 2 days |'
+
+  it('never returns a table to something that will read it aloud', () => {
+    // Both modes of the tool feed a speech engine. Either one returning raw
+    // markdown is heard as "pipe Country pipe Time pipe".
+    const spoken = toSpeech(table)
+
+    expect(spoken).not.toContain('|')
+    expect(spoken).toContain('UK, 1 to 2 days')
+  })
+
+  it('keeps the words when it removes the punctuation', () => {
+    const spoken = toSpeech('| Destination | Carrier |\n| --- | --- |\n| United States | DHL Express |')
+
+    expect(spoken).toContain('United States')
+    expect(spoken).toContain('DHL Express')
+  })
+
+  it('handles a row that does not end the text, which is how passages join', () => {
+    // The bug this exists to stop: joining two passages welded the last row of
+    // one to the prose of the next, and the row stopped being recognised.
+    const spoken = toSpeech('| UK | 1 to 2 days |\nDelivery is £3.95 flat.')
+
+    expect(spoken).not.toContain('|')
+    expect(spoken).toContain('UK, 1 to 2 days')
+    expect(spoken).toContain('£3.95')
+  })
+})
