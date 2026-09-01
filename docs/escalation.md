@@ -79,6 +79,50 @@ import { resumeAgent } from '@recourse-ai/core'
 await resumeAgent(store, conversationId)
 ```
 
+### Asked for, and actually here
+
+Those are two different things and the customer should not be told the wrong
+one. `escalate` has asked for somebody; nobody is on it yet, and the customer
+hears that someone will reply shortly. Telling them a colleague already has it
+makes them wait longer than they otherwise would.
+
+```ts
+import { assignAgent } from '@recourse-ai/core'
+
+// When a person actually opens it.
+await assignAgent(store, conversationId, 'Marcus')
+```
+
+From then on the wording changes to say a colleague has it. `pauseAgent` on its
+own still counts as somebody being there, because its usual caller is a person
+clicking "take over" in a dashboard and they are by definition present.
+
+The gap between the two is also the only way to measure how long people queue.
+
+### Why it ended
+
+```ts
+await resumeAgent(store, conversationId, 'nobody-came')
+```
+
+Three reasons, stored on the conversation: `person-finished`, `nobody-came`,
+`customer-ended`. "What fraction of our escalations ended because nobody came"
+is the question a support lead asks on day thirty, and a boolean flag cannot
+answer it. Each one is a different problem with a different fix, and only the
+first is a good ending.
+
+`endedBecause(store, conversationId)` reads it back.
+
+### Letting the customer stop waiting
+
+Somebody who has queued for ten minutes and given up currently has one option,
+which is closing the tab, and a conversation that ends that way is one nobody
+can follow up. They can type `/end`, `/cancel` or `/bot` instead: the agent
+takes the conversation back and records `customer-ended`.
+
+Matched on the whole message, so "I want to end my subscription" is a support
+question rather than a command.
+
 `pauseAgent` is there too, for a dashboard where somebody clicks "take over"
 rather than waiting for the agent to escalate. Both are safe to call twice, and
 the flag rides on the conversation's own metadata, so every store already

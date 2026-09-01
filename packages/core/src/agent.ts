@@ -18,7 +18,7 @@ import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
 import { describeFailure, logFailure } from './diagnostics.js'
-import { isPaused, PAUSED_MESSAGE, type TakeoverOptions } from './takeover.js'
+import { PAUSED_MESSAGE, WAITING_MESSAGE, hasPerson, isEndCommand, isPaused, resumeAgent, type TakeoverOptions } from './takeover.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -446,15 +446,30 @@ export function createAgent(options: AgentOptions) {
     // nothing at all: no embedding, no model, no passages fetched for an
     // answer that is not going to be written.
     if (takeover && store && (await isPaused(store, conversationId, takeover.waitForPersonMs))) {
-      onQuiet()
-      yield* stayQuiet(takeover.message ?? PAUSED_MESSAGE, {
-        conversationId,
-        channel,
-        contact,
-        question,
-        attachments: messages[messages.length - 1]?.attachments ?? [],
-      })
-      return
+      // Waiting for a person is not the same as having one, and telling the
+      // customer the wrong one is how they sit there longer than they would
+      // have. Asked for, not arrived, gets its own sentence.
+      const arrived = await hasPerson(store, conversationId)
+
+      // The customer giving up. Their only alternative is closing the tab, and
+      // a conversation that ends that way is one nobody can follow up.
+      if (isEndCommand(question)) {
+        await resumeAgent(store, conversationId, 'customer-ended').catch(() => {})
+      } else {
+        onQuiet()
+        yield* stayQuiet(
+          arrived ? (takeover.message ?? PAUSED_MESSAGE) : (takeover.waitingMessage ?? WAITING_MESSAGE),
+          {
+            conversationId,
+            channel,
+            contact,
+            question,
+            attachments: messages[messages.length - 1]?.attachments ?? [],
+          },
+        )
+
+        return
+      }
     }
 
     // The cap is read before the model rather than after it, because the turn

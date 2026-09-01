@@ -181,7 +181,9 @@ export function escalate(options: EscalateOptions): Action {
       // by the pause rather than by one last answer from the agent.
       if (options.pause !== false && ctx.store && ctx.conversationId) {
         try {
-          await pauseAgent(ctx.store, ctx.conversationId)
+          // Nobody is on it yet. Saying a colleague already has it would have the
+          // customer wait longer than they otherwise would.
+          await pauseAgent(ctx.store, ctx.conversationId, { assigned: false })
         } catch (error) {
           // The ticket exists and the customer has been told. Failing the
           // whole action over the flag would lose both.
