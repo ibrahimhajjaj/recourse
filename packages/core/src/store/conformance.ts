@@ -153,6 +153,20 @@ export function storeConformance(options: ConformanceOptions): void {
         expect(thread?.conversation.meta?.aiPaused).toBeUndefined()
         expect(thread?.conversation.meta?.country).toBe('IE')
       })
+
+      it('merges metadata an appended message carries, rather than replacing it', async () => {
+        const store = await make()
+        await store.appendMessage('c_merge', message(), { channel: 'web', meta: { country: 'IE' } })
+
+        // Whatever a feature wrote between two turns: a handover flag, an
+        // insight, a coalescing hold. The next message must not take it with it.
+        await store.updateConversation('c_merge', { meta: { country: 'IE', aiPaused: true } })
+        await store.appendMessage('c_merge', message({ role: 'assistant' }), { channel: 'web', meta: { country: 'IE' } })
+
+        const thread = await store.getConversation('c_merge')
+        expect(thread?.conversation.meta?.aiPaused).toBe(true)
+        expect(thread?.conversation.meta?.country).toBe('IE')
+      })
     }
 
     // ---- forgetting somebody, which is a legal obligation and not a feature ----
