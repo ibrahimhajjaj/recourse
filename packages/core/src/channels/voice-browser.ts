@@ -19,6 +19,7 @@
 
 import { corsHeaders, type CorsOptions } from '../server/cors.js'
 import { callerKey, createRateLimiter, type RateLimitOptions, type RateLimiter } from '../server/ratelimit.js'
+import { getLogger } from '../diagnostics.js'
 
 /** Where the signed URL comes from. Overridable so tests need no network. */
 const SIGNED_URL_ENDPOINT = 'https://api.elevenlabs.io/v1/convai/conversation/get-signed-url'
@@ -90,20 +91,20 @@ export function browserVoiceRoute(options: BrowserVoiceOptions) {
       })
     } catch (error) {
       // The message can carry the request, and the request carries the key.
-      console.error('[recourse] could not reach the voice provider:', error)
+      getLogger().error('could not reach the voice provider:', error)
       return json({ error: 'the voice service could not be reached' }, 502, cors)
     }
 
     if (!response.ok) {
       // Logged with the status only. Their body has been known to echo request
       // details back, and this one had a key in it.
-      console.error(`[recourse] voice provider refused to sign a URL: ${response.status}`)
+      getLogger().error(`voice provider refused to sign a URL: ${response.status}`)
       return json({ error: 'the voice service refused the call' }, 502, cors)
     }
 
     const body = (await response.json().catch(() => ({}))) as { signed_url?: unknown }
     if (typeof body.signed_url !== 'string' || !body.signed_url) {
-      console.error('[recourse] voice provider returned no signed URL')
+      getLogger().error('voice provider returned no signed URL')
       return json({ error: 'the voice service returned nothing usable' }, 502, cors)
     }
 

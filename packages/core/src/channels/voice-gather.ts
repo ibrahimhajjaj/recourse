@@ -4,6 +4,7 @@ import type { Agent } from '../agent.js'
 import type { Message } from '../types.js'
 import type { Store } from '../store/types.js'
 import type { SpeechCache, Voice } from './voice-tts.js'
+import { getLogger } from '../diagnostics.js'
 
 /**
  * Inbound calls without Conversation Relay.
@@ -170,7 +171,7 @@ export function gatherVoiceChannel(options: GatherVoiceOptions) {
         local.set(conversationId, thread.slice(-maxHistory * 2))
       }
     } catch (error) {
-      console.error('[recourse] gather voice turn failed', error)
+      getLogger().error('gather voice turn failed', error)
       answer = 'Sorry, something went wrong on my side.'
     }
 
@@ -224,7 +225,7 @@ async function speak(options: GatherVoiceOptions, text: string): Promise<string>
     const base = options.tts.publicBaseUrl.replace(/\/+$/, '')
     return `<Play>${escapeXml(`${base}/${id}`)}</Play>`
   } catch (error) {
-    console.error('[recourse] falling back to Twilio Say', error)
+    getLogger().error('falling back to Twilio Say', error)
     return say(options, text)
   }
 }

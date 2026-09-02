@@ -1,6 +1,7 @@
 import type { Agent } from '../agent.js'
 import { toSpeech } from './voice-speech.js'
 import type { Store } from '../store/types.js'
+import { getLogger } from '../diagnostics.js'
 
 /**
  * recourse as the knowledge backend for an ElevenLabs voice agent.
@@ -111,8 +112,8 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
         // reading the log needs to know which of the two happened: a provider
         // that failed, or a turn that produced no words. Without this the only
         // symptom is an agent that politely cannot help, and no way to tell why.
-        console.error(
-          `[recourse] voice lookup gave nothing back: ${result.error ? `error: ${result.error}` : 'the model returned no text'}`,
+        getLogger().error(
+          `voice lookup gave nothing back: ${result.error ? `error: ${result.error}` : 'the model returned no text'}`,
         )
 
         // Retrieval is the half that rarely fails, and it already ran. A model
@@ -153,7 +154,7 @@ export function elevenLabsToolRoute(options: ElevenLabsToolOptions) {
         sources: [...new Set(result.sources.map((source) => source.title))],
       })
     } catch (error) {
-      console.error('[recourse] elevenlabs tool call failed', error)
+      getLogger().error('elevenlabs tool call failed', error)
       // A 200 with an honest message beats a 500: the agent can say something
       // useful, where an error leaves it improvising or silent.
       return json({ answer: 'I could not look that up just now.', found: false, sources: [] }, 200)

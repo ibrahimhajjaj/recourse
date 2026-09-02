@@ -14,6 +14,8 @@
  * browser bundle is a key anybody can read and spend.
  */
 
+import { getLogger } from '../diagnostics.js'
+
 export interface Transcript {
   text: string
   /**
@@ -76,7 +78,7 @@ export function elevenLabsTranscriber(options: ElevenLabsTranscriberOptions): Tr
 
       if (!response.ok) {
         // The body can name the key's permissions, so it stays in the log.
-        console.warn(`[recourse] ElevenLabs transcription failed: ${response.status} ${await response.text()}`)
+        getLogger().warn(`ElevenLabs transcription failed: ${response.status} ${await response.text()}`)
         throw new Error('transcription failed')
       }
 
@@ -126,7 +128,7 @@ export function openAiCompatibleTranscriber(options: OpenAiTranscriberOptions = 
       })
 
       if (!response.ok) {
-        console.warn(`[recourse] transcription failed: ${response.status} ${await response.text()}`)
+        getLogger().warn(`transcription failed: ${response.status} ${await response.text()}`)
         throw new Error('transcription failed')
       }
 

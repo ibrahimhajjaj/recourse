@@ -29,6 +29,7 @@ import { createTurnDetector, levelOf, type TurnOptions } from './voice-turns.js'
 import type { Transcriber } from './voice-stt.js'
 import type { Voice } from './voice-tts.js'
 import type { Message } from '../types.js'
+import { getLogger } from '../diagnostics.js'
 
 /** What the browser is told, alongside the audio it is sent. */
 export type CallMessage =
@@ -287,7 +288,7 @@ export function createCallSession(options: CallSessionOptions): CallSession {
       // An abort is the caller interrupting, which is not a failure.
       if (mine.signal.aborted) return
 
-      console.error('[recourse] call turn failed:', error)
+      getLogger().error('call turn failed:', error)
       options.send({ type: 'error', message: 'Something went wrong on that answer.' })
     } finally {
       if (inFlight === mine) {
