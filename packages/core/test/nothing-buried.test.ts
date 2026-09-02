@@ -45,7 +45,11 @@ const userFacing = (name: string) =>
   /Voice$|Transcriber$/.test(name)
 
 describe('every feature somebody could use is written down', () => {
-  it('names no capability the documentation never mentions', async () => {
+  // Thirty seconds, not the five vitest defaults to. This shells out to git
+  // and dynamic-imports every built entry, so it is the slowest test here and
+  // the one that fails on a loaded machine while passing on its own. Two
+  // separate runs hit that before the timeout was raised.
+  it('names no capability the documentation never mentions', { timeout: 30_000 }, async () => {
     const dist = join(here, '..', 'dist', 'index.js')
     if (!existsSync(dist)) return
 
