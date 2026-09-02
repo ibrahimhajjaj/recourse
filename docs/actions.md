@@ -204,7 +204,9 @@ guessing at an order number sends a different one each time, so nothing repeats
 and nothing trips, while each attempt still reaches the real system. Measured on
 a model that would not stop, the step cap alone allowed six real requests; this
 brings it to three. It counts failures, not calls, so looking up six orders that
-all succeed is untouched. `failureLimit` changes it.
+all succeed is untouched. A failure is anything the model sees as `ok: false`,
+whether the action threw, returned `{ ok: false, error }`, or had its result
+withheld. `failureLimit` changes it.
 
 **A turn stops after six steps** regardless, which is what bounds a model that
 alternates between actions rather than repeating one. `maxSteps` changes it.
