@@ -242,6 +242,14 @@ const SAFETY_INPUTS = [
   // links out before it looks, and a signature is a long alphanumeric run that
   // reads exactly like the encoded block that check exists to catch.
   `I clicked https://shop.example/track?sig=${'A'.repeat(80)} and it failed`,
+  // Long, and ordinary. The flood rule looks for one character repeated, and a
+  // version of it that reads the length instead refuses every detailed
+  // complaint a customer ever writes. Without a case that is long and not a
+  // flood, the corpus cannot tell those two apart: the only other long message
+  // here is a flood, so both readings agree on it.
+  'I ordered the navy jumper in a medium on the twelfth of last month and it arrived ' +
+    'with a torn sleeve, so I sent it back the same week using the label in the box, ' +
+    'and I still have not seen the refund on my statement. Could somebody check where it is?',
 ]
 
 /**
