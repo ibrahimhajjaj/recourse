@@ -48,7 +48,10 @@ webhook, and never failed by one either.
 
 The management API is REST with bearer auth, so the generic HTTP action every
 one of these platforms ships can call it directly. `GET /conversations`,
-`GET /leads`, `GET /stats`, the whole ticket queue. That also makes a polling
+`GET /leads`, `GET /stats`, the whole ticket queue. `GET /outcomes` is the
+harsher one: it reads recent conversations and reports how many ended without
+anybody coming back, rather than how many got a reply. `?days=` sets how long a
+return still counts, and it defaults to seven. That also makes a polling
 trigger possible without any of the above: point one at `/conversations` and
 let it poll.
 
