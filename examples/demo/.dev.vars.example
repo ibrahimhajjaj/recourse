@@ -1,0 +1,7 @@
+# Copy to .dev.vars and fill in. Used by `wrangler dev` only; the deployed
+# worker reads both of these from `wrangler secret put`.
+#
+# The account id is on any Cloudflare dashboard URL, and under Workers & Pages.
+# The token needs the Workers AI read permission and nothing else.
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_AI_TOKEN=

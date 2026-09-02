@@ -17,8 +17,28 @@ wrangler secret put CLOUDFLARE_AI_TOKEN        # a token with Workers AI read
 npm run deploy
 ```
 
-Put your account id in `wrangler.jsonc` under `vars.CLOUDFLARE_ACCOUNT_ID`. It
-is not a secret; it is in every dashboard URL. The token beside it is.
+The account id is already in `wrangler.jsonc`. It is not a secret; it is in
+every dashboard URL. The token beside it is, which is why it is a secret and not
+a var. Create it under **AI > Workers AI > Use REST API** in the dashboard.
+
+## Why the REST endpoint and not the AI binding
+
+A Worker can reach Workers AI through an `ai` binding, which needs no token at
+all, and that would be the better setup. It does not work today:
+`workers-ai-provider@4.0.0` emits every `text-delta` twice, with the same id and
+the same text, so answers arrive doubled:
+
+```
+text-delta  id=3lh6JC908AGbwwzE  "the"
+text-delta  id=3lh6JC908AGbwwzE  "the"
+text-delta  id=3lh6JC908AGbwwzE  " cat sat on"
+text-delta  id=3lh6JC908AGbwwzE  " cat sat on"
+```
+
+Worth re-checking when that provider updates, because it would remove the only
+manual step here. It is not worked around in the agent on purpose: a model
+repeating a token is legitimate, so anything that collapses repeats would
+corrupt real answers to paper over somebody else's bug.
 
 That gives you `recourse-demo.<your-subdomain>.workers.dev`. Point a domain at
 it from the Workers dashboard if you want a nicer one.

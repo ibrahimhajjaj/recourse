@@ -8,12 +8,16 @@
   // on this path touches a Node built-in, and if that ever changes the build
   // failing is the signal.
 
-  "vars": {
-    // The account the Workers AI calls are billed to. Not a secret: it is in
-    // every dashboard URL. The token beside it is, and is set with
-    // `wrangler secret put CLOUDFLARE_AI_TOKEN`.
-    "CLOUDFLARE_ACCOUNT_ID": ""
-  },
+  // Both of the values this worker needs are kept out of this file, and so out
+  // of git. The account id identifies an account rather than authorising
+  // anything, but a public repository is a poor place to name one, and keeping
+  // the pair together is easier to reason about than splitting them.
+  //
+  //   Deployed:  wrangler secret put CLOUDFLARE_ACCOUNT_ID
+  //              wrangler secret put CLOUDFLARE_AI_TOKEN
+  //   Locally:   copy .dev.vars.example to .dev.vars and fill it in
+  //
+  // `.dev.vars` is git-ignored. See .dev.vars.example for the shape.
 
   "observability": { "enabled": true }
 }

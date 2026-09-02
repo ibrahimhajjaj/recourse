@@ -1,7 +1,12 @@
 # Generated at build time from docs/ and public/recourse.js. Committing them
 # would let the demo drift from the repository it claims to be documenting.
+src/assets.ts
 src/knowledge.json
 src/widget.js
 
 # Local state from `wrangler dev`, which is a running process's scratch space.
 .wrangler/
+
+# The account id and the Workers AI token, for `wrangler dev`. The deployed
+# worker reads both from `wrangler secret`, so neither belongs in the repo.
+.dev.vars
