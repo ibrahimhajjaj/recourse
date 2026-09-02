@@ -107,7 +107,11 @@ export function d1Store(options: D1StoreOptions): Store {
            channel    = COALESCE(?2, conversations.channel),
            contact    = COALESCE(excluded.contact, conversations.contact),
            ticket_id  = COALESCE(excluded.ticket_id, conversations.ticket_id),
-           meta       = COALESCE(excluded.meta, conversations.meta)`,
+           -- Merged rather than replaced: a later message carrying nothing but
+           -- a country would otherwise take the handover flag, the insight and
+           -- the coalescing hold with it, and the agent would answer over the
+           -- person who took the conversation over.
+           meta       = json_patch(COALESCE(conversations.meta, '{}'), COALESCE(excluded.meta, '{}'))`,
         [
           conversationId,
           conversation?.channel ?? null,

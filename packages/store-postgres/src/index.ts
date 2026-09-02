@@ -123,7 +123,11 @@ export function postgresStore(options: PostgresStoreOptions): Store {
              channel    = COALESCE($2::text, conversations.channel),
              contact    = COALESCE(EXCLUDED.contact, conversations.contact),
              ticket_id  = COALESCE(EXCLUDED.ticket_id, conversations.ticket_id),
-             meta       = COALESCE(EXCLUDED.meta, conversations.meta)`,
+             -- Merged rather than replaced: a later message carrying nothing but
+             -- a country would otherwise take the handover flag, the insight and
+             -- the coalescing hold with it, and the agent would answer over the
+             -- person who took the conversation over.
+             meta       = COALESCE(conversations.meta, '{}'::jsonb) || COALESCE(EXCLUDED.meta, '{}'::jsonb)`,
           [
             conversationId,
             conversation?.channel ?? null,
