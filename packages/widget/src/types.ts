@@ -182,6 +182,14 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   sources?: SourceRef[]
+  /**
+   * The `[n]` each entry of `sources` was cited by, in the same order.
+   *
+   * Kept because the list shown is only the cited subset, so a position in it
+   * is not the number the answer used. One page can be cited more than once,
+   * which is why each entry is a list.
+   */
+  citedAs?: number[][]
   /** Files sent with this message. Kept for the chips under the bubble. */
   attachments?: OutgoingAttachment[]
 }
