@@ -44,10 +44,58 @@ OPENAI_COMPATIBLE_MODEL = "qwen3:4b"
 OPENAI_COMPATIBLE_API_KEY = "ollama"
 ```
 
-Without them the handler falls back to a bare model id, which routes through
-the Vercel AI Gateway, and that provider reads `process.env`, so on a Worker
-it fails with `process is not defined` rather than an authentication error.
-Pass an explicit model instead.
+Without them the handler falls back to `RECOURSE_MODEL`, or to a bare model id
+if that is unset too, which routes through the Vercel AI Gateway, and that
+provider reads `process.env`, so on a Worker it fails with `process is not
+defined` rather than an authentication error. Pass an explicit model instead.
+
+Three more groups are optional, and each one turns on a route that does not
+exist without it. They go in the same file.
+
+Attachments. `RECOURSE_UPLOAD_SECRET` is a long random string you pick, and it
+signs the keys the upload route hands out. The bucket itself is the
+`ATTACHMENTS` binding in `wrangler.jsonc` rather than a value here, and
+`wrangler dev` backs it with local storage until you create the real one.
+
+```
+RECOURSE_UPLOAD_SECRET = "any-long-random-string"
+```
+
+Transcription, which is the microphone side of a call:
+
+```
+TRANSCRIBE_BASE_URL = "http://localhost:8000/v1"
+TRANSCRIBE_API_KEY = "sk-placeholder"
+TRANSCRIBE_MODEL = "whisper-1"
+```
+
+Speech, which reads the answer back, and there are two ways to give it. An
+OpenAI-compatible endpoint, which is the one tried first so that a host
+offering both models needs a single key for the whole call:
+
+```
+SPEAK_BASE_URL = "http://localhost:8000/v1"
+SPEAK_API_KEY = "sk-placeholder"
+SPEAK_MODEL = "tts-1"
+SPEAK_VOICE = "alloy"
+SPEAK_FORMAT = "mp3"
+```
+
+Or ElevenLabs, where both are needed: the voice id goes straight into the
+request URL and there is no sensible default for it.
+
+```
+ELEVENLABS_API_KEY = "sk-placeholder"
+ELEVENLABS_VOICE_ID = "a-voice-id-here"
+```
+
+`/api/voice/call` accepts a socket only when `TRANSCRIBE_BASE_URL` is set and
+one of `SPEAK_BASE_URL` or `ELEVENLABS_API_KEY` is set alongside it. Short of
+that it answers 503, rather than opening a socket that then says nothing.
+
+[`.dev.vars.example`](.dev.vars.example) has all of them in one file with
+placeholder values, so copying it and deleting the groups you do not want is
+the quickest way in.
 
 ## Verified
 
@@ -121,6 +169,7 @@ network to whoever is on the other end.
 wrangler secret put TRANSCRIBE_BASE_URL   # any OpenAI-compatible transcription endpoint
 wrangler secret put TRANSCRIBE_API_KEY
 wrangler secret put ELEVENLABS_API_KEY
+wrangler secret put ELEVENLABS_VOICE_ID   # no default; the id is part of the request URL
 ```
 
 Then point the widget at it and the same call button uses this instead of a
