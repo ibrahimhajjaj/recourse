@@ -29,7 +29,7 @@ platform needs to prove the request came from it.
 | Teams | `teamsChannel` | a signed JWT from Microsoft |
 | SMS | `twilioChannel` | HMAC over the exact URL |
 | Phone | `voiceChannel`, `gatherVoiceChannel`, `elevenLabsToolRoute` | HMAC over the exact URL, or a bearer token |
-| Email | `emailChannel` | a shared secret, since providers rarely sign |
+| Email | `emailChannel` | a shared secret you set, since providers do not sign |
 | Intercom | `intercomChannel` | `X-Hub-Signature`, SHA-1, which is their choice |
 | Sunshine | `sunshineChannel` | a shared secret, since Zendesk signs nothing |
 

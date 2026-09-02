@@ -793,13 +793,14 @@ describe('email', () => {
     const handle = emailChannel({
       agent,
       waitUntil: pending.waitUntil,
+      secret: { header: 'x-webhook-secret', value: 'shh' },
       send: async (reply) => void sent.push(reply),
     })
 
     const response = await handle(
       new Request('https://shop.example/webhooks/email', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-webhook-secret': 'shh' },
         body: JSON.stringify({
           From: 'Sam <sam@example.com>',
           Subject: 'Refund question',
@@ -822,12 +823,17 @@ describe('email', () => {
     const sent: Array<{ subject: string }> = []
     const { agent } = await agentFor()
     const pending = collector()
-    const handle = emailChannel({ agent, waitUntil: pending.waitUntil, send: async (r) => void sent.push(r) })
+    const handle = emailChannel({
+      agent,
+      waitUntil: pending.waitUntil,
+      secret: { header: 'x-webhook-secret', value: 'shh' },
+      send: async (r) => void sent.push(r),
+    })
 
     await handle(
       new Request('https://shop.example/e', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-webhook-secret': 'shh' },
         body: JSON.stringify({ From: 'a@b.co', Subject: 'Re: Refund question', TextBody: 'still waiting' }),
       }),
     )
@@ -860,12 +866,17 @@ describe('email', () => {
       const sent: unknown[] = []
       const { agent } = await agentFor()
       const pending = collector()
-      const handle = emailChannel({ agent, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+      const handle = emailChannel({
+        agent,
+        waitUntil: pending.waitUntil,
+        secret: { header: 'x-webhook-secret', value: 'shh' },
+        send: async () => void sent.push(1),
+      })
 
       const response = await handle(
         new Request('https://shop.example/e', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', 'x-webhook-secret': 'shh' },
           body: JSON.stringify({ From: 'sam@example.com', Subject: 'Out of office', TextBody: 'I am away', ...overrides }),
         }),
       )
@@ -881,12 +892,17 @@ describe('email', () => {
     const sent: unknown[] = []
     const { agent } = await agentFor()
     const pending = collector()
-    const handle = emailChannel({ agent, waitUntil: pending.waitUntil, send: async () => void sent.push(1) })
+    const handle = emailChannel({
+      agent,
+      waitUntil: pending.waitUntil,
+      secret: { header: 'x-webhook-secret', value: 'shh' },
+      send: async () => void sent.push(1),
+    })
 
     await handle(
       new Request('https://shop.example/e', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-webhook-secret': 'shh' },
         body: JSON.stringify({
           From: 'sam@example.com',
           Subject: 'Automatic renewal question',
@@ -915,6 +931,12 @@ describe('email', () => {
       }),
     )
     expect(response.status).toBe(401)
+  })
+
+  // The type says required, which covers TypeScript callers and nobody else.
+  it('refuses to mount without a secret', async () => {
+    const { agent } = await agentFor()
+    expect(() => emailChannel({ agent, send: async () => {} } as never)).toThrow(/needs a secret/)
   })
 })
 
@@ -1254,6 +1276,7 @@ describe('a channel whose delivery fails', () => {
     const handle = emailChannel({
       agent,
       waitUntil: pending.waitUntil,
+      secret: { header: 'x-webhook-secret', value: 'shh' },
       onError: (error) => void errors.push(error),
       send: async () => {
         throw new Error('smtp is down')
@@ -1263,7 +1286,7 @@ describe('a channel whose delivery fails', () => {
     const response = await handle(
       new Request('https://shop.example/e', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-webhook-secret': 'shh' },
         body: JSON.stringify({ From: 'a@b.co', TextBody: 'hi there', Subject: 'S' }),
       }),
     )

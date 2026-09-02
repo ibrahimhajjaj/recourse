@@ -27,6 +27,8 @@ const SMTP = { host: '127.0.0.1', port: 1025 }
 const API = 'http://127.0.0.1:8025/api/v1'
 const CUSTOMER = 'sam@example.com'
 const SUPPORT = 'support@lumen.example'
+/** Stands in for what the provider would be configured to send. */
+const WEBHOOK = { header: 'x-webhook-secret', value: 'email-shared-secret-for-the-harness' }
 
 /** Enough SMTP to post one message, so this needs no dependency to run. */
 async function smtpSend(from: string, to: string, message: string): Promise<void> {
@@ -112,6 +114,7 @@ async function main(): Promise<void> {
       model: models.fromEnvironment(process.env as Record<string, string | undefined>),
       persona: { name: 'Ada', business: 'Lumen Coffee Roasters' },
     }),
+    secret: WEBHOOK,
     // The reply goes back through the same server the question came from, so
     // the send path is exercised rather than counted.
     send: async (reply) => {
@@ -162,7 +165,7 @@ async function main(): Promise<void> {
   const response = await handle(
     new Request('http://localhost/webhooks/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', [WEBHOOK.header]: WEBHOOK.value },
       body: JSON.stringify(body),
     }),
   )
@@ -184,7 +187,7 @@ async function main(): Promise<void> {
   await handle(
     new Request('http://localhost/webhooks/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', [WEBHOOK.header]: WEBHOOK.value },
       body: JSON.stringify({ ...body, From: SUPPORT, To: `${CUSTOMER}, ${SUPPORT}` }),
     }),
   )
