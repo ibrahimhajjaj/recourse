@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // `test/wire.test.ts` checks the widget against core's own socket source
+    // rather than its published types, so the program spans two packages and
+    // `rootDir` has to reach far enough to hold both. Nothing is emitted from
+    // here, so the wider root costs nothing.
+    "rootDir": "..",
+    "noEmit": true,
+    // `test/setup.ts` calls `beforeEach` with no import, which only compiles
+    // with the globals declarations vitest is configured to provide.
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["dist"]
+}

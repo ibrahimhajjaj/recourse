@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createWidget } from '../src/widget.js'
 import { DEFAULT_STRINGS } from '../src/strings.js'
+import type { VoiceRuntime } from '../src/call.js'
 
 function mount(options: Parameters<typeof createWidget>[0]) {
   const widget = createWidget(options)
@@ -58,11 +59,13 @@ describe('what the thread shows during a call', () => {
    * runtime replaced. The point is what lands in the panel, not the transport.
    */
   function calling() {
-    const runtime = {
-      handlers: {} as { connect?: () => void; message?: (m: { source?: string; message?: string }) => void },
-      startSession(options: Record<string, (...args: never[]) => void>) {
-        runtime.handlers.connect = options.onConnect as () => void
-        runtime.handlers.message = options.onMessage as never
+    const runtime: VoiceRuntime & {
+      handlers: { connect?: () => void; message?: (m: { source?: string; message?: string }) => void }
+    } = {
+      handlers: {},
+      startSession(options) {
+        runtime.handlers.connect = options.onConnect
+        runtime.handlers.message = options.onMessage
         return Promise.resolve({ endSession() {} })
       },
     }

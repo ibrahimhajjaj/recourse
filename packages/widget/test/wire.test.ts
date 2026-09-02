@@ -99,7 +99,10 @@ describe('the two halves of a hosted call, joined', () => {
       },
     })
 
-    let frame: ((samples: Int16Array) => void) | null = null
+    // Held on an object rather than in a `let`: it is handed over inside the
+    // microphone callback, which the compiler cannot see running, so a plain
+    // variable stays narrowed to null for the rest of the test.
+    const mic: { frame: ((samples: Int16Array) => void) | null } = { frame: null }
     const played: number[] = []
 
     const call = createHostedCall({
@@ -108,7 +111,7 @@ describe('the two halves of a hosted call, joined', () => {
       onTranscript: (entry) => void said.push(entry),
       connect: () => wire.client,
       microphone: async (options) => {
-        frame = options.onFrame
+        mic.frame = options.onFrame
 
         return { stop: async () => {} }
       },
@@ -130,8 +133,8 @@ describe('the two halves of a hosted call, joined', () => {
 
     // Speak, then go quiet long enough for the server to call the turn over.
     const loud = Int16Array.from({ length: 320 }, (_, at) => (at % 2 ? 8000 : -8000))
-    for (let elapsed = 0; elapsed < 600; elapsed += 20) frame?.(loud)
-    for (let elapsed = 0; elapsed < 900; elapsed += 20) frame?.(new Int16Array(320))
+    for (let elapsed = 0; elapsed < 600; elapsed += 20) mic.frame?.(loud)
+    for (let elapsed = 0; elapsed < 900; elapsed += 20) mic.frame?.(new Int16Array(320))
     await settle(5)
 
     // The exact samples, not merely something non-zero. An earlier version of
@@ -259,16 +262,21 @@ describe('sending the audio compressed', () => {
       voice: { name: 'v', speak: async () => ({ audio: new ArrayBuffer(8), contentType: 'audio/mpeg' }) },
     })
 
-    let frame: ((samples: Int16Array) => void) | null = null
-    let compressed: ((chunk: ArrayBuffer, first: boolean) => void) | null = null
+    // Held on an object rather than in a `let`: these are handed over inside
+    // the microphone callback, which the compiler cannot see running, so a
+    // plain variable stays narrowed to null for the rest of the test.
+    const mic: { frame: ((samples: Int16Array) => void) | null; compressed: ((chunk: ArrayBuffer, first: boolean) => void) | null } = {
+      frame: null,
+      compressed: null,
+    }
 
     const call = createHostedCall({
       endpoint: '/api/voice/call',
       conversationId: () => 'c_opus',
       connect: () => wire.client,
       microphone: async (options) => {
-        frame = options.onFrame
-        compressed = options.onCompressed ?? null
+        mic.frame = options.onFrame
+        mic.compressed = options.onCompressed ?? null
         // The real capture starts a recorder; this stands in for it.
         void rec.record({} as MediaStream, 'audio/webm;codecs=opus', 200, () => {})
 
@@ -291,14 +299,14 @@ describe('sending the audio compressed', () => {
     expect(call.state).toBe('live')
     // The browser said what it would send, so the far end knows not to read
     // the binary frames as samples.
-    expect(compressed).not.toBeNull()
+    expect(mic.compressed).not.toBeNull()
 
     // The header, then a turn's worth of speech, then silence to end it.
-    compressed?.(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]).buffer, true)
+    mic.compressed?.(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]).buffer, true)
     const loud = Int16Array.from({ length: 320 }, (_, at) => (at % 2 ? 9000 : -9000))
-    for (let elapsed = 0; elapsed < 600; elapsed += 20) frame?.(loud)
-    compressed?.(new Uint8Array([1, 2, 3, 4]).buffer, false)
-    for (let elapsed = 0; elapsed < 900; elapsed += 20) frame?.(new Int16Array(320))
+    for (let elapsed = 0; elapsed < 600; elapsed += 20) mic.frame?.(loud)
+    mic.compressed?.(new Uint8Array([1, 2, 3, 4]).buffer, false)
+    for (let elapsed = 0; elapsed < 900; elapsed += 20) mic.frame?.(new Int16Array(320))
     await settle(5)
 
     expect(heard).toHaveLength(1)
@@ -324,16 +332,21 @@ describe('sending the audio compressed', () => {
       },
     }
 
-    let frame: ((samples: Int16Array) => void) | null = null
-    let compressed: ((chunk: ArrayBuffer, first: boolean) => void) | null = null
+    // Held on an object rather than in a `let`: these are handed over inside
+    // the microphone callback, which the compiler cannot see running, so a
+    // plain variable stays narrowed to null for the rest of the test.
+    const mic: { frame: ((samples: Int16Array) => void) | null; compressed: ((chunk: ArrayBuffer, first: boolean) => void) | null } = {
+      frame: null,
+      compressed: null,
+    }
 
     const call = createHostedCall({
       endpoint: '/api/voice/call',
       conversationId: () => 'c_only',
       connect: () => client,
       microphone: async (options) => {
-        frame = options.onFrame
-        compressed = options.onCompressed ?? null
+        mic.frame = options.onFrame
+        mic.compressed = options.onCompressed ?? null
 
         return { stop: async () => {} }
       },
@@ -351,11 +364,11 @@ describe('sending the audio compressed', () => {
     client.onopen?.({})
     await settle()
 
-    for (let i = 0; i < 10; i++) frame?.(new Int16Array(320))
+    for (let i = 0; i < 10; i++) mic.frame?.(new Int16Array(320))
     await settle()
 
     expect(binary).toHaveLength(0)
-    compressed?.(new Uint8Array([9]).buffer, true)
+    mic.compressed?.(new Uint8Array([9]).buffer, true)
     await settle()
     expect(binary).toHaveLength(1)
     restore()
