@@ -97,7 +97,7 @@ export async function translateQuery(question: string, options: TranslateQueryOp
       temperature: 0,
       // Enough for a question, not enough for the model to start explaining.
       maxOutputTokens: 200,
-      system:
+      instructions:
         `Translate the user's message into ${options.indexLanguage}. ` +
         'Reply with the translation and nothing else: no quotes, no notes, no explanation. ' +
         'Keep names, order numbers and product names exactly as written.',

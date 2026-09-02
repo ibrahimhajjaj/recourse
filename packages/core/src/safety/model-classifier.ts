@@ -142,7 +142,7 @@ export function modelClassifier(options: ModelClassifierOptions) {
         // essay about its reasoning instead. With the scratchpad on, the essay
         // is the point, so the budget has to cover it and the answer.
         maxOutputTokens: options.maxOutputTokens ?? (reasoning ? 256 : 12),
-        system: instructions,
+        instructions: instructions,
         messages: [
           {
             role: 'user',

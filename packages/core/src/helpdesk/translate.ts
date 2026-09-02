@@ -115,7 +115,7 @@ export async function detectAndTranslate(
       // Zero, because a translation that varies between runs is a translation
       // nobody can check.
       temperature: 0,
-      system: [
+      instructions: [
         'You are a translation service inside a support system.',
         `Translate the message into ${options.target}.`,
         '',
