@@ -112,8 +112,32 @@ const el = (tag, props = {}, children = []) => {
   return node
 }
 
+// The credential the page was opened with.
+//
+// A browser navigating to a URL cannot send a header, so the token arrives in
+// the query string. It is taken out of the address bar as soon as it is read:
+// the history entry stays, and that is the copy this page can do nothing
+// about, but a screenshot of the tab no longer carries it.
+const token = new URLSearchParams(location.search).get('token') || ''
+if (token) history.replaceState(null, '', location.pathname)
+
+/**
+ * Every request this page makes goes through here.
+ *
+ * One place adds the credential. Two call sites meant two chances to leave it
+ * off, and the failure is a 401 the page can only show as an empty panel.
+ */
+async function call(path, init = {}) {
+  const headers = { accept: 'application/json', ...(init.headers || {}) }
+  if (token) headers.authorization = 'Bearer ' + token
+  return fetch(base + path, { ...init, headers })
+}
+
 async function api(path) {
-  const response = await fetch(base + path, { headers: { accept: 'application/json' } })
+  const response = await call(path)
+  if (response.status === 401 && !token) {
+    throw new Error('This deployment needs a token. Open this page with ?token=... in its URL.')
+  }
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error?.message || response.statusText)
   return (await response.json()).data
 }
@@ -124,9 +148,9 @@ async function api(path) {
  */
 async function send(path, method, body) {
   try {
-    const response = await fetch(base + path, {
+    const response = await call(path, {
       method,
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      headers: { 'content-type': 'application/json' },
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
 
@@ -217,6 +241,10 @@ const views = {
 
       const asked = new URLSearchParams({ src: settings.script })
       for (const [name, value] of attributes()) asked.set(name.replace(/^data-/, ''), value)
+
+      // The frame is a navigation too, so it carries the token the same way
+      // this page received it.
+      if (token) asked.set('token', token)
 
       preview.replaceChildren(
         el('iframe', {

@@ -486,6 +486,37 @@ describe('the admin page', () => {
     expect((await handle(get('/admin'))).status).toBe(401)
     expect((await handle(get('/admin', 'secret'))).status).toBe(200)
   })
+
+  it('takes the token from the query, because a browser cannot send a header', async () => {
+    const store = memoryStore()
+    const handle = createApiHandler({ store, admin: true, tokens: ['secret'] })
+
+    expect((await handle(get('/admin?token=secret'))).status).toBe(200)
+    expect((await handle(get('/admin/preview?token=secret'))).status).toBe(200)
+    expect((await handle(get('/admin?token=wrong'))).status).toBe(401)
+  })
+
+  it('does not send the token onward as a referer', async () => {
+    const handle = createApiHandler({ store: memoryStore(), admin: true, tokens: ['secret'] })
+    const response = await handle(get('/admin?token=secret'))
+
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer')
+  })
+
+  it('reads a query token nowhere else', async () => {
+    const handle = createApiHandler({ store: memoryStore(), admin: true, tokens: ['secret'] })
+
+    // Everything but the two pages is called by script, which can set a
+    // header, so nothing else pays the cost of a credential in a URL.
+    expect((await handle(get('/conversations?token=secret'))).status).toBe(401)
+    expect((await handle(get('/stats?token=secret'))).status).toBe(401)
+  })
+
+  it('ignores a query token when no admin page is served', async () => {
+    const handle = createApiHandler({ store: memoryStore(), tokens: ['secret'] })
+
+    expect((await handle(get('/admin?token=secret'))).status).toBe(401)
+  })
 })
 
 /**

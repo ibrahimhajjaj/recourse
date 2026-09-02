@@ -205,6 +205,15 @@ queue, and knowledge sources you can add and retrain without a deploy. `admin:
 true` also serves a single self-contained page for reading yesterday's
 conversations and the ranked list of questions nobody could answer.
 
+The page is a page, so the browser cannot send the header the rest of the API
+expects. Open it with the token in the URL, `/api/admin/admin?token=...`:
+`GET /admin` and `GET /admin/preview` are the only two routes that read a
+token from the query string, and the page takes it out of the address bar as
+soon as it loads, then sends it as a header on everything it calls. Treat that
+URL as a place the token has been: it is in the operator's history and in any
+access log in front of the API, so rotate `tokens` the way you would after
+pasting one anywhere else.
+
 That page has a Widget tab: every appearance and behaviour option as a control,
 the real widget rendered beside them as a live preview, and the `<script>` tag
 to paste into your site. The preview mounts the actual build rather than a
