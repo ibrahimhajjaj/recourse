@@ -20,7 +20,7 @@ every chunk, every posting, every ranking:
 
 ```
 $ composer test
-OK (86 tests, 722 assertions)
+OK (89 tests, 727 assertions)
 ```
 
 Regenerate the fixture after touching either side:
@@ -205,6 +205,6 @@ and they are the thing that could replace this index layer entirely.
 
 ## Not in the plugin
 
-Eleven channels, voice, attachments, the safety classifier, four database stores,
+Twelve channels, voice, attachments, the safety classifier, four database stores,
 procedures and the eval harness are all in the Node core and none of them is
 planned for PHP. This is the standalone path, for a site with no Node anywhere.

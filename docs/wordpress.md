@@ -37,7 +37,7 @@ emitting one instruction twice.
 cd packages/wordpress && composer install && ./vendor/bin/phpunit
 ```
 
-86 tests, 722 assertions, and `php -l` plus PHP_CodeSniffer against the
+89 tests, 727 assertions, and `php -l` plus PHP_CodeSniffer against the
 WordPress coding standard in the same gate.
 
 ## PHP 7.4, decided from the numbers rather than by taste
@@ -81,7 +81,7 @@ misses what is written cleverly. Crisis routing in particular is regex-only
 here, which is the tier the Node core explicitly calls a recall signal rather
 than the classifier of record.
 
-Eleven channels, voice, attachments, the four database stores, procedures and
+Twelve channels, voice, attachments, the four database stores, procedures and
 the eval harness are all in the Node core and none of them is in the plugin.
 The list runs longer than those six. Nothing that reads a conversation after it
 ends is here either: the insights that give a stored thread a title, a summary
