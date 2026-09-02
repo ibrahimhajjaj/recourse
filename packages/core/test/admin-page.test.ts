@@ -314,3 +314,14 @@ describe('the admin page against the routes it is served beside', () => {
     expect(unserved.map((call) => `${call.method} ${call.path}`)).toEqual([])
   })
 })
+
+describe('backing out of an edit', () => {
+  it('offers a way out, so an abandoned edit cannot eat the correction', () => {
+    // Without this the only exit from edit mode is to submit. Somebody who
+    // clicked Edit, changed their mind and typed a different correction would
+    // overwrite the one they meant to keep and add nothing, with no warning.
+    expect(ADMIN_PAGE).toContain("textContent: 'Cancel'")
+    expect(ADMIN_PAGE).toContain('cancel.hidden = false')
+    expect(ADMIN_PAGE).toContain('const stopEditing =')
+  })
+})
