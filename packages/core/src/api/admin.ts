@@ -92,6 +92,7 @@ export const ADMIN_PAGE = `<!doctype html>
   <nav>
     <button data-view="activity" aria-current="true">Activity</button>
     <button data-view="gaps">Answer gaps</button>
+    <button data-view="outcomes">Outcomes</button>
     <button data-view="corrections">Corrections</button>
     <button data-view="tickets">Tickets</button>
     <button data-view="leads">Leads</button>
@@ -386,6 +387,56 @@ const views = {
         ]),
       ),
     )
+  },
+
+  /**
+   * Whether the conversations ended, rather than how many there were.
+   *
+   * Deflection is the number every one of these tools reports and it counts
+   * the wrong thing: somebody who gave up and went away is deflected. So the
+   * two numbers that matter here are the ones nothing else shows, and both
+   * carry the sentence that stops them being misread.
+   */
+  async outcomes() {
+    const report = await api('/outcomes')
+    const wrap = el('div')
+
+    const counts = [
+      ['Conversations read', report.conversations],
+      ['Ended and nobody came back', report.durable],
+      ['Looked answered, then they came back', report.cameBack],
+      ['Handed to a person', report.escalated],
+      ['The agent said it could not help', report.unanswered],
+      ['No contact, so not followable', report.anonymous],
+    ]
+
+    wrap.append(
+      el('div', { className: 'stats' }, counts.map(([label, value]) =>
+        el('div', { className: 'stat' }, [
+          el('b', { textContent: String(value ?? 0) }),
+          el('span', { textContent: label }),
+        ]),
+      )),
+      el('p', { className: 'muted', textContent:
+        'A conversation with no email on it cannot be linked to the next one, so "came back" is a floor and never a total.' }),
+      table(
+        ['Rated by', 'Thumbs up', 'Thumbs down'],
+        [
+          ['Agent alone', report.rated.byAgent],
+          ['A person joined', report.rated.withPerson],
+        ].map(([who, side]) =>
+          el('tr', {}, [
+            el('td', { textContent: who }),
+            el('td', { textContent: String(side.positive) }),
+            el('td', { textContent: String(side.negative) }),
+          ]),
+        ),
+      ),
+      el('p', { className: 'muted', textContent:
+        'Split on purpose. One satisfaction number mixes what the agent handled with what a person rescued, so it can hold steady while the agent gets worse.' }),
+    )
+
+    return wrap
   },
 
   /**
