@@ -524,10 +524,14 @@ class Safety {
 		$kept = array();
 
 		foreach ( $matches as $match ) {
-			$verdict = self::inspect( isset( $match['text'] ) ? $match['text'] : '' );
+			// The whole passage, exactly as the prompt will print it. Reading
+			// only the body meant reading a key the retriever does not set, so
+			// every page scored zero and nothing was ever refused.
+			$verdict = self::inspect( Prompt::passage( $match ) );
 
 			if ( $verdict['score'] >= self::THRESHOLD ) {
-				$title = isset( $match['title'] ) ? $match['title'] : '(untitled)';
+				$chunk = isset( $match['chunk'] ) && is_array( $match['chunk'] ) ? $match['chunk'] : $match;
+				$title = isset( $chunk['title'] ) ? $chunk['title'] : '(untitled)';
 
 				/**
 				 * Fires when an indexed page is refused as evidence.

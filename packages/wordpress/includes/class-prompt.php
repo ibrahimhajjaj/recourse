@@ -212,16 +212,7 @@ class Prompt {
 		$position = 1;
 
 		foreach ( $matches as $match ) {
-			$chunk   = $match['chunk'];
-			$heading = array();
-
-			foreach ( array( 'title', 'section' ) as $field ) {
-				if ( isset( $chunk[ $field ] ) && '' !== $chunk[ $field ] ) {
-					$heading[] = $chunk[ $field ];
-				}
-			}
-
-			$context[] = '[' . $position . '] ' . implode( ' > ', $heading ) . "\n" . $chunk['text'];
+			$context[] = '[' . $position . '] ' . self::passage( $match );
 			++$position;
 		}
 
@@ -229,6 +220,30 @@ class Prompt {
 		$lines[] = "Sources:\n\n" . implode( "\n\n---\n\n", $context );
 
 		return implode( "\n", $lines );
+	}
+
+	/**
+	 * One passage as the model will read it.
+	 *
+	 * Written once because two things need the same string: this builds the
+	 * prompt with it, and the screen decides on it. A heading only one of them
+	 * looks at is a field an indexed page can hide an instruction in.
+	 *
+	 * @param array<string, mixed> $retrieved A retrieved passage.
+	 * @return string
+	 */
+	public static function passage( $retrieved ) {
+		$chunk = isset( $retrieved['chunk'] ) && is_array( $retrieved['chunk'] ) ? $retrieved['chunk'] : $retrieved;
+
+		$heading = array();
+
+		foreach ( array( 'title', 'section' ) as $field ) {
+			if ( isset( $chunk[ $field ] ) && '' !== $chunk[ $field ] ) {
+				$heading[] = $chunk[ $field ];
+			}
+		}
+
+		return implode( ' > ', $heading ) . "\n" . ( isset( $chunk['text'] ) ? $chunk['text'] : '' );
 	}
 
 	/**
