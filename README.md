@@ -226,6 +226,7 @@ the thing you came for.
 | Read your tickets from Claude Desktop or your editor | [docs/automation.md](docs/automation.md#reading-it-from-inside-a-coding-agent) |
 | Let a non-developer fix a wrong answer | [docs/corrections.md](docs/corrections.md) |
 | Let a non-developer change the configuration | [docs/config-assistant.md](docs/config-assistant.md) |
+| Change how it sounds, or write a tone of your own | [tones/README.md](tones/README.md) |
 | Change what it does without forking it | [docs/hooks.md](docs/hooks.md) |
 | Serve a help centre people can search | [docs/retrieval.md](docs/retrieval.md#the-same-index-as-a-page-people-can-search) |
 | Find out whether any of it actually works | [docs/evals.md](docs/evals.md) |
