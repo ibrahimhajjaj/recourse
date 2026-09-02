@@ -101,14 +101,14 @@ describe('a widget on a linked page', () => {
 
   it('fires through createWidget by default', async () => {
     window.history.replaceState({}, '', '/?recourse_q=refunds')
-    const fetched = vi.fn(async () => new Response('', { status: 200 }))
+    const fetched = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('', { status: 200 }))
     vi.stubGlobal('fetch', fetched)
 
     createWidget({ endpoint: 'https://api.example/chat' })
     await Promise.resolve()
 
     expect(fetched).toHaveBeenCalled()
-    const body = JSON.parse(String((fetched.mock.calls[0]?.[1] as RequestInit).body)) as {
+    const body = JSON.parse(String(fetched.mock.calls[0]?.[1]?.body)) as {
       messages: Array<{ content: string }>
     }
     expect(body.messages.at(-1)?.content).toBe('refunds')

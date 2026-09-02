@@ -98,7 +98,7 @@ describe('deleting your own conversation', () => {
   })
 
   it('tells the server which conversation to forget', async () => {
-    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('confirm', () => true)
 

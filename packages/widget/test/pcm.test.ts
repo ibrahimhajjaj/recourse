@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TARGET_RATE, downsample, fromPcm16, toPcm16, toWav } from '../src/pcm.js'
+import { TARGET_RATE, downsample, fromPcm16, toPcm16 } from '../src/pcm.js'
 
 /** A sine wave, which is the only honest way to test a resampler. */
 function tone(hz: number, rate: number, ms: number): Float32Array {

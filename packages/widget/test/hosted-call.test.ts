@@ -353,14 +353,17 @@ describe('bringing your own transport', () => {
 
   it('runs a call over a data channel, which reports itself open in words', async () => {
     const wire = dataChannel()
-    let frame: ((samples: Int16Array) => void) | null = null
+    // Held on an object rather than in a `let`: it is handed over inside the
+    // microphone callback, which the compiler cannot see running, so a plain
+    // variable stays narrowed to null for the rest of the test.
+    const mic: { frame: ((samples: Int16Array) => void) | null } = { frame: null }
 
     const call = createHostedCall({
       endpoint: 'unused',
       conversationId: () => 'c_rtc',
       connect: () => wire.channel,
       microphone: async (options) => {
-        frame = options.onFrame
+        mic.frame = options.onFrame
 
         return { stop: async () => {} }
       },
@@ -380,8 +383,8 @@ describe('bringing your own transport', () => {
 
     expect(call.state).toBe('live')
 
-    frame?.(new Int16Array(320))
-    frame?.(new Int16Array(320))
+    mic.frame?.(new Int16Array(320))
+    mic.frame?.(new Int16Array(320))
     expect(wire.sent.filter((item) => typeof item !== 'string')).toHaveLength(2)
 
     // And the answer comes back the same way.
