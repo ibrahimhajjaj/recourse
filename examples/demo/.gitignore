@@ -1,0 +1,7 @@
+# Generated at build time from docs/ and public/recourse.js. Committing them
+# would let the demo drift from the repository it claims to be documenting.
+src/knowledge.json
+src/widget.js
+
+# Local state from `wrangler dev`, which is a running process's scratch space.
+.wrangler/
