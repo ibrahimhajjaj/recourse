@@ -40,6 +40,21 @@ That is the loop, and it is why a read-only page was not enough. Reading a list
 of questions the agent failed and being unable to do anything about them is
 where this page was.
 
+## Changing one you already wrote
+
+Edit it rather than removing and writing it again. `PATCH /corrections/<id>`
+with a question, an answer or both changes only what you send, and the id, the
+author and the date it was written stay as they were. The admin page has an
+**Edit** button beside **Remove** that does the same thing.
+
+The reason to prefer it: remove-then-add mints a new id, a new date and usually
+a new author, so fixing a typo quietly rewrites the record of who decided this
+and when. That record is the only reason `author` exists.
+
+`update` is the one optional method on the interface. A store that does not
+implement it answers 501 and remove-then-add still works, which is what
+everybody was doing before.
+
 ## Why it outranks your documentation
 
 A correction is put in front of the retrieved pages rather than ranked against
@@ -74,9 +89,9 @@ wrong; a growing pile of them is a sign the documentation needs editing, and
 that is the fix rather than a hundred overrides.
 
 `memoryCorrections` holds them in one process, which is wrong the moment there
-are two servers: a correction written on one would not exist on the other. It
-satisfies a three-method interface, so back it with the database you already
-have when you get there.
+are two servers: a correction written on one would not exist on the other. The
+interface is three methods and an optional fourth, so back it with the database
+you already have when you get there.
 
 A correction store that cannot be read costs the correction, never the answer.
 The customer gets what the documentation says, which is what they would have got
