@@ -9,6 +9,7 @@ import { badRequest, fail, json, notFound, ok, pageParams, readJson } from './ht
 import { ADMIN_PAGE } from './admin.js'
 import { createMcp, type McpOptions } from './mcp.js'
 import { safeEqual } from '../util/compare.js'
+import { getLogger } from '../diagnostics.js'
 
 export interface ApiOptions {
   store: Store
@@ -116,8 +117,8 @@ export function createApiHandler(options: ApiOptions) {
   // private network that is a reasonable thing to want, which is why this is a
   // warning rather than a refusal.
   if (!options.tokens?.length) {
-    console.warn(
-      '[recourse] the management API is mounted with no tokens, so anything that can reach it can ' +
+    getLogger().warn(
+      'the management API is mounted with no tokens, so anything that can reach it can ' +
         'read every conversation, lead and ticket. Pass `tokens` unless it is on a network only you can reach.',
     )
   }
@@ -665,7 +666,7 @@ export function createApiHandler(options: ApiOptions) {
       } catch (error) {
         // A log that cannot be written must not take the API down with it, and
         // refusing to answer is not the safer failure here.
-        console.error('[recourse] onAccess threw', error)
+        getLogger().error('onAccess threw', error)
       }
 
       return response
@@ -716,7 +717,7 @@ export function createApiHandler(options: ApiOptions) {
       return recorded(withCors(await matched.handler(request, matched.params), cors))
     } catch (error) {
       // The message stays server-side; a stack trace is not a client's business.
-      console.error('[recourse] api error', error)
+      getLogger().error('api error', error)
       return recorded(withCors(fail('internal_error', 'the request could not be completed', 500), cors))
     }
   }
