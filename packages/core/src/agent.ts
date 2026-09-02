@@ -16,6 +16,8 @@ import { prepareAttachments, type PrepareOptions } from './attachments-prepare.j
 import { blocks, createClassifier } from './safety/classify.js'
 import { screenInput } from './turn/screen.js'
 import { resolveContext } from './turn/context.js'
+import { recordTurn } from './turn/record.js'
+import { newId } from './util/ids.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
@@ -961,38 +963,19 @@ export function createAgent(options: AgentOptions) {
       flagged = verdict.signals
     }
 
-    // The paused half of a client-action turn says nothing; recording it would
-    // put a blank reply in the transcript above the real one.
-    const saidNothing = answered.trim().length === 0 && ran.length === 0
-
-    if (store && !saidNothing) {
-      const record: StoredMessage = {
-        id: newId('m'),
-        role: 'assistant',
-        content: answered,
-        createdAt: new Date().toISOString(),
-        sources: toSourceRefs(matches),
-        // A turn that retrieved nothing and called nothing is a content gap.
-        unanswered: matches.length === 0 && ran.length === 0,
-      }
-      if (ran.length > 0) record.actions = ran
-      // Kept so "which answers invented a number" is a query rather than an
-      // afternoon of reading transcripts.
-      if (flagged.length > 0) {
-        record.flags = flagged.map(({ category, score, reason }) => ({ category, score, reason }))
-      }
-      await store.appendMessage(conversationId, record, { channel, contact, ...placed })
-    }
-
-    if (!saidNothing) {
-      options.webhooks?.emit(matches.length === 0 ? 'conversation.unanswered' : 'conversation.answered', {
-        conversationId,
-        channel,
-        question,
-        answer: answered,
-        sources: toSourceRefs(matches),
-      })
-    }
+    await recordTurn({
+      store,
+      webhooks: options.webhooks,
+      conversationId,
+      channel,
+      contact,
+      placed,
+      question,
+      answer: answered,
+      matches,
+      ran,
+      flags: flagged,
+    })
 
     if (failure) {
       // The provider's own words go to the process log and stop there. What
@@ -1283,11 +1266,6 @@ export function citedOnly(sources: SourceRef[], text: string): SourceRef[] {
 
   const cited = sources.filter((_, position) => used.has(position))
   return cited.length > 0 ? cited : sources
-}
-
-/** Short, sortable, collision-resistant enough for a conversation id. */
-function newId(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
 }
 
 /** The shape `createAgent` returns, for anything that takes one. */
