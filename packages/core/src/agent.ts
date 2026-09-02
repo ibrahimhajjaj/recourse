@@ -23,6 +23,7 @@ import { PAUSED_MESSAGE, WAITING_MESSAGE, hasPerson, isEndCommand, isPaused, res
 import {
   buildInstructions,
   contextualQuery,
+  languageOf,
   passageText,
   retrievalQuery,
   toSourceRefs,
@@ -706,6 +707,9 @@ export function createAgent(options: AgentOptions) {
       conversation: `${said}\n${matches.map((match) => match.chunk.text).join('\n')}`,
     })
 
+    /** The language the last customer message is written in, when readable. */
+    const wroteIn = languageOf(retrievalQuery(messages))
+
     const instructionContext: InstructionOptions = {
       persona: options.persona,
       matches,
@@ -719,6 +723,10 @@ export function createAgent(options: AgentOptions) {
       }),
       clientResults: call.clientResults,
       channel,
+      // Only ever read to pick from a fallback map, so a wrong guess costs the
+      // wrong one of two sentences the deployment wrote itself, never a
+      // generated sentence and never a wrong answer.
+      ...(wroteIn ? { language: wroteIn } : {}),
       ...(prepared?.context ? { attachments: prepared.context } : {}),
       ...(prepared?.failures.length ? { unreadable: prepared.failures } : {}),
     }
