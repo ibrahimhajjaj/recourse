@@ -91,7 +91,7 @@ describe('prompt', () => {
       const occurrences = instructions.split('FALLBACK_MARKER').length - 1
       expect(occurrences).toBe(1)
 
-      const lookup = instructions.indexOf('4. Asking something you could look up')
+      const lookup = instructions.indexOf('6. Asking something you could look up')
       const fallbackAt = instructions.indexOf('FALLBACK_MARKER')
       expect(lookup).toBeGreaterThan(-1)
       expect(fallbackAt).toBeGreaterThan(lookup)
@@ -101,7 +101,7 @@ describe('prompt', () => {
       const instructions = built({
         actions: [{ name: 'look_up_order', whenToUse: 'when they ask about an order', parameters: {} }],
       })
-      const lookup = instructions.indexOf('4. Asking something you could look up')
+      const lookup = instructions.indexOf('6. Asking something you could look up')
       expect(instructions.indexOf('FALLBACK_MARKER')).toBeGreaterThan(lookup)
     })
 
@@ -111,7 +111,7 @@ describe('prompt', () => {
       expect(instructions).toContain('1. Saying hello, thank you or goodbye')
       expect(instructions).toContain('2. Asking about you')
       expect(instructions).toContain('3. Asking for something you will never do')
-      expect(instructions).toContain('4. Asking something you could look up')
+      expect(instructions).toContain('6. Asking something you could look up')
     })
 
     it('says what it is in the opening line as well as in its own branch', () => {
