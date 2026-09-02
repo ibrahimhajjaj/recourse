@@ -130,6 +130,19 @@ jobs:
       # found were in the example a reader would paste: a type imported from an
       # entry that did not export it, a required option passed conditionally,
       # and a rate limit spelled wrongly enough to be ignored entirely.
+      # The parity fixtures are generated from the TypeScript side and compared
+      # against the PHP one. Nothing regenerated them, so they only ever changed
+      # when somebody did it by hand, and a committed fixture that predates a
+      # change to the TypeScript retriever compares PHP against expectations
+      # neither side produces any more. That is not a weak check, it is a check
+      # that has stopped running while still going green: the synonym layer
+      # broke retrieval parity and three commits went by before it showed.
+      - name: the parity fixtures are current
+        run: |
+          pnpm --filter @recourse-ai/wordpress fixtures
+          git diff --exit-code --stat packages/wordpress/tests/fixtures/parity.json \
+            || (echo "::error::parity fixtures are stale; run 'pnpm --filter @recourse-ai/wordpress fixtures' and commit the result" && exit 1)
+
       - name: typecheck the examples
         run: pnpm -r --filter "./examples/*" lint
 
