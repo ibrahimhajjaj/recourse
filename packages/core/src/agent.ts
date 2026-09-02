@@ -1293,9 +1293,9 @@ function trimStop(reason: string): string {
  * that failed has no finish part and the totals are still worth having: a
  * turn can burn its input tokens and then die on the way back.
  */
-async function consumed(result: { totalUsage: PromiseLike<Usage> }): Promise<Usage> {
+async function consumed(result: { usage: PromiseLike<Usage> }): Promise<Usage> {
   try {
-    const usage = await result.totalUsage
+    const usage = await result.usage
     return { inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens }
   } catch {
     // Unmetered is better than a turn that throws while tidying up.
