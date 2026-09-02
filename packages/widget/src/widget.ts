@@ -488,34 +488,59 @@ export function createWidget(options: WidgetOptions) {
    * filter would shift every number and credit the wrong page. Deduplicate
    * after, purely so the reader does not see the same page listed twice.
    */
-  function citedOnly(refs: SourceRef[], answer: string): SourceRef[] {
+  function citedOnly(refs: SourceRef[], answer: string): { sources: SourceRef[]; citedAs: number[][] } {
     const used = new Set<number>()
     for (const match of answer.matchAll(/\[(\d{1,2})\]/g)) {
       used.add(Number.parseInt(match[1] as string, 10) - 1)
     }
 
-    // A model that cited nothing is not evidence that nothing was used.
-    const cited = used.size > 0 ? refs.filter((_, position) => used.has(position)) : refs
+    const numbered = refs.map((ref, position) => ({ ref, position }))
+    const matching = numbered.filter((entry) => used.has(entry.position))
 
-    const seen = new Set<string>()
-    const unique: SourceRef[] = []
-    for (const ref of cited) {
-      const key = `${ref.url ?? ''}|${ref.title}|${ref.section ?? ''}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      unique.push(ref)
+    // A model that cited nothing is not evidence that nothing was used, and
+    // neither is one that cited a number nothing answers to. Either way the
+    // pages are still named, just without numbers on them. Dropping them would
+    // hide where the answer came from over a mistake in how it was written.
+    const cited = matching.length > 0 ? matching : numbered
+    const numbering = matching.length > 0
+
+    const seen = new Map<string, number>()
+    const sources: SourceRef[] = []
+    const citedAs: number[][] = []
+
+    for (const entry of cited) {
+      const key = `${entry.ref.url ?? ''}|${entry.ref.title}|${entry.ref.section ?? ''}`
+      const already = seen.get(key)
+
+      // Two passages of one page collapse to one chip, and that chip carries
+      // both numbers. Dropping the second would leave a reader following [4]
+      // with nothing on screen answering to it.
+      if (already !== undefined) {
+        if (numbering) citedAs[already]?.push(entry.position + 1)
+        continue
+      }
+
+      seen.set(key, sources.length)
+      sources.push(entry.ref)
+      citedAs.push(numbering ? [entry.position + 1] : [])
     }
 
-    return unique
+    return { sources, citedAs }
   }
 
-  function paintSources(container: HTMLElement, refs: SourceRef[]) {
+  function paintSources(container: HTMLElement, refs: SourceRef[], citedAs: number[][] = []) {
     if (refs.length === 0) return
     const list = document.createElement('div')
     list.className = 'sources'
 
-    for (const ref of refs.slice(0, 4)) {
-      const label = ref.section ? `${ref.title} · ${ref.section}` : ref.title
+    for (const [position, ref] of refs.slice(0, 4).entries()) {
+      const name = ref.section ? `${ref.title} · ${ref.section}` : ref.title
+      // The number the answer used, shown rather than implied. Only the cited
+      // pages are listed, so the third of six can be the second on screen, and
+      // a bare list leaves the reader unable to tell which [n] is which.
+      // Renumbering the answer instead would mean editing what the model wrote.
+      const marks = citedAs[position] ?? []
+      const label = marks.length > 0 ? `${marks.map((mark) => `[${mark}]`).join(' ')} ${name}` : name
       // A source without a URL is still worth naming, just not linking.
       const node = document.createElement(ref.url ? 'a' : 'span')
       node.textContent = label
@@ -552,7 +577,7 @@ export function createWidget(options: WidgetOptions) {
     else wrapper.appendChild(bubble)
 
     if (message.attachments?.length) paintAttached(wrapper, message.attachments)
-    if (message.sources) paintSources(wrapper, message.sources)
+    if (message.sources) paintSources(wrapper, message.sources, message.citedAs)
     log.appendChild(wrapper)
     scrollToEnd()
     return { bubble, wrapper }
@@ -891,9 +916,11 @@ export function createWidget(options: WidgetOptions) {
     }
 
     if (answer.content.trim()) {
-      answer.sources = citedOnly(sources, answer.content)
+      const cited = citedOnly(sources, answer.content)
+      answer.sources = cited.sources
+      answer.citedAs = cited.citedAs
       state.messages.push(answer)
-      paintSources(wrapper, answer.sources)
+      paintSources(wrapper, answer.sources, answer.citedAs)
       paintFeedback(wrapper, state.messages.length - 1, answer.content)
       persist(options.endpoint, state.messages, options.persist !== false)
       emit('response', { text: answer.content, sources: answer.sources })
