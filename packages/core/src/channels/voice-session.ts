@@ -80,6 +80,13 @@ export interface CallSessionOptions {
   /** Sample rate of the audio arriving, when it is not already the target. */
   sampleRate?: number
   /**
+   * Turns of the call kept for the model. Ten by default.
+   *
+   * The whole history is sent on every turn, so this is what stops a long call
+   * costing more per answer the longer it goes on.
+   */
+  maxHistory?: number
+  /**
    * Spoken the moment the call connects, before the caller has said anything.
    *
    * Without one the caller hears silence and has no way to tell whether the
@@ -134,10 +141,35 @@ export interface CallSession {
   close(): void
 }
 
+/**
+ * How many turns of a call the model is reminded of.
+ *
+ * Ten, matching every other channel. A caller twenty minutes into a call is
+ * asking about what they said a minute ago, not twenty.
+ */
+const DEFAULT_MAX_HISTORY = 10
+
 export function createCallSession(options: CallSessionOptions): CallSession {
   const detector = createTurnDetector(options.turns)
   const rate = options.sampleRate ?? 16_000
+  const maxHistory = options.maxHistory ?? DEFAULT_MAX_HISTORY
   const history: Message[] = []
+
+  /**
+   * Keeps the call's history to its last few turns.
+   *
+   * A call is the one conversation with no natural end to its history: nobody
+   * closes a tab, they just keep talking. Every turn sends the whole thing to
+   * the model, so an unbounded array makes a half-hour call cost more per turn
+   * the longer it runs, and eventually stops fitting in the model at all.
+   *
+   * Trimmed after each push rather than sliced at the call site, so nothing has
+   * to remember to do it.
+   */
+  const remember = (message: Message): void => {
+    history.push(message)
+    if (history.length > maxHistory) history.splice(0, history.length - maxHistory)
+  }
 
   /** The current turn's audio, gathered until the caller stops. */
   let recording: Int16Array[] = []
@@ -215,7 +247,7 @@ export function createCallSession(options: CallSessionOptions): CallSession {
       if (!said || mine.signal.aborted) return
 
       options.send({ type: 'transcript', role: 'visitor', text: said })
-      history.push({ role: 'user', content: said })
+      remember({ role: 'user', content: said })
 
       // Chosen from what was actually heard rather than from a setting, so one
       // call can change language halfway through and be followed.
@@ -247,7 +279,7 @@ export function createCallSession(options: CallSessionOptions): CallSession {
       if (rest) await say(rest, mine.signal, voice)
 
       if (!mine.signal.aborted && spoken.trim()) {
-        history.push({ role: 'assistant', content: spoken.trim() })
+        remember({ role: 'assistant', content: spoken.trim() })
         options.send({ type: 'transcript', role: 'agent', text: spoken.trim() })
         options.onTurn?.({ question: said, answer: spoken.trim(), ms: Date.now() - began })
       }
@@ -358,7 +390,7 @@ export function createCallSession(options: CallSessionOptions): CallSession {
       void say(options.greeting, controller.signal)
         .then(() => {
           if (inFlight === controller) {
-            history.push({ role: 'assistant', content: options.greeting as string })
+            remember({ role: 'assistant', content: options.greeting as string })
             options.send({ type: 'transcript', role: 'agent', text: options.greeting as string })
           }
         })

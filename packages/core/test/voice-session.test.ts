@@ -450,3 +450,44 @@ describe('a call that does not arrive in English', () => {
     expect(turn.spoken.length).toBeGreaterThan(0)
   })
 })
+
+describe('a call that goes on', () => {
+  it('does not carry the whole call to the model on every turn', async () => {
+    const sent: number[] = []
+
+    const session = createCallSession({
+      agent: {
+        async *stream(_said: string, history: unknown[]) {
+          sent.push(history.length)
+          yield { type: 'delta', text: 'Yes. ' }
+        },
+      } as never,
+      transcriber: { name: 'test', transcribe: async () => ({ text: 'and another thing' }) },
+      voice: {
+        name: 'test',
+        speak: async () => ({ audio: new ArrayBuffer(8), contentType: 'audio/mpeg' }),
+      } as never,
+      sampleRate: RATE,
+      maxHistory: 4,
+      send: () => {},
+      speak: () => {},
+    })
+
+    const say = () => {
+      for (let elapsed = 0; elapsed < 600; elapsed += 20) session.push(loud())
+      for (let elapsed = 0; elapsed < 900; elapsed += 20) session.push(quiet())
+    }
+
+    for (let turn = 0; turn < 12; turn++) {
+      say()
+      await settle()
+    }
+
+    // Nobody closes a tab on a phone call, they just keep talking. Unbounded,
+    // every turn costs more than the one before it and eventually the call
+    // stops fitting in the model.
+    expect(sent.length).toBeGreaterThan(5)
+    expect(Math.max(...sent)).toBeLessThanOrEqual(4)
+    expect(session.history.length).toBeLessThanOrEqual(4)
+  })
+})
