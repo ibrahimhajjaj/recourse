@@ -23,8 +23,9 @@ export default {
 }
 ```
 
-It takes the same options as `createChatHandler`, so the persona, actions,
-procedures, rate limits and safety settings are the ones you already configured.
+It takes most of the same options as `createChatHandler`, so the persona,
+actions, procedures, rate limits and safety settings are the ones you already
+configured, and the ones this protocol cannot carry are named below.
 Run both if you want the widget as well; they build the agent the same way.
 
 Any client works. This is the official SDK, unmodified:
@@ -64,11 +65,20 @@ nowhere to put a list of what the numbers mean. Left alone, the reader gets
 bracketed digits referring to nothing, so the sources are appended under the
 answer. Set `citations: false` if the client renders its own.
 
+**Every caller on this URL is anonymous.** The protocol has no field for a
+signed visitor id, so `identity` is not an option here and no `contact` reaches
+the agent. An action that needs a verified contact will therefore refuse, which
+is the right outcome rather than a bug to work around. Authentication belongs in
+front of the URL: whatever fronts it decides who may call it, because this
+endpoint checks nothing beyond the rate limit. File uploads, per-answer
+callbacks and country analytics are not available here either, and passing those
+options is a type error rather than a silent no-op.
+
 **Only the last ten messages are read**, and each is truncated at four thousand
 characters. A client with a chat window that has been open all week will happily
 post its entire history, and every message of it would be paid for on every turn
-before eventually not fitting in the model at all. `maxHistory` changes the
-number.
+before eventually not fitting in the model at all. `maxHistory` changes how many
+messages are kept and `maxMessageLength` the cap on each one.
 
 A system message from the caller is dropped rather than obeyed. The question
 underneath it is still answered normally; what is refused is the caller
