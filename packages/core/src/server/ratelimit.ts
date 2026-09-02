@@ -62,14 +62,29 @@ export function createRateLimiter(options: RateLimitOptions = {}): (key: string)
 /**
  * Best-effort caller identity behind the usual proxy headers.
  *
- * `x-forwarded-for` is a header the client can set, so this is only
- * trustworthy behind a proxy that overwrites it rather than appending. Vercel,
- * Cloudflare and most load balancers do. Directly exposed, a caller can spoof
- * it and get a fresh budget per request, so put something in front or key on
- * an authenticated identity instead.
+ * Read in order of how hard the value is to forge:
+ *
+ * - `cf-connecting-ip`, which Cloudflare writes itself and strips from
+ *   whatever the client sent, and `x-real-ip`, which nginx and the other
+ *   single-hop proxies overwrite. Either one is a value the last proxy set,
+ *   so it is preferred whenever it is there.
+ * - failing those, the **last** entry of `x-forwarded-for`. A proxy appends
+ *   the address it saw to the end of that list, so the tail is the only hop
+ *   the client did not get to write. Reading the head instead hands a script
+ *   a fresh budget per request for the price of one made-up address.
+ *
+ * All three are still only headers, so directly exposed to the internet none
+ * of them can be trusted: put a proxy in front, or key on an authenticated
+ * identity instead. With no header at all every caller shares the `unknown`
+ * bucket, which is coarse but is what an unproxied deployment already got.
  */
 export function callerKey(request: Request): string {
+  const platform = request.headers.get('cf-connecting-ip') ?? request.headers.get('x-real-ip')
+  if (platform?.trim()) return platform.trim()
+
   const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return (forwarded.split(',')[0] ?? '').trim() || 'unknown'
-  return request.headers.get('x-real-ip') ?? 'unknown'
+  if (!forwarded) return 'unknown'
+
+  const hops = forwarded.split(',').map((hop) => hop.trim()).filter(Boolean)
+  return hops[hops.length - 1] ?? 'unknown'
 }
