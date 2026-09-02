@@ -85,6 +85,15 @@ export interface AccessEvent {
 }
 
 /**
+ * The paths a person reaches by typing them.
+ *
+ * Everything else here is called by script, which can set a header. These two
+ * are documents the browser fetches by navigating, and a navigation carries no
+ * headers of its own, so the only credential they can present is in the URL.
+ */
+const ADMIN_PAGES = new Set(['/admin', '/admin/preview'])
+
+/**
  * The management API: everything the widget does not do.
  *
  * Reading transcripts, finding the questions nobody could answer, working the
@@ -143,6 +152,9 @@ export function createApiHandler(options: ApiOptions) {
           'Content-Type': 'text/html; charset=utf-8',
           // The page is inline script only, so nothing else needs loading.
           'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",
+          // The page may have been opened with the token in its URL, and a
+          // Referer would hand that to anything it links to or frames.
+          'Referrer-Policy': 'no-referrer',
         },
       }),
     )
@@ -192,6 +204,9 @@ export function createApiHandler(options: ApiOptions) {
             // Scripts from this origin, because that is the whole job here.
             // Still no third-party anything, and this page has no data on it.
             'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'",
+            // The page may have been opened with the token in its URL, and a
+            // Referer would hand that to anything it links to or frames.
+            'Referrer-Policy': 'no-referrer',
           },
         },
       )
@@ -590,7 +605,7 @@ export function createApiHandler(options: ApiOptions) {
     const cors = corsHeaders(request, options.cors)
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
-    const presented = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    let presented = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
 
     const recorded = async (response: Response): Promise<Response> => {
       if (!options.onAccess) return response
@@ -612,6 +627,17 @@ export function createApiHandler(options: ApiOptions) {
       return response
     }
 
+    const url = new URL(request.url)
+    const pathname = base && url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname
+
+    // Only these two paths, only GET, and only when the page is served at all.
+    // A token in a query string is a token in an access log and in somebody's
+    // browser history, which is the cost of the page being reachable by a
+    // person rather than by a script.
+    if (!presented && options.admin && request.method === 'GET' && ADMIN_PAGES.has(pathname)) {
+      presented = url.searchParams.get('token') ?? undefined
+    }
+
     if (options.tokens?.length) {
       // Compared the same way every signature in this library is, rather than
       // with `includes`, which stops at the first wrong character and so takes
@@ -626,9 +652,6 @@ export function createApiHandler(options: ApiOptions) {
         return recorded(withCors(fail('unauthorized', 'a valid bearer token is required', 401), cors))
       }
     }
-
-    const url = new URL(request.url)
-    const pathname = base && url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname
 
     const matched = router.match(request.method, pathname)
     if (!matched) {

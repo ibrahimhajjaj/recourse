@@ -43,6 +43,18 @@ describe('the admin page', () => {
       expect(script, `nav offers ${name} with no view behind it`).toContain(`async ${name}(`)
     }
   })
+
+  it('sends the credential from one place, so no call can forget it', () => {
+    const script = browserScript()
+
+    // One `fetch` in the whole page. Two call sites were two chances to leave
+    // the header off, and the symptom is a panel that renders empty.
+    expect(script.match(/\bfetch\(/g) ?? []).toHaveLength(1)
+    expect(script).toContain("headers.authorization = 'Bearer ' + token")
+    expect(script).toContain("new URLSearchParams(location.search).get('token')")
+    // The preview is a navigation, so it needs the token in its URL.
+    expect(script).toContain("asked.set('token', token)")
+  })
 })
 
 describe('the page a support lead actually uses', () => {
