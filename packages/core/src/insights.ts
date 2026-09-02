@@ -18,6 +18,7 @@
  */
 
 import type { LanguageModel } from 'ai'
+import { patchConversationMeta } from './store/meta.js'
 import type { Conversation, Store, StoredMessage } from './store/types.js'
 
 /** Where the answers live on the conversation, so a store needs no migration. */
@@ -60,7 +61,7 @@ export interface InsightOptions {
  * {@link summariseStale} do the expensive half later.
  */
 export async function markChanged(store: Store, conversationId: string): Promise<void> {
-  await patchMeta(store, conversationId, { [INSIGHT_KEYS.stale]: true })
+  await patchConversationMeta(store, conversationId, { [INSIGHT_KEYS.stale]: true })
 }
 
 /**
@@ -86,7 +87,7 @@ export async function summarise(
   const insight = await ask(messages, typeof previous === 'string' ? previous : undefined, options)
   if (!insight) return null
 
-  await patchMeta(options.store, conversationId, {
+  await patchConversationMeta(options.store, conversationId, {
     [INSIGHT_KEYS.title]: insight.title,
     [INSIGHT_KEYS.summary]: insight.summary,
     [INSIGHT_KEYS.mood]: insight.mood,
@@ -128,7 +129,7 @@ export async function summariseStale(
     failed++
     // Cleared however it failed, including a reply the parser refused. Leaving
     // the mark on means paying to be refused again on every sweep, for ever.
-    await patchMeta(options.store, conversation.id, { [INSIGHT_KEYS.stale]: false }).catch(() => {})
+    await patchConversationMeta(options.store, conversation.id, { [INSIGHT_KEYS.stale]: false }).catch(() => {})
   }
 
   return { done, failed }
@@ -215,13 +216,4 @@ function parse(text: string): Insight | null {
   if (!title || !summary || !mood || !MOODS.includes(mood as Mood)) return null
 
   return { title: title.slice(0, 120), summary: summary.slice(0, 400), mood: mood as Mood }
-}
-
-async function patchMeta(store: Store, conversationId: string, patch: Record<string, unknown>): Promise<void> {
-  const thread = await store.getConversation(conversationId)
-  if (!thread) return
-
-  await store.updateConversation(conversationId, {
-    meta: { ...(thread.conversation.meta ?? {}), ...patch },
-  })
 }

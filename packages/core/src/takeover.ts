@@ -13,6 +13,7 @@
  * nothing to migrate.
  */
 
+import { patchConversationMeta } from './store/meta.js'
 import type { Store } from './store/types.js'
 
 /** Where the flag lives on `Conversation.meta`. */
@@ -139,7 +140,7 @@ export async function pauseAgent(
   // escalation passes false: it has asked for somebody, not found one.
   const assigned = options.assigned ?? true
 
-  await merge(store, conversationId, {
+  await patchConversationMeta(store, conversationId, {
     [PAUSED_KEY]: true,
     [PAUSED_AT_KEY]: new Date().toISOString(),
     ...(assigned ? { [ASSIGNED_KEY]: true, [ASSIGNED_AT_KEY]: new Date().toISOString() } : {}),
@@ -184,7 +185,7 @@ export async function waitedTooLong(
  * wait measurable: the gap between these two calls is how long people queue.
  */
 export async function assignAgent(store: Store, conversationId: string, who?: string): Promise<void> {
-  await merge(store, conversationId, {
+  await patchConversationMeta(store, conversationId, {
     [PAUSED_KEY]: true,
     [ASSIGNED_KEY]: who ?? true,
     [ASSIGNED_AT_KEY]: new Date().toISOString(),
@@ -208,7 +209,7 @@ export async function resumeAgent(
   conversationId: string,
   because: EndReason = 'person-finished',
 ): Promise<void> {
-  await merge(store, conversationId, {
+  await patchConversationMeta(store, conversationId, {
     [PAUSED_KEY]: false,
     [PAUSED_AT_KEY]: undefined,
     [ASSIGNED_KEY]: undefined,
@@ -241,21 +242,4 @@ export async function endedBecause(store: Store, conversationId: string): Promis
   } catch {
     return null
   }
-}
-
-/**
- * Writes the flag without dropping whatever else is on the conversation.
- *
- * `updateConversation` replaces `meta` wholesale, so the country an earlier
- * turn recorded would go with it.
- */
-async function merge(store: Store, conversationId: string, patch: Record<string, unknown>): Promise<void> {
-  const thread = await store.getConversation(conversationId)
-  const meta = { ...(thread?.conversation.meta ?? {}), ...patch }
-
-  for (const [key, value] of Object.entries(meta)) {
-    if (value === undefined) delete meta[key]
-  }
-
-  await store.updateConversation(conversationId, { meta })
 }
