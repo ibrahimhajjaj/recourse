@@ -1,9 +1,9 @@
 import { stepCountIs, streamText, type LanguageModel } from 'ai'
 import type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame } from './types.js'
-import { actionsToTools, offeredActions } from './actions/define.js'
+import { actionsToTools } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
 import type { Channel, Store, StoredMessage } from './store/types.js'
-import { matchingProcedures, renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
+import { renderProcedures, usableProcedures } from './procedures/index.js'
 import { asMatch, correctionFor, type CorrectionStore } from './corrections.js'
 import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
@@ -15,7 +15,7 @@ import { createEmbedder } from './embed.js'
 import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
 import { blocks, createClassifier } from './safety/classify.js'
 import { screenInput } from './turn/screen.js'
-import { INPUT_RULES, runRules } from './safety/rules.js'
+import { resolveContext } from './turn/context.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
@@ -607,7 +607,14 @@ export function createAgent(options: AgentOptions) {
     // authority and never passes through the input screen at all. Anything in
     // a retrieved passage that reads as an instruction to the agent is not
     // content, whatever page it came from.
-    const matches = classifier ? withoutPoisoned(found, passageThreshold, log) : found
+    const { matches, applicable, unlocked, offered } = resolveContext({
+      messages,
+      found,
+      procedures,
+      actions,
+      passageThreshold: classifier ? passageThreshold : null,
+      logger: log,
+    })
     onMatches(matches)
 
     // Only the newest message's files. Older ones were already read into an
@@ -664,37 +671,6 @@ export function createAgent(options: AgentOptions) {
     // streamText reports provider failures to onError and ends the stream
     // cleanly, so without capturing this a dead provider looks like silence.
     let failure: string | null = null
-
-    /**
-     * The whole conversation as one string, for the two decisions that ask what
-     * it is about: which procedures are unlocked, and which actions are worth
-     * putting in front of the model this turn.
-     */
-    const said = messages.map((message) => message.content).join('\n')
-    /**
-     * The procedures this turn is about, decided once.
-     *
-     * Both the prompt and the tool set are built from this same list, because
-     * they have to agree: describing a procedure whose actions are not bound
-     * tells the model to call something it has not been given.
-     */
-    const applicable = matchingProcedures(procedures, said)
-    const unlocked = unlockedBy(applicable)
-    /**
-     * Decided from the whole conversation, so an action stays available for a
-     * flow that is halfway through and is absent from a turn that never
-     * mentioned the thing it belongs to.
-     *
-     * The retrieved passages are read as part of the conversation, because
-     * matching on the customer's words alone misses the paraphrase: "do you
-     * have this in a medium" is a stock question that contains none of the
-     * words a stock action would be described with. Whatever the retriever
-     * found is what the turn is about, in the vocabulary the business uses.
-     */
-    const offered = offeredActions(actions, {
-      unlocked,
-      conversation: `${said}\n${matches.map((match) => match.chunk.text).join('\n')}`,
-    })
 
     /** The language the last customer message is written in, when readable. */
     const wroteIn = languageOf(retrievalQuery(messages))
@@ -1245,44 +1221,6 @@ function lastBoundary(text: string): number {
     if (next === undefined || /\s/.test(next)) return index + 1
   }
   return 0
-}
-
-/**
- * Drops retrieved passages that carry instructions rather than information.
- *
- * The whole passage is inspected, heading and all, because that is what the
- * prompt will contain: a page whose title reads "ignore all previous
- * instructions" is as much an attack as one whose body does.
- *
- * The bar is high by default because a false positive here silently removes a
- * real help page from the answer, which is its own kind of failure. What
- * clears it is unambiguous: text telling the reader to ignore its
- * instructions, adopt a new role, or emit a marker.
- */
-function withoutPoisoned(matches: Match[], threshold: number, logger: Logger): Match[] {
-  const kept: Match[] = []
-
-  for (const match of matches) {
-    const { signals } = runRules(passageText(match), INPUT_RULES)
-    const worst = signals
-      .filter((signal) => signal.category === 'injection')
-      .reduce((highest, signal) => Math.max(highest, signal.score), 0)
-
-    if (worst >= threshold) {
-      // Loud on purpose. A poisoned knowledge base is something the business
-      // has to go and fix; quietly dropping the page hides an intrusion.
-      logger.warn(
-        `ignoring a retrieved passage from "${match.chunk.title}": ` +
-          `${signals.find((signal) => signal.score === worst)?.reason}. ` +
-          'Check this page for text aimed at the agent rather than the reader.',
-      )
-      continue
-    }
-
-    kept.push(match)
-  }
-
-  return kept
 }
 
 /** Reasons come from parsers that may or may not punctuate. One stop, not two. */
