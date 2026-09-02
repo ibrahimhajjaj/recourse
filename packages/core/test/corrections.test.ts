@@ -74,6 +74,22 @@ describe('matching a correction to a question', () => {
   it('ignores an empty question rather than matching everything', () => {
     expect(correctionFor('', corrections)).toBeUndefined()
   })
+
+  it('matches an edited correction by its new wording', () => {
+    // A new field on the record is the one place a match could silently start
+    // behaving differently, and the matcher reads the question either way.
+    const edited = [
+      {
+        id: '2',
+        question: 'how long do I have to return an engraved item',
+        answer: 'Engraved items can be returned within seven days.',
+        createdAt: '2026-01-01',
+        updatedAt: '2026-02-01',
+      },
+    ]
+
+    expect(correctionFor('how long do I have to return an engraved item?', edited)?.id).toBe('2')
+  })
 })
 
 describe('correcting a wrong answer without a deploy', () => {
@@ -196,5 +212,90 @@ describe('correcting an answer over the management API', () => {
 
     expect(response.status).toBe(501)
     expect(((await response.json()) as any).error.code).toBe('not_configured')
+  })
+
+  it('edits one in place, keeping its id and its author', async () => {
+    const { memoryCorrections } = await import('../src/corrections.js')
+    const handler = await api(memoryCorrections())
+
+    const saved = ((await (
+      await call(handler, 'POST', '/corrections', {
+        question: 'how do I get a refund?',
+        answer: 'Refunds now take 14 days.',
+        author: 'sam@shop.example',
+      })
+    ).json()) as any).data
+
+    const response = await call(handler, 'PATCH', `/corrections/${saved.id}`, { answer: 'Refunds take 21 days.' })
+    expect(response.status).toBe(200)
+
+    const edited = ((await response.json()) as any).data
+
+    // The whole point: the record of who decided this and when survives the
+    // act of fixing what they wrote.
+    expect(edited.id).toBe(saved.id)
+    expect(edited.author).toBe('sam@shop.example')
+    expect(edited.createdAt).toBe(saved.createdAt)
+    expect(edited.answer).toBe('Refunds take 21 days.')
+    expect(edited.question).toBe('how do I get a refund?')
+
+    // One correction, not the two remove-then-add would have left behind.
+    const listed = (await (await call(handler, 'GET', '/corrections')).json()) as any
+    expect(listed.data).toHaveLength(1)
+  })
+
+  it('sets updatedAt only once it has been edited', async () => {
+    const { memoryCorrections } = await import('../src/corrections.js')
+    const handler = await api(memoryCorrections())
+
+    const saved = ((await (
+      await call(handler, 'POST', '/corrections', { question: 'where is my order?', answer: 'Check the tracking link.' })
+    ).json()) as any).data
+
+    expect(saved.updatedAt).toBeUndefined()
+
+    const edited = ((await (
+      await call(handler, 'PATCH', `/corrections/${saved.id}`, { answer: 'Check the dispatch email.' })
+    ).json()) as any).data
+
+    expect(typeof edited.updatedAt).toBe('string')
+  })
+
+  it('refuses a change that would blank a field', async () => {
+    const { memoryCorrections } = await import('../src/corrections.js')
+    const handler = await api(memoryCorrections())
+
+    const saved = ((await (
+      await call(handler, 'POST', '/corrections', { question: 'where is my order?', answer: 'Check the tracking link.' })
+    ).json()) as any).data
+
+    // An empty answer replaces one that was at least wrong in a useful
+    // direction, and an empty body asks for nothing at all.
+    expect((await call(handler, 'PATCH', `/corrections/${saved.id}`, { answer: '  ' })).status).toBe(400)
+    expect((await call(handler, 'PATCH', `/corrections/${saved.id}`, {})).status).toBe(400)
+  })
+
+  it('404s an edit to a correction that is not there', async () => {
+    const { memoryCorrections } = await import('../src/corrections.js')
+    const handler = await api(memoryCorrections())
+
+    expect((await call(handler, 'PATCH', '/corrections/cor_nope', { answer: 'Anything.' })).status).toBe(404)
+  })
+
+  it('says plainly when the store cannot edit', async () => {
+    // The interface publishes `update` as optional, so a store written against
+    // its own database is free not to have one. Which of the two problems it
+    // is matters: the correction exists, the editing does not.
+    const cannotEdit = {
+      list: async () => [],
+      add: async (correction: unknown) => ({ ...(correction as object), id: 'cor_1', createdAt: '2026-01-01' }),
+      remove: async () => true,
+    }
+
+    const handler = await api(cannotEdit as never)
+    const response = await call(handler, 'PATCH', '/corrections/cor_1', { answer: 'Anything.' })
+
+    expect(response.status).toBe(501)
+    expect(((await response.json()) as any).error.code).toBe('not_supported')
   })
 })
