@@ -92,9 +92,6 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.40
         version: 3.0.40(zod@4.5.1)
-      '@clack/prompts':
-        specifier: ^1.7.0
-        version: 1.7.0
     devDependencies:
       '@firecrawl/anydoc':
         specifier: ^0.2.4
@@ -117,6 +114,10 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.1)(happy-dom@20.11.13)(jsdom@30.0.1)(tsx@4.23.12)
+    optionalDependencies:
+      '@clack/prompts':
+        specifier: ^1.7.0
+        version: 1.7.0
 
   packages/evals:
     dependencies:
@@ -2088,6 +2089,7 @@ snapshots:
     dependencies:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+    optional: true
 
   '@clack/prompts@1.7.0':
     dependencies:
@@ -2095,6 +2097,7 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+    optional: true
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
@@ -2978,15 +2981,18 @@ snapshots:
 
   expect-type@1.4.0: {}
 
-  fast-string-truncated-width@3.0.3: {}
+  fast-string-truncated-width@3.0.3:
+    optional: true
 
   fast-string-width@3.0.2:
     dependencies:
       fast-string-truncated-width: 3.0.3
+    optional: true
 
   fast-wrap-ansi@0.2.2:
     dependencies:
       fast-string-width: 3.0.2
+    optional: true
 
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
@@ -3360,7 +3366,8 @@ snapshots:
 
   siginfo@2.0.0: {}
 
-  sisteransi@1.0.5: {}
+  sisteransi@1.0.5:
+    optional: true
 
   source-map-js@1.2.1: {}
 
