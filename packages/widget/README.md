@@ -1,7 +1,8 @@
 # @recourse-ai/widget
 
 The embeddable chat UI for [recourse](https://github.com/ibrahimhajjaj/recourse).
-15KB minified, no dependencies, isolated in a shadow root.
+17KB over the wire (53KB minified, gzipped by any CDN), no dependencies,
+isolated in a shadow root.
 
 ```html
 <script
