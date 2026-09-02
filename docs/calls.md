@@ -30,6 +30,31 @@ Drop `data-call-transport` and the vendor carries it instead. Everything else
 is the same, because both satisfy the same interface and the widget does not
 know which one is running.
 
+
+## Naming the pieces
+
+When you run the call yourself, three things get passed in and this is what they
+are called:
+
+```ts
+import {
+  attachCall,
+  elevenLabsVoice,
+  elevenLabsTranscriber,
+  openAiCompatibleTranscriber,
+} from '@recourse-ai/core/channels'
+```
+
+`elevenLabsVoice` needs an `apiKey` and a `voiceId`. Both, not one: the voice id
+goes straight into the request URL and there is no sensible default, so leaving
+it out builds a request to `/text-to-speech/undefined` that fails on the call
+rather than at startup.
+
+`elevenLabsTranscriber` and `openAiCompatibleTranscriber` are the two ways in.
+The second takes any OpenAI-shaped host, so one key covers both halves if your
+provider offers a transcription model and a speech model.
+
+
 ## Which one
 
 Take the vendor path if you are taking a handful of calls a day and want it

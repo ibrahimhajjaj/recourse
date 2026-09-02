@@ -25,7 +25,18 @@ export const POST = uploadRoute({ blobs, secret: process.env.UPLOAD_SECRET! })
 Then hand the chat handler the same two things, and a message can carry
 `{ name, mimeType, key, token }` instead of the bytes:
 
+```
+
+Four adapters, and `s3Blobs` is only the one that suits a bucket you already
+have. On Cloudflare use `r2Blobs`, which takes the R2 binding directly and is
+what the Worker example runs; `r2S3Blobs` is for reaching R2 over the S3 API
+from somewhere else. `memoryBlobs` holds them in the process, which is right for
+a test and wrong for anything with two servers.
+
 ```ts
+import { r2Blobs, r2S3Blobs, memoryBlobs } from '@recourse-ai/core/storage'
+```
+ts
 import { createChatHandler } from '@recourse-ai/core/server'
 
 createChatHandler({ index, storage: { blobs, secret: process.env.UPLOAD_SECRET! } })
