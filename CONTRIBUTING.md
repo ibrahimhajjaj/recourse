@@ -59,12 +59,17 @@ fix. Send those straight in.
 
 ```sh
 pnpm install
-pnpm verify        # build, then lint, then test. What CI runs.
+pnpm verify        # build, then lint, then test. The loop while you work.
+pnpm verify:ci     # the same, plus the examples, the Worker bundle and the parity fixtures.
 ```
 
 Build before lint. The store adapters lint by typechecking against core's
 generated declarations, so linting a fresh checkout first reports a pile of
 errors from a `dist` that does not exist yet.
+
+Two gates stay on CI because they need something a checkout does not have: the
+PHP suite, which runs on 7.4 and 8.3, and the retrieval evals. A pull request
+that passes `pnpm verify:ci` can still fail on those two.
 
 Per package while you work:
 
