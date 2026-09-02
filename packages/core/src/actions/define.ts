@@ -4,6 +4,7 @@ import { redact, shrink, type ShrinkOptions } from './shrink.js'
 import { mentions } from '../relevance.js'
 import { runRules } from '../safety/rules.js'
 import { INPUT_RULES } from '../safety/index.js'
+import { getLogger } from '../diagnostics.js'
 
 /**
  * Declares an action. This is deliberately a thin identity function: it exists
@@ -143,7 +144,7 @@ function summarise(action: Action, input: ActionInput): string {
     const label = action.summarise(input)
     return typeof label === 'string' ? label.slice(0, 120) : ''
   } catch (error) {
-    console.error(`[recourse] the summary for "${action.name}" threw:`, error)
+    getLogger().error(`the summary for "${action.name}" threw:`, error)
     return ''
   }
 }
@@ -260,14 +261,14 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
               calls.set(signature, seen + 1)
 
               if (repeatLimit > 0 && seen >= repeatLimit) {
-                console.warn(`[recourse] "${action.name}" called ${seen + 1} times with the same input; refusing to run it again.`)
+                getLogger().warn(`"${action.name}" called ${seen + 1} times with the same input; refusing to run it again.`)
                 return { ok: false, error: STOP_REPEATING }
               }
 
               const failed = failures.get(action.name) ?? 0
 
               if (failureLimit > 0 && failed >= failureLimit) {
-                console.warn(`[recourse] "${action.name}" has failed ${failed} times this turn; refusing to run it again.`)
+                getLogger().warn(`"${action.name}" has failed ${failed} times this turn; refusing to run it again.`)
                 return { ok: false, error: STOP_GUESSING }
               }
 
@@ -310,8 +311,8 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                   // remove an instruction from a record and be sure what is
                   // left is the truth, and a lookup that failed loudly is a
                   // better outcome than one that quietly obeyed a customer.
-                  console.warn(
-                    `[recourse] "${action.name}" returned something that reads as an instruction (${planted}); ` +
+                  getLogger().warn(
+                    `"${action.name}" returned something that reads as an instruction (${planted}); ` +
                       'withholding it. A customer-supplied field is the usual source.',
                   )
                   failures.set(action.name, failed + 1)

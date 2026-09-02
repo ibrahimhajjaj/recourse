@@ -1,6 +1,7 @@
 import { defineAction } from '../define.js'
 import type { Action } from '../types.js'
 import { fetchWithRetry } from '../../util/http.js'
+import { getLogger } from '../../diagnostics.js'
 
 /**
  * Commerce lookups.
@@ -45,7 +46,7 @@ export function stripeBilling(options: StripeOptions): Action {
         { signal, attempts: 2 },
       )
     } catch (error) {
-      console.error('[recourse] stripe request failed', error)
+      getLogger().error('stripe request failed', error)
       throw new Error('Stripe lookup failed')
     }
 
@@ -171,7 +172,7 @@ export function shopifyOrders(options: ShopifyOptions): Action {
       } catch (error) {
         // The query string carries the customer's email; keep it out of the
         // message the model sees.
-        console.error('[recourse] shopify request failed', error)
+        getLogger().error('shopify request failed', error)
         throw new Error('Shopify lookup failed')
       }
 
