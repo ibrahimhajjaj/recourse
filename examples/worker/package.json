@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@recourse-ai/core": "workspace:*",
-    "ai": "^7.0.84"
+    "ai": "^7.0.91"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
