@@ -249,3 +249,17 @@ describe('every command the cli dispatches', () => {
     expect(out.join('')).toContain('data-endpoint="/api/chat"')
   })
 })
+
+describe('a retrieved passage in the terminal', () => {
+  it('is only given three dots when it was actually cut', async () => {
+    // It used to get them unconditionally, so a passage that already fitted
+    // ended in four dots and read as though the text kept going.
+    const { excerpt } = await import('../src/cli/main.js')
+
+    expect(excerpt('Refunds land back within five working days.')).toBe(
+      'Refunds land back within five working days.',
+    )
+    expect(excerpt('x'.repeat(400))).toBe(`${'x'.repeat(300)}...`)
+    expect(excerpt('a  b\n\nc')).toBe('a b c')
+  })
+})
