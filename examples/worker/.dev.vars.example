@@ -1,0 +1,28 @@
+# Copy to .dev.vars and edit. Every value here is a placeholder.
+# .dev.vars is git-ignored; this file is not, so keep real keys out of it.
+
+# The model. Set the pair, or set RECOURSE_MODEL alone for the AI Gateway.
+OPENAI_COMPATIBLE_BASE_URL = "http://localhost:11434/v1"
+OPENAI_COMPATIBLE_MODEL = "qwen3:4b"
+OPENAI_COMPATIBLE_API_KEY = "ollama"
+RECOURSE_MODEL = "openai/gpt-4o-mini"
+
+# Attachments. The bucket is the ATTACHMENTS binding in wrangler.jsonc,
+# not a value here. This signs the keys the upload route hands out.
+RECOURSE_UPLOAD_SECRET = "any-long-random-string"
+
+# Transcription. Without a base URL, /api/voice/call answers 503.
+TRANSCRIBE_BASE_URL = "http://localhost:8000/v1"
+TRANSCRIBE_API_KEY = "sk-placeholder"
+TRANSCRIBE_MODEL = "whisper-1"
+
+# Speech, one of the two blocks below. The compatible one is tried first.
+SPEAK_BASE_URL = "http://localhost:8000/v1"
+SPEAK_API_KEY = "sk-placeholder"
+SPEAK_MODEL = "tts-1"
+SPEAK_VOICE = "alloy"
+SPEAK_FORMAT = "mp3"
+
+# ElevenLabs instead. Both, since the voice id goes into the request URL.
+ELEVENLABS_API_KEY = "sk-placeholder"
+ELEVENLABS_VOICE_ID = "a-voice-id-here"
