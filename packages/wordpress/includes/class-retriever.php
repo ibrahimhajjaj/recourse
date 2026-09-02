@@ -85,7 +85,19 @@ class Retriever {
 
 		$candidates = $top_k * self::CANDIDATE_MULTIPLIER;
 		$keyword    = isset( $index['keyword'] ) ? $index['keyword'] : array();
-		$hits       = Bm25::search( $keyword, $query, $candidates );
+
+		/**
+		 * Filters the synonym groups used to widen a question.
+		 *
+		 * For the vocabulary no library can know, which is mostly a shop's own:
+		 * `array( array( 'trainers', 'sneakers' ) )`. Return false to switch the
+		 * built-in English set off.
+		 *
+		 * @param array<int, array<int, string>>|false $extra Extra groups.
+		 */
+		$extra = apply_filters( 'recourse_synonyms', array() );
+
+		$hits = Bm25::search( $keyword, Synonyms::expand( $query, $extra ), $candidates );
 
 		if ( empty( $hits ) ) {
 			return array();

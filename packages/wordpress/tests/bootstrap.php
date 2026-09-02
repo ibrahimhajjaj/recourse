@@ -141,6 +141,7 @@ function get_option( $name, $fallback = false ) { // phpcs:ignore WordPress.Nami
 $recourse_testable = array(
 	'safety',
 	'tokenizer',
+	'synonyms',
 	'relevance',
 	'bm25',
 	'chunker',
