@@ -11,7 +11,16 @@
  */
 import { build } from 'esbuild'
 
-const LIMIT_KB = 200
+/**
+ * The budget is on code, not on this example's own data.
+ *
+ * `knowledge.json` is the index built from this repository's documentation, so
+ * it grows whenever somebody writes a paragraph. Counting it made the guard
+ * fail for writing docs, which is not what it is watching for, and it did:
+ * the total crossed 200 KB on a day nobody touched the serving path.
+ */
+const LIMIT_KB = 175
+const DATA = 'src/knowledge.json'
 
 const result = await build({
   entryPoints: ['src/index.ts'],
@@ -28,7 +37,10 @@ const result = await build({
 })
 
 const output = result.outputFiles[0]
-const kilobytes = output.contents.byteLength / 1024
+const bundled = Object.entries(result.metafile.outputs)[0]?.[1].inputs ?? {}
+const dataBytes = bundled[DATA]?.bytesInOutput ?? 0
+const kilobytes = (output.contents.byteLength - dataBytes) / 1024
+const dataKilobytes = dataBytes / 1024
 
 const nodeImports = Object.keys(result.metafile.inputs).filter((file) => file.startsWith('node:'))
 
@@ -39,8 +51,9 @@ if (nodeImports.length > 0) {
 }
 
 if (kilobytes > LIMIT_KB) {
-  console.error(`\nBundle is ${kilobytes.toFixed(1)} KB, over the ${LIMIT_KB} KB budget.`)
+  console.error(`\nCode in the bundle is ${kilobytes.toFixed(1)} KB, over the ${LIMIT_KB} KB budget.`)
+  console.error(`The index adds ${dataKilobytes.toFixed(1)} KB on top and is not counted here.`)
   process.exit(1)
 }
 
-console.log(`\nWorker bundle: ${kilobytes.toFixed(1)} KB, no Node built-ins, no nodejs_compat needed.\n`)
+console.log(`\nWorker bundle: ${kilobytes.toFixed(1)} KB of code plus ${dataKilobytes.toFixed(1)} KB of index, no Node built-ins, no nodejs_compat needed.\n`)
