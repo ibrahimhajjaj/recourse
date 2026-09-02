@@ -200,6 +200,20 @@ function textIn(data: unknown, depth = 0): string {
     .join('\n')
 }
 
+/**
+ * The message from an action that reported its failure instead of throwing.
+ *
+ * `{ ok: false, error }` is the shape an action gets back from anything already
+ * written against `ActionResult`, and returning one means what a throw means.
+ */
+function reportedFailure(data: unknown): string | undefined {
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) return undefined
+
+  const reported = data as { ok?: unknown; error?: unknown }
+
+  return reported.ok === false && typeof reported.error === 'string' ? reported.error : undefined
+}
+
 export function offeredActions(
   actions: Action[],
   options: Pick<ToolBuildOptions, 'unlocked' | 'conversation'>,
@@ -271,6 +285,21 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
 
               try {
                 const data = await action.execute?.(input, options.context)
+
+                // Anything the model reads as `ok: false` counts against the
+                // limit, however it arrived. The model cannot tell a thrown
+                // failure from a reported one and retries both the same way, so
+                // an action that answers "not found" as data would otherwise be
+                // guessed at all turn for free.
+                const reported = reportedFailure(data)
+
+                if (reported) {
+                  failures.set(action.name, failed + 1)
+                  options.context.emit?.({ type: 'action', name: action.name, status: 'failed' })
+
+                  return { ok: false, error: redact(reported).slice(0, 500) }
+                }
+
                 options.context.emit?.({ type: 'action', name: action.name, status: 'done' })
 
                 const shrunk = shrink(data, options.results)
@@ -285,6 +314,7 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                     `[recourse] "${action.name}" returned something that reads as an instruction (${planted}); ` +
                       'withholding it. A customer-supplied field is the usual source.',
                   )
+                  failures.set(action.name, failed + 1)
                   options.context.emit?.({ type: 'action', name: action.name, status: 'failed' })
 
                   return { ok: false, error: WITHHELD }
