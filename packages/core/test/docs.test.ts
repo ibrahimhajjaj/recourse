@@ -137,6 +137,45 @@ describe('the examples in the documentation', () => {
     expect(invented, 'documented imports that are not exported').toEqual([])
   })
 
+  /**
+   * The stricter half, and the one that catches what the check above cannot.
+   *
+   * That one scans every source file, so a name exported from a module deep
+   * inside passes even when the entry point the documentation names does not
+   * re-export it. `planCrawl` did exactly that: exported from the crawler,
+   * documented as coming from the package, and undefined to anybody who
+   * followed the example.
+   *
+   * Needs a build, because it asks the built entry point rather than the
+   * source. Skipped rather than failed without one, since `vitest run` in a
+   * fresh checkout is a reasonable thing to do; `pnpm verify` builds first, so
+   * it runs where it matters.
+   */
+  it('import names the built entry point really exports', async () => {
+    const dist = join(here, '..', 'dist', 'index.js')
+    if (!existsSync(dist)) return
+
+    const byEntry = new Map<string, Set<string>>()
+
+    for (const { entry } of imports) {
+      if (byEntry.has(entry)) continue
+
+      const key = entry === self ? '.' : `./${entry.slice(self.length + 1)}`
+      const target = (pkg.exports as Record<string, { import?: string } | string>)[key]
+      const file = typeof target === 'string' ? target : target?.import
+      if (!file) continue
+
+      const loaded = await import(join(here, '..', file))
+      byEntry.set(entry, new Set(Object.keys(loaded)))
+    }
+
+    const missing = imports
+      .filter(({ name, entry }) => byEntry.has(entry) && !byEntry.get(entry)!.has(name))
+      .map(({ page, name, entry }) => `${page}: ${name} is not exported from ${entry}`)
+
+    expect([...new Set(missing)], 'documented imports the entry point does not export').toEqual([])
+  })
+
   // An example that cannot be pasted is an example somebody has to guess at,
   // and the thing they guess at is which of fifteen entry points it came from.
   it('show where a function comes from before calling it', () => {

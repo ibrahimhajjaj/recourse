@@ -61,6 +61,7 @@ export { tokenize } from './knowledge/tokenize.js'
 export { markdownChunker, type MarkdownChunkerOptions } from './chunk/index.js'
 export {
   websiteSource,
+  planCrawl,
   filesSource,
   textSource,
   qnaSource,
@@ -71,6 +72,8 @@ export {
 } from './sources/index.js'
 export type {
   WebsiteSourceOptions,
+  CrawlPlan,
+  PlannedPage,
   FilesSourceOptions,
   QnaPair,
   QnaSourceOptions,

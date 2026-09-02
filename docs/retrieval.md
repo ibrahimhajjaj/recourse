@@ -119,8 +119,15 @@ because "why is my page missing" is the question somebody actually has:
 ```
 
 Look at the list, add what you did not want to `--exclude`, run it again, then
-ingest. `planCrawl` is the same thing as a function, for building it into an
-admin screen.
+ingest.
+
+The same thing as a function, for building it into an admin screen:
+
+```ts
+import { planCrawl } from '@recourse-ai/core'
+
+const plan = await planCrawl({ url: 'https://shop.example', exclude: ['/legacy'] })
+```
 
 A site with no sitemap and no llms.txt says so and stops, rather than returning
 an empty list. Pages there are found by following links, and following links
