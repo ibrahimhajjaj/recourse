@@ -60,11 +60,21 @@ back inside a week. What is left is the honest success count.
 ```
 conversations 412   escalated 38   unanswered 51
 looksAnswered 323   cameBack 74    durable 249
+
+rated   by the agent  41 up / 66 down
+        with a person 58 up / 9 down
 ```
 
 `looksAnswered` is roughly what a deflection rate would report. `durable` is what
 actually happened. The gap is where the quiet failures live, and reading that
 gap over time is worth more than either number on its own.
+
+The thumbs are split by whether a person ever joined, which is the comparison
+almost nobody makes. One number would read as ninety-nine up against
+seventy-five down and look survivable. Split, the agent is losing and the team
+is absorbing it, and that is a different meeting. Only rated conversations
+appear, and people rate when they are pleased or annoyed, so read the two sides
+against each other rather than either as an absolute.
 
 It is approximate and says so. Two conversations from one person inside a week
 are treated as them coming back, which is right far more often than it is wrong

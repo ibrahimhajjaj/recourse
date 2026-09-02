@@ -10,6 +10,7 @@ interface Ended {
   at: number
   unanswered?: boolean
   ticketId?: string
+  rated?: 'positive' | 'negative'
 }
 
 /**
@@ -49,6 +50,7 @@ function had(...ended: Ended[]): Store {
             content: 'It shipped on Tuesday.',
             createdAt: conversation.createdAt,
             ...(source?.unanswered ? { unanswered: true } : {}),
+            ...(source?.rated ? { feedback: source.rated } : {}),
           },
         ],
       }
@@ -126,5 +128,32 @@ describe('whether it helped, not whether it replied', () => {
 
     expect(report.looksAnswered + report.escalated + report.unanswered).toBe(report.conversations)
     expect(report.cameBack + report.durable).toBe(report.looksAnswered)
+  })
+})
+
+describe('whether the agent is helping or intercepting', () => {
+  it('splits the thumbs by whether a person ever joined', async () => {
+    const now = Date.now()
+    const store = had(
+      { id: 'a', at: now - DAY, rated: 'positive' },
+      { id: 'b', at: now - DAY, rated: 'negative' },
+      { id: 'c', at: now - DAY, rated: 'negative' },
+      { id: 'd', at: now - DAY, ticketId: 'T-1', rated: 'positive' },
+      { id: 'e', at: now - DAY, ticketId: 'T-2', rated: 'positive' },
+    )
+
+    const report = await outcomes({ store })
+
+    // One number would read as three positive to two negative and look fine.
+    // Split, the agent is losing and the humans are carrying it.
+    expect(report.rated.byAgent).toEqual({ positive: 1, negative: 2 })
+    expect(report.rated.withPerson).toEqual({ positive: 2, negative: 0 })
+  })
+
+  it('counts nothing when nobody rated anything', async () => {
+    const report = await outcomes({ store: had({ id: 'a', at: Date.now() - DAY }) })
+
+    expect(report.rated.byAgent).toEqual({ positive: 0, negative: 0 })
+    expect(report.rated.withPerson).toEqual({ positive: 0, negative: 0 })
   })
 })

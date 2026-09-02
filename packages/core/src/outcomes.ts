@@ -41,6 +41,22 @@ export interface Outcomes {
    * next one, so `cameBack` is a floor and never a total.
    */
   anonymous: number
+  /**
+   * Thumbs, split by whether a person ever joined the conversation.
+   *
+   * The comparison nobody makes and everybody should. A single satisfaction
+   * number mixes the conversations the agent handled with the ones a person
+   * rescued, so it can hold steady while the agent gets worse and the team
+   * absorbs it. Split, it says whether the agent is helping or intercepting.
+   *
+   * Only conversations somebody rated appear here, which is a small and
+   * self-selecting group: people rate when they are pleased or annoyed. Read
+   * the two sides against each other rather than either as an absolute.
+   */
+  rated: {
+    byAgent: { positive: number; negative: number }
+    withPerson: { positive: number; negative: number }
+  }
 }
 
 export interface OutcomeOptions {
@@ -77,6 +93,7 @@ export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
     cameBack: 0,
     durable: 0,
     anonymous: 0,
+    rated: { byAgent: { positive: 0, negative: 0 }, withPerson: { positive: 0, negative: 0 } },
   }
 
   // Oldest first, so "did anybody come back" is a question about what follows.
@@ -95,12 +112,21 @@ export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
   }
 
   for (const conversation of ordered) {
+    const thread = await options.store.getConversation(conversation.id)
+
+    // Counted for every conversation, escalated or not: the split is the whole
+    // point, and skipping the escalated ones would leave only one side of it.
+    const side = conversation.ticketId ? tally.rated.withPerson : tally.rated.byAgent
+    for (const message of thread?.messages ?? []) {
+      if (message.feedback === 'positive') side.positive++
+      else if (message.feedback === 'negative') side.negative++
+    }
+
     if (conversation.ticketId) {
       tally.escalated++
       continue
     }
 
-    const thread = await options.store.getConversation(conversation.id)
     const gaveUp = (thread?.messages ?? []).some((message) => message.unanswered === true)
 
     if (gaveUp) {
