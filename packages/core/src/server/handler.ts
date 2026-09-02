@@ -14,7 +14,7 @@ import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
 import { callerKey, createRateLimiter, type RateLimiter, type RateLimitOptions } from './ratelimit.js'
 import { resolveIdentity, type IdentityClaim, type IdentityOptions } from '../identity.js'
-import type { Logger } from '../diagnostics.js'
+import { getLogger, type Logger } from '../diagnostics.js'
 
 export interface ChatHandlerOptions {
   /** The index from `recourse ingest`. Pass the imported JSON or its text. */
@@ -192,6 +192,7 @@ export function agentFor(options: ChatHandlerOptions) {
 export function createChatHandler(options: ChatHandlerOptions) {
   const maxMessageLength = options.maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH
   const maxHistory = options.maxHistory ?? DEFAULT_MAX_HISTORY
+  const log = options.logger ?? getLogger()
   // A shared limiter wins when one is given; otherwise the per-instance
   // counter, so nothing changes for anyone who configured nothing.
   const inMemory = createRateLimiter(options.rateLimit)
@@ -202,8 +203,8 @@ export function createChatHandler(options: ChatHandlerOptions) {
   // customer up or act for them: another site can then embed the widget and
   // spend this deployment's budget or drive its actions.
   if (options.cors?.allowedOrigins === undefined && (options.identity || options.actions?.length)) {
-    console.warn(
-      '[recourse] the chat endpoint accepts any origin and has identity or actions configured. ' +
+    log.warn(
+      'the chat endpoint accepts any origin and has identity or actions configured. ' +
         'Pass `cors.allowedOrigins` with the sites the widget lives on.',
     )
   }

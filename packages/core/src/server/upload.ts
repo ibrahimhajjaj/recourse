@@ -30,6 +30,7 @@ import { blobKey, type Blobs } from '../storage/blobs.js'
 import { signReference, verifyReference } from '../storage/references.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
 import { callerKey, type RateLimiter } from './ratelimit.js'
+import { getLogger } from '../diagnostics.js'
 
 export interface UploadRouteOptions {
   blobs: Blobs
@@ -127,7 +128,7 @@ export function uploadRoute(options: UploadRouteOptions) {
     try {
       await options.blobs.put(key, bytes, { mimeType: checked.mimeType, filename: checked.name })
     } catch (error) {
-      console.warn(`[recourse] upload to ${options.blobs.name} failed: ${String(error)}`)
+      getLogger().warn(`upload to ${options.blobs.name} failed: ${String(error)}`)
       return json({ error: 'could not store that file' }, 502, cors)
     }
 
@@ -193,7 +194,7 @@ export function uploadUrlRoute(options: UploadUrlRouteOptions) {
         cors,
       )
     } catch (error) {
-      console.warn(`[recourse] could not sign an upload for ${options.blobs.name}: ${String(error)}`)
+      getLogger().warn(`could not sign an upload for ${options.blobs.name}: ${String(error)}`)
       return json({ error: 'could not start that upload' }, 502, cors)
     }
   }

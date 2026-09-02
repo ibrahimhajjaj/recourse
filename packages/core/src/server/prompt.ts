@@ -1,5 +1,6 @@
 import type { Match, Message, SourceRef } from '../types.js'
 import type { Action, Contact } from '../actions/types.js'
+import { getLogger } from '../diagnostics.js'
 
 export interface PersonaOptions {
   /** What the agent calls itself. */
@@ -138,8 +139,8 @@ export function toneRules(tone: string | undefined): string[] {
   // applied, most of it is, and the missing part is invisible until somebody
   // notices the agent ignoring a rule they are certain they wrote down.
   if (written.length > MAX_TONE_RULES) {
-    console.warn(
-      `[recourse] this tone has ${written.length} rules and only the first ${MAX_TONE_RULES} are used. ` +
+    getLogger().warn(
+      `this tone has ${written.length} rules and only the first ${MAX_TONE_RULES} are used. ` +
         'A tone shapes a sentence rather than the answer, and a long one starts winning arguments ' +
         'against the rules that keep answers true. Anything that has to hold belongs in the prompt.',
     )
