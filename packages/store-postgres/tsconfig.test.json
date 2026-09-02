@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The suite reuses the store conformance tests, which live in core's
+    // `src` rather than in its published types, so the program legitimately
+    // spans two packages and `rootDir` has to reach far enough to hold both.
+    // Nothing is emitted from here, so the wider root costs nothing.
+    "rootDir": "..",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["dist"]
+}
