@@ -166,7 +166,7 @@ class Rest {
 			// Asked of the gated set, not of everything registered. Telling the
 			// model it has actions on a turn where none were offered is how it
 			// comes to promise a lookup it cannot perform.
-			Prompt::instructions( $matches, $settings['persona'], ! empty( Relevance::offered( Actions::all(), $about ) ) ),
+			Prompt::instructions( $matches, apply_filters( 'recourse_persona', $settings['persona'] ), ! empty( Relevance::offered( Actions::all(), $about ) ) ),
 			$messages,
 			$settings['model'],
 			array(

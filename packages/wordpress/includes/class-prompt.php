@@ -113,22 +113,56 @@ class Prompt {
 	}
 
 	/**
-	 * Builds the system prompt.
+	 * The one sentence to use, chosen and never generated.
 	 *
-	 * @param array<int, array<string, mixed>> $matches     Retrieved passages.
-	 * @param array<string, string>            $persona     Keys: name, business, fallback, instructions.
-	 * @param bool                             $has_actions Whether the agent has actions to reach for.
+	 * A string, or a sentence per language. The prompt tells the agent to reply
+	 * in the customer's language and then hands it one exact sentence for when
+	 * it cannot answer, and those two rules disagree. A map settles it with no
+	 * translation step, which is the point: a model asked to translate will
+	 * also improve, and an invented office hour gets into the one sentence
+	 * nobody reads before it goes out.
+	 *
+	 * Nothing matched, and the first entry wins, because that is the language
+	 * the site is written in.
+	 *
+	 * @param  string|array<string, string> $fallback A sentence, or one per language.
+	 * @param  string|null                  $language The customer's language, when known.
 	 * @return string
 	 */
-	public static function instructions( $matches, $persona = array(), $has_actions = false ) {
-		$name     = isset( $persona['name'] ) && '' !== $persona['name'] ? $persona['name'] : 'the support assistant';
-		$business = isset( $persona['business'] ) && '' !== $persona['business'] ? ' for ' . $persona['business'] : '';
+	private static function fallback_for( $fallback, $language ) {
 		// In the shopper's vocabulary rather than the site owner's. Nobody
 		// writing in has a mental model of an index, and a sentence that
 		// mentions one sounds like a machine reporting a failed lookup.
-		$fallback = isset( $persona['fallback'] ) && '' !== $persona['fallback']
-			? $persona['fallback']
-			: "I'm not sure about that one. Could you put it another way, or shall I pass you to someone on the team?";
+		$default = "I'm not sure about that one. Could you put it another way, or shall I pass you to someone on the team?";
+
+		if ( is_array( $fallback ) ) {
+			if ( empty( $fallback ) ) {
+				return $default;
+			}
+
+			if ( null !== $language && isset( $fallback[ $language ] ) && '' !== $fallback[ $language ] ) {
+				return (string) $fallback[ $language ];
+			}
+
+			return (string) reset( $fallback );
+		}
+
+		return '' !== $fallback ? (string) $fallback : $default;
+	}
+
+	/**
+	 * Builds the system prompt.
+	 *
+	 * @param array<int, array<string, mixed>> $matches     Retrieved passages.
+	 * @param array<string, mixed>             $persona     Keys: name, business, fallback, instructions.
+	 * @param bool                             $has_actions Whether the agent has actions to reach for.
+	 * @param string|null                      $language    The customer's language, when it is known.
+	 * @return string
+	 */
+	public static function instructions( $matches, $persona = array(), $has_actions = false, $language = null ) {
+		$name     = isset( $persona['name'] ) && '' !== $persona['name'] ? $persona['name'] : 'the support assistant';
+		$business = isset( $persona['business'] ) && '' !== $persona['business'] ? ' for ' . $persona['business'] : '';
+		$fallback = self::fallback_for( isset( $persona['fallback'] ) ? $persona['fallback'] : '', $language );
 
 		// A procedure rather than a list.
 		//
