@@ -14,7 +14,7 @@
  */
 
 import { createChatHandler } from '@recourse-ai/core/server'
-import { models } from '@recourse-ai/core/models'
+import { models, repairNumericContent } from '@recourse-ai/core/models'
 import type { KnowledgeIndex } from '@recourse-ai/core/agent'
 import knowledge from './knowledge.json'
 import { PAGE } from './page.js'
@@ -60,6 +60,11 @@ export default {
         baseURL: `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
         apiKey: env.CLOUDFLARE_AI_TOKEN,
         model: env.DEMO_MODEL ?? DEFAULT_MODEL,
+        // This endpoint sends a token that is valid JSON as what it parses to,
+        // so `[1]` arrives with its digit as the number 1 and the answer stops
+        // dead when the field is checked against the protocol. Repaired on the
+        // way in rather than left to break an answer about pricing.
+        fetch: repairNumericContent(),
       }),
 
       persona: {
