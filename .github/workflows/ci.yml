@@ -143,6 +143,15 @@ jobs:
           git diff --exit-code --stat packages/wordpress/tests/fixtures/parity.json \
             || (echo "::error::parity fixtures are stale; run 'pnpm --filter @recourse-ai/wordpress fixtures' and commit the result" && exit 1)
 
+      # Two of the demo's source files are generated: the knowledge base from
+      # this repository's own documentation, and the widget bundle inlined so a
+      # Worker can serve it with no disk to read from. Neither is committed, on
+      # purpose, so a fresh checkout has nothing for the typecheck below to
+      # resolve and it fails on an import rather than on anything real. Needs no
+      # credential: the index is keyword-only and the bundle is already built.
+      - name: build the demo
+        run: pnpm --filter recourse-example-demo build
+
       - name: typecheck the examples
         run: pnpm -r --filter "./examples/*" lint
 
