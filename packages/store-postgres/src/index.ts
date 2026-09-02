@@ -242,6 +242,18 @@ export function postgresStore(options: PostgresStoreOptions): Store {
       await query(`UPDATE conversations SET ${sets.join(', ')} WHERE id = $1`, values)
     },
 
+    async patchMeta(id, patch) {
+      // One statement, so two writers changing different keys cannot each read
+      // the whole object and write back over the other.
+      await query(
+        `UPDATE conversations
+            SET updated_at = $2,
+                meta = jsonb_strip_nulls(COALESCE(meta, '{}'::jsonb) || $3::jsonb)
+          WHERE id = $1`,
+        [id, new Date().toISOString(), JSON.stringify(patch)],
+      )
+    },
+
     async setFeedback(conversationId, messageId, feedback) {
       await query(
         `UPDATE messages SET feedback = $3 WHERE conversation_id = $1 AND id = $2`,

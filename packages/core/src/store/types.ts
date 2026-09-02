@@ -85,6 +85,23 @@ export interface Store {
   getConversation(id: string): Promise<{ conversation: Conversation; messages: StoredMessage[] } | null>
   listConversations(options?: ListOptions): Promise<Page<Conversation>>
   updateConversation(id: string, patch: Partial<Conversation>): Promise<void>
+  /**
+   * Changes named keys on `meta` and leaves the rest alone.
+   *
+   * Optional, because a store that does not implement it still works: the
+   * caller falls back to reading, merging and writing back. What that fallback
+   * cannot do is survive two writers. A status webhook and a sweeper running
+   * at the same moment each read the same `meta` and each write the whole
+   * thing back, so one of them loses its key. A store that can do the merge
+   * where the data lives should.
+   *
+   * A `null` value deletes the key, following JSON merge patch. `undefined`
+   * never reaches here; the helper turns it into `null` first.
+   *
+   * Does nothing when the conversation does not exist, which is what
+   * `updateConversation` does.
+   */
+  patchMeta?(id: string, patch: Record<string, unknown>): Promise<void>
   setFeedback(conversationId: string, messageId: string, feedback: 'positive' | 'negative' | null): Promise<void>
 
   saveLead(lead: Lead): Promise<void>

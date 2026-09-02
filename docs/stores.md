@@ -56,6 +56,13 @@ accepts `deleteConversation` and keeps the data has turned a legal obligation
 into a lie, and one that drops `meta` has an agent talking over the person who
 took the conversation over. The suite catches both.
 
+`patchMeta` is the one method on `Store` you may leave out. It changes named
+keys on `meta` and leaves the others alone, and a `null` value deletes a key.
+Implement it if your store can merge JSON where the data lives, because that is
+what stops a status webhook and a sweeper writing at the same moment from
+losing each other's keys. Skip it if it cannot, and the caller reads, merges
+and writes back instead.
+
 ## Reading a conversation without opening it
 
 A stored conversation is only useful if you can skim it. Finding the one that

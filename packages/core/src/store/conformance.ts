@@ -20,6 +20,7 @@
  * being the one you chose.
  */
 
+import { patchConversationMeta } from './meta.js'
 import type { Store, StoredMessage } from './types.js'
 
 /**
@@ -166,6 +167,27 @@ export function storeConformance(options: ConformanceOptions): void {
         const thread = await store.getConversation('c_merge')
         expect(thread?.conversation.meta?.aiPaused).toBe(true)
         expect(thread?.conversation.meta?.country).toBe('IE')
+      })
+
+      it('patches named metadata keys without disturbing the others', async () => {
+        const store = await make()
+        await store.appendMessage('c_patch', message(), { channel: 'web' })
+
+        // Two features that own different keys. Neither may erase the other.
+        await patchConversationMeta(store, 'c_patch', { aiPaused: true, aiPausedAt: '2026-08-31T00:00:00.000Z' })
+        await patchConversationMeta(store, 'c_patch', { insightMood: 'unhappy' })
+
+        let thread = await store.getConversation('c_patch')
+        expect(thread?.conversation.meta?.aiPaused).toBe(true)
+        expect(thread?.conversation.meta?.insightMood).toBe('unhappy')
+
+        // Null clears one key and leaves the rest.
+        await patchConversationMeta(store, 'c_patch', { aiPaused: null, aiPausedAt: null })
+
+        thread = await store.getConversation('c_patch')
+        expect(thread?.conversation.meta?.aiPaused).toBeUndefined()
+        expect(thread?.conversation.meta?.aiPausedAt).toBeUndefined()
+        expect(thread?.conversation.meta?.insightMood).toBe('unhappy')
       })
     }
 

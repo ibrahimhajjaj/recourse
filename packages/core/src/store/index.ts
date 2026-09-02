@@ -1,5 +1,6 @@
 export { memoryStore, computeStats, paginate, type MemoryStoreOptions } from './memory.js'
 export { fileStore, type FileStoreOptions } from './file.js'
+export { patchConversationMeta } from './meta.js'
 export type {
   Store,
   Conversation,

@@ -233,6 +233,21 @@ export function fileStore(options: FileStoreOptions): Store {
       await append(conversationsLog, { kind: 'conversation', id, patch } satisfies ConversationRecord)
     },
 
+    async patchMeta(id, patch) {
+      await load()
+      const existing = conversations.get(id)
+      if (!existing) return
+
+      const meta = { ...existing.meta }
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) delete meta[key]
+        else meta[key] = value
+      }
+
+      conversations.set(id, { ...existing, meta, updatedAt: new Date().toISOString() })
+      await append(conversationsLog, { kind: 'conversation', id, patch: { meta } } satisfies ConversationRecord)
+    },
+
     async setFeedback(conversationId, messageId, feedback) {
       await load()
       const message = messages.get(conversationId)?.find((entry) => entry.id === messageId)

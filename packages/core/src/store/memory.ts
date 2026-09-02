@@ -88,6 +88,19 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
       conversations.set(id, { ...existing, ...patch, id, updatedAt: new Date().toISOString() })
     },
 
+    async patchMeta(id, patch) {
+      const existing = conversations.get(id)
+      if (!existing) return
+
+      const meta = { ...existing.meta }
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) delete meta[key]
+        else meta[key] = value
+      }
+
+      conversations.set(id, { ...existing, meta, updatedAt: new Date().toISOString() })
+    },
+
     async setFeedback(conversationId, messageId, feedback) {
       const thread = messages.get(conversationId)
       const message = thread?.find((entry) => entry.id === messageId)
