@@ -123,7 +123,15 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "peerDependencies": {
-    "ai": "^7.0.84"
+    "@firecrawl/anydoc": "^0.2.4",
+    "ai": "^7.0.84",
+    "mammoth": "^1.12.2",
+    "pdfjs-dist": "^6.2.108"
+  },
+  "peerDependenciesMeta": {
+    "@firecrawl/anydoc": { "optional": true },
+    "mammoth": { "optional": true },
+    "pdfjs-dist": { "optional": true }
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
@@ -133,6 +141,7 @@
     "@firecrawl/anydoc": "^0.2.4",
     "@types/node": "^22.10.2",
     "ai": "^7.0.84",
+    "mammoth": "^1.12.2",
     "pdfjs-dist": "^6.2.108",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
