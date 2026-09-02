@@ -180,3 +180,60 @@ describe('the OpenAI-compatible endpoint', () => {
     expect(payload.error.type).toBe('rate_limit_error')
   })
 })
+
+describe('what a caller is allowed to send', () => {
+  /** A client with a long-open chat window will happily post its whole history. */
+  const many = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: `message ${index}`,
+    }))
+
+  it('keeps only the last few turns, whatever the client sends', async () => {
+    let seen: unknown[] = []
+    const model = mockModel()
+    const original = model.doStream
+    model.doStream = async (options: any) => {
+      seen = options.prompt.filter((entry: any) => entry.role !== 'system')
+      return original.call(model, options)
+    }
+
+    const handle = createOpenAiHandler({ index: await index(), model })
+    const response = await handle(post({ messages: [...many(200), { role: 'user', content: 'refund?' }] }))
+
+    expect(response.status).toBe(200)
+    // Unbounded, all two hundred are paid for on every turn and eventually stop
+    // fitting in the model at all.
+    expect(seen.length).toBeLessThanOrEqual(10)
+  })
+
+  it('respects a maxHistory of its own', async () => {
+    let seen: unknown[] = []
+    const model = mockModel()
+    const original = model.doStream
+    model.doStream = async (options: any) => {
+      seen = options.prompt.filter((entry: any) => entry.role !== 'system')
+      return original.call(model, options)
+    }
+
+    const handle = createOpenAiHandler({ index: await index(), model, maxHistory: 2 })
+    await handle(post({ messages: [...many(20), { role: 'user', content: 'refund?' }] }))
+
+    expect(seen.length).toBeLessThanOrEqual(2)
+  })
+
+  it('truncates a single enormous message rather than forwarding it', async () => {
+    let sent = ''
+    const model = mockModel()
+    const original = model.doStream
+    model.doStream = async (options: any) => {
+      sent = JSON.stringify(options.prompt)
+      return original.call(model, options)
+    }
+
+    const handle = createOpenAiHandler({ index: await index(), model })
+    await handle(post({ messages: [{ role: 'user', content: 'x'.repeat(50_000) }] }))
+
+    expect(sent).not.toContain('x'.repeat(4_100))
+  })
+})

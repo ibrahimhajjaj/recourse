@@ -54,6 +54,26 @@ interface CompletionRequest {
 const DEFAULT_SERVED = 'recourse'
 
 /**
+ * How many messages of a caller's history reach the model.
+ *
+ * The same ten the widget endpoint keeps. This one needs it more: the widget
+ * sends what it is holding, while a client here sends whatever it likes, and a
+ * chat interface that has been open all week will happily post five hundred
+ * messages. Unbounded, every one of them is paid for on every turn and a long
+ * enough conversation stops fitting in the model at all.
+ */
+const DEFAULT_MAX_HISTORY = 10
+
+/**
+ * The most of any single message that is read.
+ *
+ * A caller can put a novel in one message. Truncating is the honest response:
+ * refusing the request would break a client over something it cannot see, and
+ * sending it whole is somebody else deciding what this costs.
+ */
+const MAX_MESSAGE_LENGTH = 4000
+
+/**
  * Serves the agent at `/v1/chat/completions` and `/v1/models`.
  *
  * `/v1/models` is not decoration: a client that lists what is available calls
@@ -108,6 +128,8 @@ export function createOpenAiHandler(options: OpenAiHandlerOptions) {
     } catch (error) {
       return fail(error instanceof Error ? error.message : 'bad request', 400, cors)
     }
+
+    messages = messages.slice(-(options.maxHistory ?? DEFAULT_MAX_HISTORY))
 
     const id = `chatcmpl-${crypto.randomUUID().replace(/-/g, '')}`
     const created = seconds()
@@ -293,13 +315,14 @@ function readMessages(raw: CompletionRequest['messages']): Message[] {
 }
 
 function readContent(content: unknown): string {
-  if (typeof content === 'string') return content.trim()
+  if (typeof content === 'string') return content.trim().slice(0, MAX_MESSAGE_LENGTH)
   if (!Array.isArray(content)) return ''
 
   return content
     .map((part) => (typeof part?.text === 'string' ? part.text : ''))
     .join('')
     .trim()
+    .slice(0, MAX_MESSAGE_LENGTH)
 }
 
 /** The protocol's error shape, which clients parse rather than display raw. */

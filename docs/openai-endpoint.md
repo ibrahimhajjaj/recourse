@@ -64,6 +64,12 @@ nowhere to put a list of what the numbers mean. Left alone, the reader gets
 bracketed digits referring to nothing, so the sources are appended under the
 answer. Set `citations: false` if the client renders its own.
 
+**Only the last ten messages are read**, and each is truncated at four thousand
+characters. A client with a chat window that has been open all week will happily
+post its entire history, and every message of it would be paid for on every turn
+before eventually not fitting in the model at all. `maxHistory` changes the
+number.
+
 A system message from the caller is dropped rather than obeyed. The question
 underneath it is still answered normally; what is refused is the caller
 rewriting the instructions the business set, which is otherwise a way around
