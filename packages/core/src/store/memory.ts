@@ -2,7 +2,6 @@ import type {
   Conversation,
   Lead,
   ListOptions,
-  Page,
   Stats,
   Store,
   StoredMessage,
@@ -10,6 +9,12 @@ import type {
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
+import { paginate } from './paginate.js'
+
+// Re-exported here because the package's entry points name this module as
+// pagination's home, and moving a public name is a change to the surface
+// rather than to the layout.
+export { paginate }
 
 export interface MemoryStoreOptions {
   /** Conversations kept before the oldest are dropped. */
@@ -264,22 +269,6 @@ function matches(conversation: Conversation, options: ListOptions, thread: Store
   if (options.channel && conversation.channel !== options.channel) return false
   if (options.unansweredOnly && !thread.some((message) => message.unanswered)) return false
   return true
-}
-
-/**
- * Cursor pagination over an already-sorted list. The cursor is the last id
- * seen, so a page stays stable when new rows arrive at the front, which offset
- * pagination cannot promise.
- */
-export function paginate<T>(items: T[], options: ListOptions, idOf: (item: T) => string): Page<T> {
-  const limit = Math.min(options.limit ?? 50, 200)
-  const start = options.cursor ? items.findIndex((item) => idOf(item) === options.cursor) + 1 : 0
-  const slice = items.slice(start, start + limit)
-  const last = slice[slice.length - 1]
-  return {
-    items: slice,
-    cursor: start + slice.length < items.length && last ? idOf(last) : undefined,
-  }
 }
 
 /** Shared by every store implementation, so the numbers mean the same thing. */

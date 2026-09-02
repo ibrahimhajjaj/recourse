@@ -4,7 +4,8 @@ import type { Conversation, Lead, Store, StoredMessage } from './types.js'
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
-import { computeStats, paginate } from './memory.js'
+import { computeStats } from './memory.js'
+import { paginate } from './paginate.js'
 
 export interface FileStoreOptions {
   /** Directory for the append-only logs. Created if missing. */
