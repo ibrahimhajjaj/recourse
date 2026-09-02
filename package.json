@@ -9,7 +9,7 @@
     "lint": "pnpm -r --filter \"./packages/*\" lint",
     "example": "pnpm --filter recourse-example-nextjs dev",
     "verify": "pnpm build && pnpm lint && pnpm test",
-    "verify:ci": "pnpm verify && pnpm --filter recourse-example-demo build && pnpm -r --filter \"./examples/*\" lint && pnpm --filter recourse-example-worker check && pnpm --filter @recourse-ai/wordpress fixtures && git diff --exit-code -- packages/wordpress/tests/fixtures/parity.json"
+    "verify:ci": "pnpm verify && pnpm --filter recourse-example-demo build && pnpm -r --filter \"./examples/*\" lint && pnpm --filter recourse-example-worker check && pnpm --filter @recourse-ai/wordpress fixtures && git diff --exit-code -- packages/wordpress/tests/fixtures/parity.json && git diff --exit-code -- public/recourse.js"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
