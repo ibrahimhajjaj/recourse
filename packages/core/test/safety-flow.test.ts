@@ -705,3 +705,36 @@ describe('through the HTTP handler', () => {
     expect(decisions).toContain('refuse')
   })
 })
+
+describe('grounding an answer in what the model was shown', () => {
+  it('counts a phone number printed in a heading as grounded, not invented', async () => {
+    // The heading is part of the passage the model reads, so a number printed
+    // there is evidence like any other. Grounding on the body alone reported it
+    // as invented, and the PHP port grounds on the whole rendered passage, so
+    // the two ports disagreed about the same answer.
+    const contact: Document[] = [
+      {
+        id: 'contact',
+        title: 'Contact us',
+        url: 'https://shop.example/contact',
+        text: '# Call 020 7946 0100\n\nWe are open on weekdays and closed at the weekend.',
+      },
+    ]
+
+    const store = memoryStore()
+    const { model } = countingModel('We are open on weekdays, and you can call 020 7946 0100.')
+    const agent = createAgent({
+      index: await buildIndex({ sources: [textSource(contact)] }),
+      model,
+      embedder: false,
+      store,
+    })
+
+    await agent.answer('when are you open on weekdays?', [], { conversationId: 'c_heading' })
+
+    const found = await store.getConversation('c_heading')
+    const answer = found?.messages.find((message) => message.role === 'assistant')
+
+    expect(answer?.flags?.map((flag) => flag.category) ?? []).not.toContain('ungrounded-contact')
+  })
+})

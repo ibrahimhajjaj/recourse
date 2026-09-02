@@ -752,7 +752,11 @@ export function createAgent(options: AgentOptions) {
 
     const outputContext = {
       conversationId,
-      sources: matches.map((match) => match.chunk.text),
+      // The whole passage, headings included, because that is what the model
+      // was shown. Grounding on the body alone reports a phone number that
+      // appears in a section heading as invented, and the PHP port grounds on
+      // the rendered passage, so the two would disagree on the same answer.
+      sources: matches.map((match) => passageText(match)),
       // The customer's own words only. The agent's previous turns are in here
       // too now that channels carry history, and counting those as grounding
       // means a price it invented an hour ago is evidence for repeating it:
