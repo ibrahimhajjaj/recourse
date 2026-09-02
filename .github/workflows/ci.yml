@@ -6,6 +6,56 @@ on:
   pull_request:
 
 jobs:
+
+  # The plugin's own suite, which the Node job cannot run: it skips both phpunit
+  # and phpcs when `composer install` has not happened, and did so silently on
+  # every push. That left the parity tests off, and those are the ones holding
+  # the two tokenisers to the same output. A change to the TypeScript one could
+  # break the PHP one and still go green.
+  php:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      # Both ends of what the plugin claims to support. The floor is the one
+      # that matters: it ships to sites nobody upgrades, and the coding standard
+      # only checks the floor statically, which does not catch behaviour.
+      matrix:
+        php: ['7.4', '8.3']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # Neither is optional here, for the same reason: without them the
+          # tokeniser quietly does less. mbstring is what makes string handling
+          # character-wise rather than byte-wise, and intl is what composes
+          # accents. The plugin runs without intl on purpose, since plenty of
+          # shared hosts lack it, but the parity suite skips itself when it is
+          # missing, so a run without it checks less than it appears to.
+          extensions: mbstring, intl
+          coverage: none
+          tools: composer
+
+      - name: composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ matrix.php }}-${{ hashFiles('packages/wordpress/composer.lock') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+        working-directory: packages/wordpress
+
+      # The standard a wp.org reviewer applies, plus the 7.4 floor check.
+      - run: vendor/bin/phpcs --standard=.phpcs.xml.dist includes tests
+        working-directory: packages/wordpress
+
+      - run: vendor/bin/phpunit
+        working-directory: packages/wordpress
+
   test:
     runs-on: ubuntu-latest
 
@@ -22,6 +72,10 @@ jobs:
         env:
           POSTGRES_PASSWORD: recourse
           POSTGRES_DB: recourse
+          # Both halves, because initdb warns unless each is set and the warning
+          # names only the local one. It also stops the container trusting
+          # whoever reaches its socket, which is the better default anyway.
+          POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
         ports:
           - 5432:5432
         # Named, because bare `pg_isready` connects as the runner's own user and
