@@ -134,7 +134,9 @@
     "pdfjs-dist": { "optional": true }
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^3.0.40",
+    "@ai-sdk/openai-compatible": "^3.0.40"
+  },
+  "optionalDependencies": {
     "@clack/prompts": "^1.7.0"
   },
   "devDependencies": {
