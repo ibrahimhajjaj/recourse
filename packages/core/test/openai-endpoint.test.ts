@@ -236,4 +236,20 @@ describe('what a caller is allowed to send', () => {
 
     expect(sent).not.toContain('x'.repeat(4_100))
   })
+
+  it('respects a maxMessageLength of its own', async () => {
+    let sent = ''
+    const model = mockModel()
+    const original = model.doStream
+    model.doStream = async (options: any) => {
+      sent = JSON.stringify(options.prompt)
+      return original.call(model, options)
+    }
+
+    const handle = createOpenAiHandler({ index: await index(), model, maxMessageLength: 20 })
+    await handle(post({ messages: [{ role: 'user', content: 'x'.repeat(500) }] }))
+
+    expect(sent).not.toContain('x'.repeat(21))
+    expect(sent).toContain('x'.repeat(20))
+  })
 })
