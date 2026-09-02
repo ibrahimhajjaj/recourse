@@ -326,6 +326,43 @@ export interface Answer {
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 
 /**
+ * Whether the default model can actually be reached.
+ *
+ * The default is a bare model name, which the SDK resolves through Vercel's AI
+ * Gateway. With a credential that is a good default and needs no wiring. With
+ * none, the call fails on authentication and the customer gets an empty string
+ * and a stack of instructions about Vercel access tokens.
+ *
+ * That mattered more than it looks: `createAgent({ index })` is the first thing
+ * anybody writes, the README promises it works with no account and no key, and
+ * what it did was fail in the least explicable way available.
+ *
+ * Read defensively. There is no `process` on a Worker, and a missing key there
+ * is the normal case rather than an error.
+ */
+function gatewayReachable(): boolean {
+  try {
+    const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+
+    return Boolean(env?.AI_GATEWAY_API_KEY || env?.VERCEL_OIDC_TOKEN)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The turn when there is no model and no way to reach the default one.
+ *
+ * Not an error, and not silence. Retrieval already found the answer; what is
+ * missing is something to write it in a sentence. So the passages go back with
+ * a line saying why, which is what the CLI does and what the README promises,
+ * and the deployment can be tried before anybody signs up for anything.
+ */
+const NO_MODEL =
+  'I found this in the help pages but cannot write it up: no model is configured. ' +
+  'Pass `model` to createAgent, or set AI_GATEWAY_API_KEY.'
+
+/**
  * How sure the rules must be that a retrieved passage is an attack.
  *
  * High, because a false positive removes a real help page from an answer and
@@ -714,6 +751,20 @@ export function createAgent(options: AgentOptions) {
     // The configured model, then the cheaper one if the first will not answer
     // at all. A second entry is only ever reached from a clean failure, so the
     // usual path builds a one-element array and never looks at it again.
+    // Nothing to call, so nothing is called. The alternative is one failed
+    // request per turn, each ending in an empty answer.
+    if (!options.model && !gatewayReachable()) {
+      yield { type: 'delta', text: NO_MODEL }
+
+      for (const [position, match] of matches.entries()) {
+        yield { type: 'delta', text: `\n\n[${position + 1}] ${match.chunk.title}\n${match.chunk.text}` }
+      }
+
+      yield { type: 'done', finishReason: 'no-model' }
+
+      return
+    }
+
     const attempts: LanguageModel[] = options.fallbackModel ? [model, options.fallbackModel] : [model]
     /** Which model produced the answer, so the budget bills the right one. */
     let spoke: LanguageModel = model

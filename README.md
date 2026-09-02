@@ -57,6 +57,10 @@ Everything above it is optional and each piece is one environment variable:
 Nothing degrades to an error. Without an embedder the index is keyword-only and
 says so; without a model `ask` shows you the passages it found and says why.
 
+`createAgent({ index })` does the same: with no model configured and no
+`AI_GATEWAY_API_KEY`, it answers with the passages and a line saying what is
+missing, rather than making a request that cannot succeed.
+
 ```bash
 npx @recourse-ai/core ingest --url https://your-site.com
 ```
