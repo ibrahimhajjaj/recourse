@@ -341,6 +341,19 @@ describe('error handling', () => {
     const body = await bodyOf(response)
     expect(JSON.stringify(body)).not.toContain('srv/db.js')
   })
+
+  it('answers in its own shape when the path itself cannot be decoded', async () => {
+    const { handle } = setup()
+
+    // `%E0%A4%A` is a truncated escape. The router decodes every `:param`
+    // segment, so this throws inside the match rather than inside a handler,
+    // and before this it left the API entirely and the host framework
+    // answered with its own error page.
+    const response = await handle(get('/conversations/%E0%A4%A'))
+
+    expect(response.status).toBe(500)
+    expect((await bodyOf(response)).error.code).toBe('internal_error')
+  })
 })
 
 describe('saved views and drafts over the api', () => {

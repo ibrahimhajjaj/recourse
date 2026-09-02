@@ -627,38 +627,48 @@ export function createApiHandler(options: ApiOptions) {
       return response
     }
 
-    const url = new URL(request.url)
-    const pathname = base && url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname
-
-    // Only these two paths, only GET, and only when the page is served at all.
-    // A token in a query string is a token in an access log and in somebody's
-    // browser history, which is the cost of the page being reachable by a
-    // person rather than by a script.
-    if (!presented && options.admin && request.method === 'GET' && ADMIN_PAGES.has(pathname)) {
-      presented = url.searchParams.get('token') ?? undefined
-    }
-
-    if (options.tokens?.length) {
-      // Compared the same way every signature in this library is, rather than
-      // with `includes`, which stops at the first wrong character and so takes
-      // longer the more of the token is right. This endpoint hands back
-      // conversations, leads and tickets, so it is the last place to use a
-      // weaker comparison than the webhooks do.
-      const allowed = presented ? options.tokens.some((token) => safeEqual(token, presented)) : false
-
-      if (!allowed) {
-        // Recorded too. A refused attempt is the entry an access log exists
-        // for, and dropping it leaves a log that only ever shows success.
-        return recorded(withCors(fail('unauthorized', 'a valid bearer token is required', 401), cors))
-      }
-    }
-
-    const matched = router.match(request.method, pathname)
-    if (!matched) {
-      return recorded(withCors(fail('not_found', `no route for ${request.method} ${pathname}`, 404), cors))
-    }
-
+    // Inside the try, all of it. Matching a route decodes the path, and a
+    // truncated percent escape makes that throw; outside, the throw leaves
+    // this function entirely and whoever mounted the API answers instead of
+    // the API. A client asking for a path this cannot parse still deserves
+    // the shape every other failure here uses.
     try {
+      const url = new URL(request.url)
+      const pathname = base && url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname
+
+      // Only these two paths, only GET, and only when the page is served at all.
+      // A token in a query string is a token in an access log and in somebody's
+      // browser history, which is the cost of the page being reachable by a
+      // person rather than by a script.
+      if (!presented && options.admin && request.method === 'GET' && ADMIN_PAGES.has(pathname)) {
+        presented = url.searchParams.get('token') ?? undefined
+      }
+
+      if (options.tokens?.length) {
+        // Read into a const first: a page may now assign `presented` from the
+        // query, and a variable that can be reassigned is not narrowed inside
+        // the callback below.
+        const credential = presented
+
+        // Compared the same way every signature in this library is, rather than
+        // with `includes`, which stops at the first wrong character and so takes
+        // longer the more of the token is right. This endpoint hands back
+        // conversations, leads and tickets, so it is the last place to use a
+        // weaker comparison than the webhooks do.
+        const allowed = credential ? options.tokens.some((token) => safeEqual(token, credential)) : false
+
+        if (!allowed) {
+          // Recorded too. A refused attempt is the entry an access log exists
+          // for, and dropping it leaves a log that only ever shows success.
+          return recorded(withCors(fail('unauthorized', 'a valid bearer token is required', 401), cors))
+        }
+      }
+
+      const matched = router.match(request.method, pathname)
+      if (!matched) {
+        return recorded(withCors(fail('not_found', `no route for ${request.method} ${pathname}`, 404), cors))
+      }
+
       return recorded(withCors(await matched.handler(request, matched.params), cors))
     } catch (error) {
       // The message stays server-side; a stack trace is not a client's business.
