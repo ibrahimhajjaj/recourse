@@ -88,7 +88,7 @@ account involved at any point.
 ## 60 seconds
 
 ```bash
-npm install @recourse-ai/core
+npm install @recourse-ai/core ai
 npx @recourse-ai/core ingest --url https://your-site.com
 ```
 

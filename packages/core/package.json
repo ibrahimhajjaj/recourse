@@ -123,16 +123,16 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "peerDependencies": {
-    "ai": "^7.0.0"
+    "ai": "^7.0.84"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
-    "@clack/prompts": "^1.7.0",
-    "ai": "^7.0.84"
+    "@clack/prompts": "^1.7.0"
   },
   "devDependencies": {
     "@firecrawl/anydoc": "^0.2.4",
     "@types/node": "^22.10.2",
+    "ai": "^7.0.84",
     "pdfjs-dist": "^6.2.108",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
