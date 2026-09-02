@@ -40,8 +40,15 @@ export interface EmailOptions extends ChannelBase {
     text: string
     inReplyTo?: string
   }) => Promise<void>
-  /** Shared secret checked against a header, since providers rarely sign. */
-  secret?: { header: string; value: string }
+  /**
+   * Shared secret checked against a header, and required.
+   *
+   * Every other channel has a signature to verify. No email provider signs
+   * inbound mail, so this header is the only thing separating the provider
+   * from anyone who has found the URL. Configure the same value on the
+   * provider's webhook.
+   */
+  secret: { header: string; value: string }
 }
 
 /**
@@ -53,16 +60,24 @@ export interface EmailOptions extends ChannelBase {
  * a second conversation about the same problem.
  */
 export function emailChannel(options: EmailOptions) {
+  // At mount rather than on the first request, and thrown rather than warned,
+  // because the type cannot reach a caller writing plain JavaScript and the
+  // failure it would otherwise cause is silent.
+  if (!options.secret?.header || !options.secret?.value) {
+    throw new Error(
+      'emailChannel needs a secret: no provider signs inbound mail, so without one ' +
+        'anybody who finds the URL can send the agent questions as any customer.',
+    )
+  }
+
   const parse = options.parse ?? parseCommonEmail
 
   return async function handle(request: Request): Promise<Response> {
     if (request.method !== 'POST') return new Response('method not allowed', { status: 405 })
 
-    if (options.secret) {
-      const presented = request.headers.get(options.secret.header)
-      // No provider signs inbound mail, so this shared secret is all there is.
-      if (!safeEqual(presented ?? '', options.secret.value)) return rejected('bad secret')
-    }
+    const presented = request.headers.get(options.secret.header)
+    // No provider signs inbound mail, so this shared secret is all there is.
+    if (!safeEqual(presented ?? '', options.secret.value)) return rejected('bad secret')
 
     const contentType = request.headers.get('content-type') ?? ''
     let body: unknown
