@@ -215,6 +215,17 @@ export function d1Store(options: D1StoreOptions): Store {
       await run(`UPDATE conversations SET ${sets.join(', ')} WHERE id = ?`, values)
     },
 
+    async patchMeta(id, patch) {
+      // One statement, so two writers changing different keys cannot each read
+      // the whole object and write back over the other.
+      await run(
+        `UPDATE conversations
+            SET updated_at = ?, meta = json_patch(COALESCE(meta, '{}'), ?)
+          WHERE id = ?`,
+        [new Date().toISOString(), JSON.stringify(patch), id],
+      )
+    },
+
     async setFeedback(conversationId, messageId, feedback) {
       await run(`UPDATE messages SET feedback = ? WHERE conversation_id = ? AND id = ?`, [
         feedback,
