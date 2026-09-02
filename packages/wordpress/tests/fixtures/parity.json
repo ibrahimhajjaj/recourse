@@ -1192,6 +1192,11 @@
         "message": "I clicked https://shop.example/track?sig=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA and it failed",
         "text": "I clicked https://shop.example/track?sig=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA and it failed",
         "signals": []
+      },
+      {
+        "message": "I ordered the navy jumper in a medium on the twelfth of last month and it arrived with a torn sleeve, so I sent it back the same week using the label in the box, and I still have not seen the refund on my statement. Could somebody check where it is?",
+        "text": "I ordered the navy jumper in a medium on the twelfth of last month and it arrived with a torn sleeve, so I sent it back the same week using the label in the box, and I still have not seen the refund on my statement. Could somebody check where it is?",
+        "signals": []
       }
     ],
     "output": [
