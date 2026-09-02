@@ -193,6 +193,17 @@ export function createChatHandler(options: ChatHandlerOptions) {
   const inMemory = createRateLimiter(options.rateLimit)
   const limiter: RateLimiter = options.rateLimiter ?? { check: inMemory }
 
+  // Said once, at mount. Any origin is the right default for a FAQ answering
+  // from public pages, and the wrong one the moment the endpoint can look a
+  // customer up or act for them: another site can then embed the widget and
+  // spend this deployment's budget or drive its actions.
+  if (options.cors?.allowedOrigins === undefined && (options.identity || options.actions?.length)) {
+    console.warn(
+      '[recourse] the chat endpoint accepts any origin and has identity or actions configured. ' +
+        'Pass `cors.allowedOrigins` with the sites the widget lives on.',
+    )
+  }
+
   // All the retrieval and generation lives in the agent. This function only
   // adds what HTTP needs: method checks, CORS, rate limiting and framing.
   const agent = agentFor(options)

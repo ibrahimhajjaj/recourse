@@ -4,6 +4,7 @@ import { simulateReadableStream } from 'ai'
 import { buildIndex } from '../src/knowledge/build.js'
 import { textSource } from '../src/sources/text.js'
 import { createChatHandler } from '../src/server/handler.js'
+import { defineAction } from '../src/actions/define.js'
 import { memoryStore } from '../src/store/memory.js'
 import { createRetriever } from '../src/retrieve/retriever.js'
 import { createKnowledgeSearch, knowledgeTool } from '../src/tool.js'
@@ -272,6 +273,35 @@ describe('retriever', () => {
 })
 
 describe('chat handler', () => {
+  // Any origin is right for a public FAQ and wrong for an endpoint that can
+  // look a customer up, and nothing about the deployment says which it is.
+  it('says so out loud when actions are offered to any origin', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    createChatHandler({
+      index: await index(),
+      model: mockModel(),
+      actions: [defineAction({ name: 'look_up_order', whenToUse: 'x', execute: async () => null })],
+    })
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('any origin')
+    warn.mockRestore()
+  })
+
+  it('stays quiet with origins set, and quiet for a plain FAQ', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    createChatHandler({
+      index: await index(),
+      model: mockModel(),
+      actions: [defineAction({ name: 'look_up_order', whenToUse: 'x', execute: async () => null })],
+      cors: { allowedOrigins: ['https://shop.example'] },
+    })
+    createChatHandler({ index: await index(), model: mockModel() })
+
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('streams sources before the answer, then the answer, then done', async () => {
     const handle = createChatHandler({ index: await index(), model: mockModel() })
     const result = await frames(await handle(post({ messages: [{ role: 'user', content: 'refund policy?' }] })))
