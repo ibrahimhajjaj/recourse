@@ -218,6 +218,7 @@ the thing you came for.
 | Put it on Cloudflare, and check it before a customer does | [docs/deploying.md](docs/deploying.md) |
 | Accept a PDF or a photo of a broken part | [docs/files.md](docs/files.md) |
 | Run it on WordPress, with no build step at all | [docs/wordpress.md](docs/wordpress.md) |
+| Use it from a tool that already speaks OpenAI | [docs/openai-endpoint.md](docs/openai-endpoint.md) |
 | Embed the chat window | [packages/widget/README.md](packages/widget/README.md) |
 
 Two more worth knowing about. Every credential each channel needs, and the step

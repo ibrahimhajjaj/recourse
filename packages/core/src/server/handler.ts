@@ -155,17 +155,15 @@ const DEFAULT_MAX_HISTORY = 10
  * route handler, a Hono route, a Cloudflare Worker, Bun.serve or Deno.serve
  * with no adapter.
  */
-export function createChatHandler(options: ChatHandlerOptions) {
-  const maxMessageLength = options.maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH
-  const maxHistory = options.maxHistory ?? DEFAULT_MAX_HISTORY
-  // A shared limiter wins when one is given; otherwise the per-instance
-  // counter, so nothing changes for anyone who configured nothing.
-  const inMemory = createRateLimiter(options.rateLimit)
-  const limiter: RateLimiter = options.rateLimiter ?? { check: inMemory }
-
-  // All the retrieval and generation lives in the agent. This function only
-  // adds what HTTP needs: method checks, CORS, rate limiting and framing.
-  const agent = createAgent({
+/**
+ * Builds the agent an HTTP handler wraps.
+ *
+ * Its own function because more than one endpoint serves the same agent, and
+ * two copies of this list would drift: an option added to one and not the other
+ * behaves differently depending on which URL the request arrived at.
+ */
+export function agentFor(options: ChatHandlerOptions) {
+  return createAgent({
     index: options.index,
     model: options.model,
     persona: options.persona,
@@ -185,6 +183,19 @@ export function createChatHandler(options: ChatHandlerOptions) {
     ...(options.searchLanguage ? { searchLanguage: options.searchLanguage } : {}),
     ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
   })
+}
+
+export function createChatHandler(options: ChatHandlerOptions) {
+  const maxMessageLength = options.maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH
+  const maxHistory = options.maxHistory ?? DEFAULT_MAX_HISTORY
+  // A shared limiter wins when one is given; otherwise the per-instance
+  // counter, so nothing changes for anyone who configured nothing.
+  const inMemory = createRateLimiter(options.rateLimit)
+  const limiter: RateLimiter = options.rateLimiter ?? { check: inMemory }
+
+  // All the retrieval and generation lives in the agent. This function only
+  // adds what HTTP needs: method checks, CORS, rate limiting and framing.
+  const agent = agentFor(options)
 
   return async function handle(request: Request): Promise<Response> {
     const cors = corsHeaders(request, options.cors)

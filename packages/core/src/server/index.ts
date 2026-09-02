@@ -1,4 +1,5 @@
-export { createChatHandler, type ChatHandlerOptions, type ConversationEvent } from './handler.js'
+export { createChatHandler, agentFor, type ChatHandlerOptions, type ConversationEvent } from './handler.js'
+export { createOpenAiHandler, type OpenAiHandlerOptions } from './openai.js'
 export {
   buildInstructions,
   toSourceRefs,
