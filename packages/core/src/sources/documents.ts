@@ -107,7 +107,54 @@ export const parseDocx: DocumentParser = async (data) => {
   return result.value
 }
 
+/**
+ * The formats a business keeps things in that are not documents.
+ *
+ * A price list is a spreadsheet, an onboarding pack is a slide deck, and a
+ * handbook exported from anywhere but Word is one of the OpenDocument formats.
+ * None of them are readable by the two parsers above, and until now a folder
+ * full of them indexed as an empty knowledge base.
+ *
+ * One parser covers all of them, so it is registered once against each
+ * extension it handles. It is a compiled binary rather than JavaScript, which
+ * is why it stays optional and why PDFs and Word documents are left with the
+ * readers they already had: those run anywhere, and a knowledge base should not
+ * need a platform-specific download to read a `.docx`.
+ */
+const CONVERTED: Record<string, string> = {
+  '.pptx': 'pptx',
+  '.ppt': 'ppt',
+  '.xlsx': 'xlsx',
+  '.ods': 'ods',
+  '.odp': 'odp',
+  '.odt': 'odt',
+  '.doc': 'doc',
+  '.rtf': 'rtf',
+  '.epub': 'epub',
+  '.csv': 'csv',
+}
+
+/**
+ * Reads one of the above into markdown.
+ *
+ * The format is named rather than sniffed. Detection reads the file signature,
+ * which several of these do not have: a CSV is just text, and guessing wrong on
+ * one turns a price list into nothing.
+ */
+export function parseConverted(format: string): DocumentParser {
+  return async (data) => {
+    const anydoc = await loadParser<{
+      toMarkdownBytes(bytes: Uint8Array, format?: string | null): Promise<string>
+    }>('@firecrawl/anydoc', 'npm install @firecrawl/anydoc')
+
+    return anydoc.toMarkdownBytes(data, format)
+  }
+}
+
 export const DEFAULT_PARSERS: ParserRegistry = {
   '.pdf': parsePdf,
   '.docx': parseDocx,
+  ...Object.fromEntries(
+    Object.entries(CONVERTED).map(([extension, format]) => [extension, parseConverted(format)]),
+  ),
 }

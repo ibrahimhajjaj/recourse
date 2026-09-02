@@ -24,6 +24,42 @@ JSON as floats and about 700 bytes quantised, which is the difference between an
 index you commit to git and one that needs a database.
 
 
+## What a folder can be made of
+
+`filesSource` reads a directory into the index. Markdown and text need nothing.
+Everything else needs a reader, and they are optional packages rather than
+dependencies, because most people ingest a website and should not download a PDF
+engine to do it.
+
+| You have | Install |
+| --- | --- |
+| `.pdf` | `npm install pdfjs-dist` |
+| `.docx` | `npm install mammoth` |
+| `.pptx` `.ppt` `.xlsx` `.ods` `.odp` `.odt` `.doc` `.rtf` `.epub` `.csv` | `npm install @firecrawl/anydoc` |
+
+A missing reader says which package to install rather than throwing a module
+error, so a folder with one spreadsheet in it does not fail as a mystery.
+
+PDFs and Word files keep readers written in JavaScript on purpose. The rest go
+through a compiled binary, which is faster and covers far more, but a knowledge
+base should not need a platform-specific download to read the two formats
+everybody has.
+
+`.csv` is readable but is not scanned for by default. A folder almost always has
+a CSV in it that is data rather than documentation, and quietly indexing an
+export of every customer is a surprise nobody asked for. Name it and it is read:
+
+```ts
+import { filesSource } from '@recourse-ai/core'
+
+filesSource({ directory: './docs', extensions: ['.md', '.csv'] })
+```
+
+**A scanned PDF is photographs.** There is no text in it to extract, so it
+indexes as nothing and says so in the logs rather than leaving you with an empty
+index and an agent you think is broken. Reading one needs OCR, which is a
+decision for whoever owns the documents rather than a default.
+
 ## When the index file becomes the problem
 
 The vectors ride inside the index file by default, which is right until the

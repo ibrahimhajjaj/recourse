@@ -19,7 +19,31 @@ export interface FilesSourceOptions {
   maxBytes?: number
 }
 
-const DEFAULT_EXTENSIONS = ['.md', '.mdx', '.txt', '.markdown', '.pdf', '.docx']
+/**
+ * What a folder of documentation is scanned for unless told otherwise.
+ *
+ * `.csv` is deliberately absent while still being readable. A folder almost
+ * always has a CSV in it that is data rather than documentation, and quietly
+ * indexing an export of every customer is a surprise nobody asked for. Name it
+ * in `extensions` and it is read.
+ */
+const DEFAULT_EXTENSIONS = [
+  '.md',
+  '.mdx',
+  '.txt',
+  '.markdown',
+  '.pdf',
+  '.docx',
+  '.doc',
+  '.odt',
+  '.rtf',
+  '.epub',
+  '.pptx',
+  '.ppt',
+  '.odp',
+  '.xlsx',
+  '.ods',
+]
 const DEFAULT_MAX_BYTES = 20 * 1024 * 1024
 const DEFAULT_IGNORE = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage']
 

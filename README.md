@@ -132,8 +132,11 @@ store on a deployment that scales, and assuming a vision model can call tools.
 ## The pieces
 
 **Answers from your content.** Crawl a site, read a folder, write question and
-answer pairs, import Notion, upload a PDF. Retrieval is keyword ranking and vector search
-fused, and it degrades to keyword-only when you have no embedding credential.
+answer pairs, import Notion. A folder is read as more than markdown: PDFs, Word
+files, slide decks, spreadsheets and the OpenDocument and EPUB formats all
+convert, because a price list is usually a spreadsheet and an onboarding pack is
+usually a deck. Retrieval is keyword ranking and vector search fused, and it
+degrades to keyword-only when you have no embedding credential.
 
 **Acts, rather than only replying.** Capture a lead, collect custom fields, call
 your API, search the web, look up a Stripe subscription or a Shopify order, show

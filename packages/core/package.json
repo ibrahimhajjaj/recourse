@@ -131,6 +131,7 @@
     "ai": "^7.0.84"
   },
   "devDependencies": {
+    "@firecrawl/anydoc": "^0.2.4",
     "@types/node": "^22.10.2",
     "pdfjs-dist": "^6.2.108",
     "typescript": "^5.9.3",
