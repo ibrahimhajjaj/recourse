@@ -130,8 +130,17 @@ export async function verifyJwt(options: VerifyJwtOptions): Promise<JwtClaims | 
   const now = Math.floor((options.now ?? Date.now()) / 1000)
   const leeway = options.leewaySeconds ?? 60
 
-  if (typeof claims.exp === 'number' && now > claims.exp + leeway) return null
-  if (typeof claims.nbf === 'number' && now < claims.nbf - leeway) return null
+  // A token with no expiry is a token that never expires, and one whose exp is
+  // a string skips a check that only looked at numbers. Both come off the
+  // network as JSON, where the declared types prove nothing, so the shape is
+  // checked here rather than assumed.
+  if (typeof claims.exp !== 'number' || !Number.isFinite(claims.exp)) return null
+  if (now > claims.exp + leeway) return null
+
+  if (claims.nbf !== undefined) {
+    if (typeof claims.nbf !== 'number' || !Number.isFinite(claims.nbf)) return null
+    if (now < claims.nbf - leeway) return null
+  }
 
   const issuers = Array.isArray(options.issuer) ? options.issuer : [options.issuer]
   if (!claims.iss || !issuers.includes(claims.iss)) return null
