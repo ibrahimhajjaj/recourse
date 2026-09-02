@@ -81,13 +81,24 @@ misses what is written cleverly. Crisis routing in particular is regex-only
 here, which is the tier the Node core explicitly calls a recall signal rather
 than the classifier of record.
 
-Eleven channels, voice, attachments, the four database
-stores, procedures and the eval harness are all in the Node core and none of
-them is in the plugin. That is a decision rather than a gap, and the reasoning
-sits in [`packages/wordpress/README.md`](../packages/wordpress/README.md), which
-is the deeper document: how the files are laid out, which WordPress core
-abilities are used rather than reimplemented, and how it behaves on a site that
-is not in English.
+Eleven channels, voice, attachments, the four database stores, procedures and
+the eval harness are all in the Node core and none of them is in the plugin.
+The list runs longer than those six. Nothing that reads a conversation after it
+ends is here either: the insights that give a stored thread a title, a summary
+and a mood, the outcomes report that asks whether an answer actually helped,
+and the corrections a non-developer writes when one did not. Neither is human
+takeover, which pauses the agent so a person can answer instead, nor burst
+coalescing, which waits out the four messages somebody sends in eight seconds
+and answers them once. Nothing here speaks to another system unprompted, so
+there are no webhooks, no delivery receipts and no outbound campaigns, and the
+chat route is the plugin's own rather than the OpenAI-compatible endpoint a
+tool could be pointed at unchanged. Nothing counts the bill or vouches for the
+caller either, so the spend budget and the signed identity claim stay Node-side
+too. That is a decision rather than a gap, and the reasoning sits in
+[`packages/wordpress/README.md`](../packages/wordpress/README.md), which is the
+deeper document: how the files are laid out, which WordPress core abilities are
+used rather than reimplemented, and how it behaves on a site that is not in
+English.
 
 For the listing as wp.org will show it, see
 [`packages/wordpress/readme.txt`](../packages/wordpress/readme.txt).
