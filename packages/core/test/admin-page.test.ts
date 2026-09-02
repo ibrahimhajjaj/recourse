@@ -115,6 +115,7 @@ const STORED = { id: 'c1', question: 'where is my order', answer: 'check the tra
  */
 function answerFor(path: string, method: string): { status: number; body: unknown } {
   if (method === 'DELETE' && /\/corrections\/[^/]+$/.test(path)) return { status: 200, body: { data: { removed: true } } }
+  if (method === 'PATCH' && /\/corrections\/[^/]+$/.test(path)) return { status: 200, body: { data: STORED } }
   if (method === 'POST' && path.endsWith('/corrections')) return { status: 201, body: { data: { id: 'c2' } } }
   if (path.endsWith('/stats')) {
     return {
@@ -240,6 +241,37 @@ describe('the admin page against the routes it is served beside', () => {
     const deleted = calls.find((call) => call.method === 'DELETE')
 
     expect(deleted?.path.endsWith(`/corrections/${STORED.id}`)).toBe(true)
+  })
+
+  it('edits the row whose Edit button was pressed, rather than writing a second one', async () => {
+    const { views } = await open(calls)
+    await settle()
+
+    const panel = await views.corrections({})
+    const edit = Array.from(panel.querySelectorAll('button')).find((button) => button.textContent === 'Edit')
+    const form = panel.querySelector('form')
+    if (!edit || !form) throw new Error('the corrections list has no Edit button')
+
+    edit.click()
+
+    const answer = Array.from(panel.querySelectorAll('textarea'))[1]
+    if (!answer) throw new Error('the corrections form is missing its fields')
+
+    // Only the answer is retyped. The question is the customer's own wording,
+    // which the Edit button loads back so it is not retyped and not tidied.
+    answer.value = '  follow the link in the dispatch email  '
+    calls.length = 0
+    form.dispatchEvent(new Event('submit', { cancelable: true }))
+    await settle()
+
+    const patched = calls.find((call) => call.method === 'PATCH')
+
+    expect(patched?.path.endsWith(`/corrections/${STORED.id}`)).toBe(true)
+    expect(patched?.body).toEqual({ question: STORED.question, answer: 'follow the link in the dispatch email' })
+    // A POST here is the bug this exists to catch: it would mint a new id, a
+    // new date and a new author, which is what editing in place replaces.
+    expect(calls.some((call) => call.method === 'POST')).toBe(false)
+    expect(calls.filter((call) => answerFor(call.path, call.method).status === 404)).toEqual([])
   })
 
   it('never asks for a route the api does not mount', async () => {

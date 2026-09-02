@@ -406,13 +406,19 @@ const views = {
     })
     const answer = el('textarea', { rows: 4, placeholder: 'What it should have said' })
     const status = el('p', { className: 'muted' })
+    const submit = el('button', { type: 'submit', textContent: 'Save correction' })
+
+    // The correction the form is currently editing, or null for a new one.
+    // One form rather than two, because the fields are the same and a second
+    // form is a second place for the validation to drift.
+    let editing = null
 
     form.append(
       el('label', { textContent: 'Question that went wrong' }),
       question,
       el('label', { textContent: 'Correct answer' }),
       answer,
-      el('button', { type: 'submit', textContent: 'Save correction' }),
+      submit,
       status,
     )
 
@@ -428,14 +434,27 @@ const views = {
               el('td', { textContent: correction.question }),
               el('td', { textContent: correction.answer }),
               el('td', { className: 'muted', textContent: correction.author || '' }),
-              el('td', {}, el('button', {
-                className: 'link',
-                textContent: 'Remove',
-                onclick: async () => {
-                  await send('/corrections/' + correction.id, 'DELETE')
-                  await refresh()
-                },
-              })),
+              el('td', {}, [
+                el('button', {
+                  className: 'link',
+                  textContent: 'Edit',
+                  onclick: () => {
+                    editing = correction.id
+                    question.value = correction.question
+                    answer.value = correction.answer
+                    submit.textContent = 'Save changes'
+                    status.textContent = 'Editing. Its author and the date it was written are kept.'
+                  },
+                }),
+                el('button', {
+                  className: 'link',
+                  textContent: 'Remove',
+                  onclick: async () => {
+                    await send('/corrections/' + correction.id, 'DELETE')
+                    await refresh()
+                  },
+                }),
+              ]),
             ]),
           ),
         ),
@@ -451,10 +470,15 @@ const views = {
         return
       }
 
-      const result = await send('/corrections', 'POST', {
-        question: question.value.trim(),
-        answer: answer.value.trim(),
-      })
+      const result = editing
+        ? await send('/corrections/' + editing, 'PATCH', {
+            question: question.value.trim(),
+            answer: answer.value.trim(),
+          })
+        : await send('/corrections', 'POST', {
+            question: question.value.trim(),
+            answer: answer.value.trim(),
+          })
 
       if (result.error) {
         status.textContent = result.error.message || 'That did not save.'
@@ -463,7 +487,11 @@ const views = {
 
       // Said plainly, because "it applies immediately" is the thing that makes
       // this worth using rather than filing a ticket.
-      status.textContent = 'Saved. The next customer to ask gets this answer.'
+      status.textContent = editing
+        ? 'Changed. The next customer to ask gets this answer.'
+        : 'Saved. The next customer to ask gets this answer.'
+      editing = null
+      submit.textContent = 'Save correction'
       answer.value = ''
       question.value = ''
       await refresh()
