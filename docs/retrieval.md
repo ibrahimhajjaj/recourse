@@ -60,6 +60,48 @@ indexes as nothing and says so in the logs rather than leaving you with an empty
 index and an agent you think is broken. Reading one needs OCR, which is a
 decision for whoever owns the documents rather than a default.
 
+## Rebuilding without paying for the whole site again
+
+Pass the index you are replacing and a rebuild does the work twice over only
+where something actually changed:
+
+```ts
+import { buildIndex, websiteSource } from '@recourse-ai/core'
+import previous from './knowledge.json' with { type: 'json' }
+
+const index = await buildIndex({
+  sources: [websiteSource({ url: 'https://shop.example' })],
+  embedder,
+  previous,
+})
+```
+
+Two savings, at two different stages.
+
+**Pages nobody changed are not read.** A sitemap gives a `<lastmod>` per URL,
+and the sitemap is something we already download. When the date on a page is
+the one recorded during the build being replaced, the page is not fetched at
+all and its chunks come straight out of the old index. On a four hundred page
+site shipping one edit, that is one page read instead of four hundred.
+
+**Text that survived is not embedded again.** Whatever does get read is matched
+chunk by chunk against the old index, and a chunk whose indexed text is
+byte-for-byte what it was keeps its vector. Stricter than "same page": an edited
+paragraph is re-embedded, and so is one whose heading moved, because the heading
+is part of what was embedded.
+
+The first only applies where a site publishes dates. Without them there is no
+signal, everything is read, and the second saving still applies. Guessing would
+freeze a site's content in the index for ever, which is a worse failure than a
+bill, so nothing is skipped without the site having said so.
+
+A page the old index has no chunks for is always read, however old its date. It
+has nothing to carry over, and trusting the date would quietly drop it.
+
+Dates are compared as opaque strings, exactly as the sitemap wrote them. A site
+that reformats its timestamps without changing its content will be read again in
+full once, and settle after that.
+
 ## When the index file becomes the problem
 
 The vectors ride inside the index file by default, which is right until the

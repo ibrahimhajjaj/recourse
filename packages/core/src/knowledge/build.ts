@@ -6,6 +6,7 @@ import type {
   KnowledgeIndex,
   ProgressEvent,
   Source,
+  SourceContext,
 } from '../types.js'
 import { markdownChunker } from '../chunk/index.js'
 import { buildKeywordIndex } from './bm25.js'
@@ -58,10 +59,49 @@ export interface BuildOptions {
  * Every stage is an interface, so swapping the crawler for a database reader or
  * the chunker for a sentence splitter is a one-line change at the call site.
  */
+/**
+ * The previous index's chunks, grouped by the document they came from.
+ *
+ * The index stores chunks rather than documents, so this is the only way back
+ * to "everything that page produced last time". It is also what decides which
+ * pages may be asked about conditionally at all: a page whose chunks are gone
+ * has to be read again.
+ */
+function chunkedByDocument(before: KnowledgeIndex | undefined): Map<string, Chunk[]> {
+  const byDocument = new Map<string, Chunk[]>()
+  if (!before) return byDocument
+
+  for (const chunk of before.chunks) {
+    const list = byDocument.get(chunk.docId)
+    if (list) list.push(chunk)
+    else byDocument.set(chunk.docId, [chunk])
+  }
+
+  return byDocument
+}
+
 export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex> {
   const report = options.onProgress ?? (() => {})
   const chunker = options.chunker ?? markdownChunker()
-  const ctx = { onProgress: report, signal: options.signal }
+
+  const before = typeof options.previous === 'string' ? parseIndex(options.previous) : options.previous
+  // Only for pages the previous index can still produce chunks for. A source
+  // told a page is unchanged does not fetch it, so if there is nothing to carry
+  // over the page would vanish from the index entirely.
+  const carryable = chunkedByDocument(before)
+  const validators = { ...before?.fetched }
+  const unchanged = new Set<string>()
+
+  const ctx: SourceContext = {
+    onProgress: report,
+    signal: options.signal,
+    validatorFor: (id) => (carryable.has(id) ? before?.fetched?.[id] : undefined),
+    report: (id, outcome) => {
+      if (outcome.unchanged && carryable.has(id)) unchanged.add(id)
+      if (outcome.validator) validators[id] = outcome.validator
+      else if (!outcome.unchanged) delete validators[id]
+    },
+  }
 
   const documents: Document[] = []
   for (const source of options.sources) {
@@ -71,8 +111,22 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
   // Two sources can legitimately return the same page; last one wins.
   const unique = [...new Map(documents.map((doc) => [doc.id, doc])).values()]
 
+  // A page reported unchanged and also returned was read after all, so the
+  // fresh copy wins and nothing is carried over for it.
+  for (const doc of unique) unchanged.delete(doc.id)
+
   report({ phase: 'chunk', message: `splitting ${unique.length} documents` })
-  const chunks = unique.flatMap((doc) => chunker.split(doc))
+  const rechunked = unique.flatMap((doc) => chunker.split(doc))
+  const kept = [...unchanged].flatMap((id) => carryable.get(id) ?? [])
+
+  if (kept.length > 0) {
+    report({
+      phase: 'chunk',
+      message: `${unchanged.size} pages were unchanged and keep their ${kept.length} chunks`,
+    })
+  }
+
+  const chunks = [...rechunked, ...kept]
 
   if (chunks.length === 0) {
     throw new Error('nothing to index: every source came back empty')
@@ -92,7 +146,7 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
 
   if (options.embedder) {
     const carried = await carryOver(
-      options.previous,
+      before,
       options.embedder.name,
       searchable,
       chunks,
@@ -165,11 +219,17 @@ export async function buildIndex(options: BuildOptions): Promise<KnowledgeIndex>
     keyword,
     vectors,
     stats: {
-      documents: unique.length,
+      // Counted including the pages nobody read this time. A build that says it
+      // indexed nine documents when the site has four hundred reads as a broken
+      // crawl, which is exactly the wrong alarm to raise.
+      documents: unique.length + unchanged.size,
       chunks: chunks.length,
-      characters: unique.reduce((sum, doc) => sum + doc.text.length, 0),
+      characters:
+        unique.reduce((sum, doc) => sum + doc.text.length, 0) +
+        kept.reduce((sum, chunk) => sum + chunk.text.length, 0),
       embedded,
     },
+    ...(Object.keys(validators).length > 0 ? { fetched: validators } : {}),
   }
 }
 

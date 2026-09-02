@@ -39,7 +39,15 @@ export function websiteSource(options: WebsiteSourceOptions): Source {
       const report = ctx.onProgress ?? (() => {})
 
       report({ phase: 'discover', message: `looking for a sitemap on ${origin}` })
-      let urls = await discoverFromSitemap(origin, ctx.signal)
+      const listed = await discoverFromSitemap(origin, ctx.signal)
+
+      // Kept whether or not anything uses it: a site that publishes dates is
+      // telling us which of its pages are worth paying to read again.
+      const changedAt = new Map(
+        listed.filter((entry) => entry.lastmod).map((entry) => [entry.url, entry.lastmod as string]),
+      )
+
+      let urls = listed.map((entry) => entry.url)
 
       if (urls.length === 0) {
         report({ phase: 'discover', message: 'no sitemap, checking llms.txt' })
@@ -61,21 +69,54 @@ export function websiteSource(options: WebsiteSourceOptions): Source {
       report({ phase: 'fetch', message: `reading ${remaining.length} pages`, done: 0, total: remaining.length })
 
       let done = 0
+      let skipped = 0
+
       const fetched = await pool<string, Document | null>(remaining, concurrency, async (url) => {
+        const lastmod = changedAt.get(url)
+
+        // The site says this page has not changed since the build that is being
+        // replaced, so it is not read at all. Reading it costs a page scrape,
+        // and the answer is already in the index.
+        if (lastmod && ctx.validatorFor?.(url)?.lastModified === lastmod) {
+          ctx.report?.(url, { unchanged: true, validator: { lastModified: lastmod } })
+          done++
+          skipped++
+          report({ phase: 'fetch', message: `${url} is unchanged`, done, total: remaining.length })
+
+          return null
+        }
+
         const page = await scrape(url, ['markdown'], { apiKey: options.apiKey, signal: ctx.signal })
         done++
         report({ phase: 'fetch', message: url, done, total: remaining.length })
         if (!page || page.markdown.trim().length < 80) return null
+
+        // Recorded after the page was read, so a scrape that failed leaves the
+        // old date in place and the page is tried again next time. Recording it
+        // first would mark a page we never read as up to date.
+        ctx.report?.(url, lastmod ? { validator: { lastModified: lastmod } } : {})
+
         return { id: url, title: page.title, text: page.markdown, url }
       })
+
+      if (skipped > 0) {
+        report({ phase: 'fetch', message: `${skipped} of ${remaining.length} pages were unchanged and were not read` })
+      }
 
       return [...seeded, ...fetched.filter((doc): doc is Document => doc !== null)]
     },
   }
 }
 
+/** A page a sitemap listed, and when the site says it last changed. */
+interface Listed {
+  url: string
+  /** The `<lastmod>` exactly as written, compared as an opaque string. */
+  lastmod?: string
+}
+
 /** Follows <sitemapindex> one level deep, which covers essentially every real site. */
-async function discoverFromSitemap(origin: string, signal?: AbortSignal): Promise<string[]> {
+async function discoverFromSitemap(origin: string, signal?: AbortSignal): Promise<Listed[]> {
   const candidates = [`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`, `${origin}/sitemap-index.xml`]
 
   for (const candidate of candidates) {
@@ -87,7 +128,7 @@ async function discoverFromSitemap(origin: string, signal?: AbortSignal): Promis
     )
 
     if (nested.length > 0) {
-      const pages: string[] = []
+      const pages: Listed[] = []
       // A handful of child sitemaps is plenty; huge sites get capped later anyway.
       for (const child of nested.slice(0, 5)) {
         const childXml = await getText(child, signal)
@@ -103,10 +144,35 @@ async function discoverFromSitemap(origin: string, signal?: AbortSignal): Promis
   return []
 }
 
-function extractLocs(xml: string): string[] {
+/**
+ * The pages a sitemap lists, each with its `<lastmod>` when it has one.
+ *
+ * Read per `<url>` block rather than by collecting every tag in the document,
+ * because a date has to belong to the page above it. Pairing the nth lastmod
+ * with the nth loc breaks the moment one entry omits it, and the failure is
+ * silent: pages get stamped with a neighbour's date and stop being re-read.
+ *
+ * A sitemap with no `<url>` blocks at all still yields its locations, so an
+ * unusually shaped one is crawled exactly as it was before.
+ */
+function extractLocs(xml: string): Listed[] {
+  const entries = [...xml.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url>/g)]
+
+  const listed = entries.flatMap((entry) => {
+    const block = entry[1] as string
+    const url = /<loc>\s*([^<\s]+)\s*<\/loc>/.exec(block)?.[1]
+    if (!url) return []
+
+    const lastmod = /<lastmod>\s*([^<\s]+)\s*<\/lastmod>/.exec(block)?.[1]
+
+    return [lastmod ? { url, lastmod } : { url }]
+  })
+
+  if (listed.length > 0) return listed.filter((entry) => !entry.url.endsWith('.xml'))
+
   return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)]
-    .map((match) => match[1] as string)
-    .filter((url) => !url.endsWith('.xml'))
+    .map((match) => ({ url: match[1] as string }))
+    .filter((entry) => !entry.url.endsWith('.xml'))
 }
 
 /** llms.txt is a curated markdown list of a site's own best pages. */

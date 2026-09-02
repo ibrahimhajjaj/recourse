@@ -48,6 +48,40 @@ export interface SourceContext {
   /** Called as pages arrive so the CLI can render progress. */
   onProgress?: (event: ProgressEvent) => void
   signal?: AbortSignal
+  /**
+   * What the last build recorded about this page, when there was one.
+   *
+   * Send them as `If-None-Match` and `If-Modified-Since`. A server that has not
+   * changed the page answers 304 with no body at all, which is the difference
+   * between re-reading a four hundred page site and confirming it.
+   *
+   * Only offered for pages the previous index still holds chunks for, so a 304
+   * always has something to carry over.
+   */
+  validatorFor?: (id: string) => PageValidator | undefined
+  /**
+   * What happened to a page, so the next build can ask the same question.
+   *
+   * `unchanged` is the 304 case: the page is not re-read, not re-chunked and
+   * not re-embedded, and its chunks come straight from the previous index.
+   * Report it only when the server actually said so. Claiming it for a page
+   * that did change leaves the old text in the index for ever.
+   */
+  report?: (id: string, outcome: { unchanged?: boolean; validator?: PageValidator }) => void
+}
+
+/**
+ * What a server said about a page last time, so it can be asked whether it
+ * still holds.
+ *
+ * Both are opaque strings echoed back exactly as received. An `ETag` is
+ * compared byte for byte by the server, so reformatting one, stripping its
+ * quotes or its `W/` prefix, turns every conditional request into a full
+ * download that looks like it is working.
+ */
+export interface PageValidator {
+  etag?: string
+  lastModified?: string
 }
 
 export interface ProgressEvent {
@@ -82,6 +116,13 @@ export interface KnowledgeIndex {
   keyword: KeywordIndex
   vectors?: VectorIndex
   stats: IndexStats
+  /**
+   * Per-page validators from the build that produced this index.
+   *
+   * Optional, and an index without them simply re-reads everything, which is
+   * what every index did before this existed.
+   */
+  fetched?: Record<string, PageValidator>
 }
 
 export interface IndexStats {
