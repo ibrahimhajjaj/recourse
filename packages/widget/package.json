@@ -44,7 +44,8 @@
     "dev": "node build.mjs --watch",
     "lint": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
