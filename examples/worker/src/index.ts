@@ -153,8 +153,12 @@ export default {
               ...(env.SPEAK_FORMAT ? { format: env.SPEAK_FORMAT } : {}),
             })
           : elevenLabsVoice({
+              // Both, not one. The voice id goes straight into the request URL
+              // and there is no sensible default for it, so omitting it built a
+              // request to `/text-to-speech/undefined` that failed on the call
+              // rather than at startup.
               apiKey: env.ELEVENLABS_API_KEY as string,
-              ...(env.ELEVENLABS_VOICE_ID ? { voiceId: env.ELEVENLABS_VOICE_ID } : {}),
+              voiceId: env.ELEVENLABS_VOICE_ID as string,
             }),
 
         // Spoken on connect. Without one the caller hears silence and cannot

@@ -125,6 +125,14 @@ jobs:
       - name: retrieval evals
         run: pnpm --filter @recourse-ai/evals eval -- --suite retrieval
 
+      # The examples are what people copy, so a broken one is a broken first
+      # impression. Nothing typechecked them until now, and all three bugs that
+      # found were in the example a reader would paste: a type imported from an
+      # entry that did not export it, a required option passed conditionally,
+      # and a rate limit spelled wrongly enough to be ignored entirely.
+      - name: typecheck the examples
+        run: pnpm -r --filter "./examples/*" lint
+
       # Fails if anything Node-only reaches the serving path. A test cannot
       # catch that; only a bundle can.
       - name: worker bundle guard
