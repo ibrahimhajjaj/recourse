@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveIdentity, signIdentity, verifyIdentity } from '../src/identity.js'
+import { resolveIdentity, signIdentity, verifyIdentity, type IdentityClaim } from '../src/identity.js'
 
 const SECRET = 'a-secret-that-never-leaves-the-server'
 
@@ -95,6 +95,32 @@ describe('resolving a claim from the browser', () => {
       { userId: 'admin', userHash: 'f'.repeat(64) },
       { secret: SECRET },
     )
+    expect(contact?.verified).toBe(false)
+  })
+
+  it('ignores a verified flag a page put in the body', async () => {
+    const { contact } = await resolveIdentity(
+      { contact: { name: 'Sam', verified: true } } as IdentityClaim,
+      { secret: SECRET },
+    )
+    expect(contact?.verified).toBe(false)
+    expect(contact?.name).toBe('Sam')
+  })
+
+  it('ignores it with no identity configured at all', async () => {
+    const { contact } = await resolveIdentity(
+      { contact: { name: 'Sam', verified: true } } as IdentityClaim,
+      undefined,
+    )
+    expect(contact?.verified).toBe(false)
+  })
+
+  it('keeps the attributes the host sent, which are the open tier', async () => {
+    const { contact } = await resolveIdentity(
+      { contact: { name: 'Sam', attributes: { plan: 'Starter' } } },
+      { secret: SECRET },
+    )
+    expect(contact?.attributes?.plan).toBe('Starter')
     expect(contact?.verified).toBe(false)
   })
 })

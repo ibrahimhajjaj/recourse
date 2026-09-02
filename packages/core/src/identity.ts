@@ -147,6 +147,25 @@ export interface IdentityClaim {
 }
 
 /**
+ * The browser's half of a claim, with the one field it is not allowed to
+ * assert.
+ *
+ * `IdentityClaim.contact` is typed without `verified`, and a type is all that
+ * is: the value arrives as parsed JSON from a page, so a request that sets the
+ * field arrives here with it set. Everything downstream reads `verified` as
+ * proof that the host checked something, so it is written from what was
+ * checked and nowhere else. `attributes` is left exactly as it came, because
+ * that tier is meant to be open.
+ */
+function fromBrowser(contact: IdentityClaim['contact']): Contact | undefined {
+  if (!contact) return undefined
+
+  const { verified: _claimed, ...told } = contact as Contact
+
+  return { ...told, verified: false }
+}
+
+/**
  * Turns an unverified claim from the browser into a contact.
  *
  * A claim that fails verification still yields a contact, marked unverified,
@@ -164,10 +183,10 @@ export async function resolveIdentity(
   const carried = claims ? { private: claims } : {}
 
   if (!claim?.userId) {
-    return { contact: claim?.contact, ...carried, rejected: Boolean(options?.required) }
+    return { contact: fromBrowser(claim?.contact), ...carried, rejected: Boolean(options?.required) }
   }
 
-  const base: Contact = { ...claim.contact, id: claim.userId }
+  const base: Contact = { ...fromBrowser(claim.contact), id: claim.userId }
 
   if (!options?.secret) {
     // No secret configured means identity was never meant to be trusted here.
