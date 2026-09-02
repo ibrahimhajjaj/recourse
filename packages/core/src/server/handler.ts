@@ -14,6 +14,7 @@ import type { PersonaOptions } from './prompt.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
 import { callerKey, createRateLimiter, type RateLimiter, type RateLimitOptions } from './ratelimit.js'
 import { resolveIdentity, type IdentityClaim, type IdentityOptions } from '../identity.js'
+import type { Logger } from '../diagnostics.js'
 
 export interface ChatHandlerOptions {
   /** The index from `recourse ingest`. Pass the imported JSON or its text. */
@@ -135,6 +136,8 @@ export interface ChatHandlerOptions {
    * narrow policy; `false` turns it off entirely.
    */
   classifier?: ClassifierPolicy | false
+  /** Where the agent's warnings and failures go. Defaults to the process log. */
+  logger?: Logger
 }
 
 export interface ConversationEvent {
@@ -182,6 +185,7 @@ export function agentFor(options: ChatHandlerOptions) {
     ...(options.classifier !== undefined ? { classifier: options.classifier } : {}),
     ...(options.searchLanguage ? { searchLanguage: options.searchLanguage } : {}),
     ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
+    ...(options.logger ? { logger: options.logger } : {}),
   })
 }
 
