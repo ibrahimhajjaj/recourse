@@ -136,6 +136,41 @@ A drafted reply comes back in the customer's own language, because the model is
 otherwise reading an English thread and would answer in English to somebody who
 wrote in Arabic.
 
+## Saying you cannot answer, in the customer's language
+
+The prompt tells the agent two things: reply in the language the customer wrote
+in, and when you cannot answer, say exactly this sentence. Those disagree, and
+the sentence wins, in whatever language it was typed in. So an Arabic customer
+asking something the help pages do not cover gets an English apology.
+
+```ts
+persona: {
+  fallback: {
+    en: "I'm not sure about that one. Shall I pass you to someone on the team?",
+    ar: 'لست متأكدًا من ذلك. هل أحولك إلى أحد أعضاء الفريق؟',
+  },
+}
+```
+
+A string still works and still behaves exactly as it did. A map is keyed by
+language code, and the first entry is used when nothing matches, so write your
+own language first.
+
+Nothing is translated. The sentence goes out exactly as you wrote it, because
+a model asked to translate will also improve, and an invented office hour or
+address ends up in the one sentence nobody reads before it is sent.
+
+The language is read off the writing, not asked of a model: the script settles
+Arabic, Hebrew, Cyrillic, Greek, Devanagari, Thai, Japanese, Korean and
+Chinese, and the same function-word test the ticket translator uses settles
+English. Latin text that is not English gets no guess, because a script cannot
+tell Spanish from German and guessing wrong would put the Spanish sentence in
+front of the German customer. That falls to your first entry.
+
+The WordPress plugin takes the same map through the `recourse_persona` filter,
+since its settings screen has one text field. It passes no language yet, so a
+map there always uses its first entry.
+
 ## Refusing in the customer's language
 
 The refusal messages are the one part of the safety layer a customer reads, and
