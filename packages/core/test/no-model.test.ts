@@ -77,3 +77,51 @@ describe('the first thing anybody writes', () => {
     expect(text).toBe('You have 30 days.')
   })
 })
+
+describe('a turn with no model is still a whole turn', () => {
+  it('records what was asked and what was said', async () => {
+    const { memoryStore } = await import('../src/store/memory.js')
+    const store = memoryStore()
+
+    await withoutGateway(async () =>
+      createAgent({ index: await index(), store }).answer('how do I get my money back?', [], {
+        conversationId: 'c1',
+      }),
+    )
+
+    const thread = await store.getConversation('c1')
+
+    // My first attempt returned early and skipped this entirely, so the
+    // conversation simply did not exist afterwards. A turn the customer had is
+    // a turn the transcript has to show, whatever answered it.
+    expect(thread?.messages.map((message) => message.role)).toEqual(['user', 'assistant'])
+    expect(thread?.messages[1]?.content).toContain('30 days')
+  })
+
+  it('emits exactly one done frame', async () => {
+    const frames: string[] = []
+
+    await withoutGateway(async () => {
+      for await (const frame of createAgent({ index: await index() }).stream('how do I get my money back?')) {
+        frames.push(frame.type)
+      }
+    })
+
+    // The early return yielded its own on top of the one the normal path
+    // yields, so a client counting them saw the turn end twice.
+    expect(frames.filter((type) => type === 'done')).toHaveLength(1)
+  })
+
+  it('tells the webhooks the turn happened', async () => {
+    const fired: string[] = []
+
+    await withoutGateway(async () =>
+      createAgent({
+        index: await index(),
+        webhooks: { emit: (event: string) => void fired.push(event) } as never,
+      }).answer('how do I get my money back?'),
+    )
+
+    expect(fired).toContain('conversation.answered')
+  })
+})

@@ -362,6 +362,15 @@ const NO_MODEL =
   'I found this in the help pages but cannot write it up: no model is configured. ' +
   'Pass `model` to createAgent, or set AI_GATEWAY_API_KEY.'
 
+/** The passages, numbered the way the prompt would have numbered them. */
+function passagesFor(matches: Match[]): string {
+  const cited = matches.map(
+    (match, position) => `[${position + 1}] ${match.chunk.title}\n${match.chunk.text}`,
+  )
+
+  return [NO_MODEL, ...cited].join('\n\n')
+}
+
 /**
  * How sure the rules must be that a retrieved passage is an attack.
  *
@@ -748,24 +757,28 @@ export function createAgent(options: AgentOptions) {
       asked: messages.filter((message) => message.role === 'user').map((message) => message.content),
     }
 
-    // The configured model, then the cheaper one if the first will not answer
-    // at all. A second entry is only ever reached from a clean failure, so the
-    // usual path builds a one-element array and never looks at it again.
-    // Nothing to call, so nothing is called. The alternative is one failed
-    // request per turn, each ending in an empty answer.
-    if (!options.model && !gatewayReachable()) {
-      yield { type: 'delta', text: NO_MODEL }
+    // Nothing to call, so nothing is called: one doomed request per turn, each
+    // ending in an empty answer, is the worst of both.
+    //
+    // Answered rather than returned early, so the rest of the turn happens the
+    // way it always does. An early return skipped the transcript write and the
+    // webhook, and emitted a second `done` on top of the one below.
+    const withoutModel = !options.model && !gatewayReachable()
 
-      for (const [position, match] of matches.entries()) {
-        yield { type: 'delta', text: `\n\n[${position + 1}] ${match.chunk.title}\n${match.chunk.text}` }
-      }
-
-      yield { type: 'done', finishReason: 'no-model' }
-
-      return
+    if (withoutModel) {
+      answered = passagesFor(matches)
+      yield { type: 'delta', text: answered }
     }
 
-    const attempts: LanguageModel[] = options.fallbackModel ? [model, options.fallbackModel] : [model]
+    // The configured model, then the cheaper one if the first will not answer
+    // at all. A second entry is only ever reached from a clean failure, so the
+    // usual path builds a one-element array and never looks at it again. Empty
+    // when there is nothing to call, which skips the loop entirely.
+    const attempts: LanguageModel[] = withoutModel
+      ? []
+      : options.fallbackModel
+        ? [model, options.fallbackModel]
+        : [model]
     /** Which model produced the answer, so the budget bills the right one. */
     let spoke: LanguageModel = model
     let spent: Usage = {}

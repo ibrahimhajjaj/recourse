@@ -151,7 +151,11 @@ describe('the examples in the documentation', () => {
    * fresh checkout is a reasonable thing to do; `pnpm verify` builds first, so
    * it runs where it matters.
    */
-  it('import names the built entry point really exports', async () => {
+  // Generous, and not arbitrary: this loads built bundles off disk, which is
+  // slower than every other test here and slower again when the whole suite is
+  // running in parallel. It passed alone at the default five seconds and timed
+  // out under `pnpm verify`, which is the worst way for a check to fail.
+  it('import names the built entry point really exports', { timeout: 30_000 }, async () => {
     const dist = join(here, '..', 'dist', 'index.js')
     if (!existsSync(dist)) return
 
