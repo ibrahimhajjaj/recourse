@@ -4,6 +4,7 @@ import type { Helpdesk } from '../helpdesk/service.js'
 import type { KnowledgeBase } from '../knowledge/base.js'
 import type { StatusCategory } from '../helpdesk/types.js'
 import { corsHeaders, type CorsOptions } from '../server/cors.js'
+import { outcomes } from '../outcomes.js'
 import { createRouter } from './router.js'
 import { badRequest, fail, json, notFound, ok, pageParams, readJson } from './http.js'
 import { ADMIN_PAGE } from './admin.js'
@@ -270,6 +271,28 @@ export function createApiHandler(options: ApiOptions) {
       await store.stats({
         since: url.searchParams.get('since') ?? undefined,
         until: url.searchParams.get('until') ?? undefined,
+      }),
+    )
+  })
+
+  /**
+   * Whether it helped, as opposed to whether it replied.
+   *
+   * Separate from `/stats` because it is a different question with a different
+   * cost. `/stats` reports aggregates the store already keeps; this reads every
+   * recent conversation and its messages to find out who came back, so it is a
+   * report somebody asks for rather than a number on every page load.
+   */
+  router.get('/outcomes', async (request) => {
+    const url = new URL(request.url)
+    const days = Number.parseInt(url.searchParams.get('days') ?? '', 10)
+    const limit = Number.parseInt(url.searchParams.get('limit') ?? '', 10)
+
+    return ok(
+      await outcomes({
+        store,
+        ...(Number.isFinite(days) && days > 0 ? { withinDays: days } : {}),
+        ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
       }),
     )
   })

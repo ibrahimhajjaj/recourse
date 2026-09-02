@@ -219,6 +219,31 @@ describe('conversations', () => {
     expect(stats.unanswered).toBe(1)
     expect(stats.topGaps[0].question).toBe('do you sell tea')
   })
+
+  it('reports whether conversations ended, not just that they replied', async () => {
+    const { handle } = await seeded()
+    const report = (await bodyOf(await handle(get('/outcomes')))).data
+
+    expect(report.conversations).toBe(2)
+    expect(report.unanswered).toBe(1)
+  })
+
+  it('takes the return window from the query string', async () => {
+    const { handle } = await seeded()
+    const response = await handle(get('/outcomes?days=30'))
+
+    expect(response.status).toBe(200)
+    expect((await bodyOf(response)).data.conversations).toBe(2)
+  })
+
+  it('ignores a return window that is not a number', async () => {
+    const { handle } = await seeded()
+
+    // A query parameter nobody can parse falls back to the default window. A
+    // read-only report answering 400 because somebody typed the flag wrong
+    // gives the reader nothing they can act on.
+    expect((await handle(get('/outcomes?days=nonsense'))).status).toBe(200)
+  })
 })
 
 describe('the ticket queue', () => {
