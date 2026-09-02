@@ -1,4 +1,4 @@
-import type { EscalationRequest } from '../actions/builtin/escalate.js'
+import { ticketBody, type EscalationRequest } from '../actions/builtin/escalate.js'
 import type { ActionContext } from '../actions/types.js'
 import { fetchWithRetry } from '../util/http.js'
 
@@ -26,11 +26,6 @@ export type CreateTicket = (
 ) => Promise<{ id?: string } | void>
 
 /** What every desk gets told, assembled once rather than nine times. */
-function describe(ticket: EscalationRequest): string {
-  const parts = [ticket.body]
-  if (ticket.transcript) parts.push('', 'Conversation so far:', ticket.transcript)
-  return parts.join('\n')
-}
 
 const ZOHO_PRIORITY: Record<'low' | 'normal' | 'high' | 'urgent', string> = {
   low: 'Low',
@@ -110,7 +105,7 @@ export function zendesk(options: ZendeskOptions): CreateTicket {
         body: JSON.stringify({
           ticket: {
             subject: ticket.subject,
-            comment: { body: describe(ticket) },
+            comment: { body: ticketBody(ticket) },
             ...(ticket.priority ? { priority: ticket.priority } : {}),
             ...(ticket.email ? { requester: { name: ticket.name ?? ticket.email, email: ticket.email } } : {}),
           },
@@ -153,7 +148,7 @@ export function freshdesk(options: FreshdeskOptions): CreateTicket {
         headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subject: ticket.subject,
-          description: describe(ticket),
+          description: ticketBody(ticket),
           email: ticket.email,
           ...(ticket.name ? { name: ticket.name } : {}),
           priority: priorities[ticket.priority ?? 'normal'],
@@ -234,7 +229,7 @@ export function intercom(options: IntercomOptions): CreateTicket {
           contacts: [{ id: contactId }],
           ticket_attributes: {
             _default_title_: ticket.subject,
-            _default_description_: describe(ticket),
+            _default_description_: ticketBody(ticket),
           },
         }),
       },
@@ -272,7 +267,7 @@ export function helpScout(options: HelpScoutOptions): CreateTicket {
           mailboxId: options.mailboxId,
           status: 'active',
           customer: { email: ticket.email, ...(ticket.name ? { firstName: ticket.name } : {}) },
-          threads: [{ type: 'customer', customer: { email: ticket.email }, text: describe(ticket) }],
+          threads: [{ type: 'customer', customer: { email: ticket.email }, text: ticketBody(ticket) }],
         }),
       },
       'Help Scout',
@@ -306,7 +301,7 @@ export function zohoDesk(options: ZohoDeskOptions): CreateTicket {
         },
         body: JSON.stringify({
           subject: ticket.subject,
-          description: describe(ticket),
+          description: ticketBody(ticket),
           departmentId: options.departmentId,
           ...(ticket.email ? { email: ticket.email } : {}),
           // Zoho's picklist is High, Medium and Low, so `normal` and the
@@ -345,7 +340,7 @@ export function hubspot(options: HubSpotOptions): CreateTicket {
         body: JSON.stringify({
           properties: {
             subject: ticket.subject,
-            content: describe(ticket),
+            content: ticketBody(ticket),
             hs_pipeline: options.pipeline ?? '0',
             hs_pipeline_stage: options.pipelineStage ?? '1',
             ...(ticket.priority === 'urgent' || ticket.priority === 'high' ? { hs_ticket_priority: 'HIGH' } : {}),
@@ -397,7 +392,7 @@ export function gorgias(options: GorgiasOptions): CreateTicket {
               via: 'chat',
               from_agent: false,
               sender: customer,
-              body_text: describe(ticket),
+              body_text: ticketBody(ticket),
             },
           ],
         }),
@@ -428,7 +423,7 @@ export function salesforce(options: SalesforceOptions): CreateTicket {
         headers: { Authorization: `Bearer ${options.accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           Subject: ticket.subject,
-          Description: describe(ticket),
+          Description: ticketBody(ticket),
           Origin: 'Chat',
           ...(ticket.email ? { SuppliedEmail: ticket.email } : {}),
           ...(ticket.name ? { SuppliedName: ticket.name } : {}),
@@ -481,7 +476,7 @@ export function odoo(options: OdooOptions): CreateTicket {
               [
                 {
                   name: ticket.subject,
-                  description: describe(ticket),
+                  description: ticketBody(ticket),
                   ...(ticket.email ? { partner_email: ticket.email } : {}),
                   ...(ticket.name ? { partner_name: ticket.name } : {}),
                 },

@@ -236,9 +236,9 @@ account holds many agents, so they need an API to create them, while here the
 deployment is the agent and its configuration is code in your repository.
 
 It also does not scale indefinitely on a JSON file. Past roughly 20,000 chunks
-you want a real vector store. The `VectorStore` boundary is where that goes and
-it exists now, with the in-file scan as its default implementation; what does
-not exist yet is a database behind it.
+you want a real vector store. The `VectorStore` boundary is where that goes, the
+in-file scan is its default, and `@recourse-ai/store-postgres` puts the vectors
+in Postgres through pgvector when the file stops being the right answer.
 
 ## Contributing
 

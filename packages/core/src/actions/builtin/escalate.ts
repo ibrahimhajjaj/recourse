@@ -1,6 +1,8 @@
 import { defineAction } from '../define.js'
 import { pauseAgent } from '../../takeover.js'
 import type { Action, ActionContext, ActionField, ActionInput } from '../types.js'
+import type { StoredMessage } from '../../store/types.js'
+import { INSIGHT_KEYS } from '../../insights.js'
 
 /**
  * What `escalate` hands to whatever opens the ticket.
@@ -18,6 +20,56 @@ export interface EscalationRequest {
   conversationId?: string
   /** The transcript so far, so a human does not have to ask again. */
   transcript?: string
+  /**
+   * What the agent already did, in the order it did it.
+   *
+   * The transcript says what was discussed; this says what was actually run and
+   * what came back. Without it the person picking the ticket up cannot tell a
+   * lookup that failed from one that was never attempted, and their first reply
+   * asks the customer to confirm an order number the agent already checked.
+   */
+  tried?: Array<{ action: string; ok: boolean; detail?: string }>
+  /**
+   * How the customer seemed, when the conversation has been summarised.
+   *
+   * Not decoration. It is what decides whether this ticket is picked up next or
+   * in an hour, and a person reading four hundred words of transcript to work
+   * it out is the cost this exists to remove.
+   */
+  mood?: string
+  /** A one-line summary of the conversation, when one has been made. */
+  summary?: string
+}
+
+/**
+ * The ticket body a person actually reads.
+ *
+ * Ordered by what they need first. The summary and the mood decide whether this
+ * is picked up now or in an hour; what was already tried decides what their
+ * first reply says. The transcript goes last, because it is the long version of
+ * everything above it and most tickets are resolved without reading it.
+ *
+ * The failure this is shaped against is the common one: the handoff happens,
+ * and the first human reply asks for the order number the customer already
+ * gave and the agent already looked up. From the customer's side that is worse
+ * than never having been offered the bot.
+ */
+export function ticketBody(ticket: EscalationRequest): string {
+  const parts = [ticket.body]
+
+  if (ticket.summary) parts.push('', `Summary: ${ticket.summary}`)
+  if (ticket.mood) parts.push(`Customer seems: ${ticket.mood}`)
+
+  if (ticket.tried?.length) {
+    parts.push('', 'Already tried:')
+    for (const attempt of ticket.tried) {
+      parts.push(`- ${attempt.action}: ${attempt.ok ? 'ok' : `failed, ${attempt.detail ?? 'no detail'}`}`)
+    }
+  }
+
+  if (ticket.transcript) parts.push('', 'Conversation so far:', ticket.transcript)
+
+  return parts.join('\n')
 }
 
 export interface EscalateOptions {
@@ -98,19 +150,69 @@ const CARRIED = 20
  * a summary of a conversation it cannot see and asks the customer to explain
  * it a third time.
  */
-async function transcriptOf(ctx: ActionContext): Promise<string | undefined> {
-  if (!ctx.store || !ctx.conversationId) return undefined
+/**
+ * What the agent already ran this conversation, newest last.
+ *
+ * Kept short on purpose: a name, whether it worked, and a line of what came
+ * back. The full input and output are in the transcript and in the store for
+ * anybody who needs them; what the person picking this up needs is whether the
+ * order was looked up and what it said.
+ */
+function attempted(messages: StoredMessage[]): EscalationRequest['tried'] {
+  const tried: NonNullable<EscalationRequest['tried']> = []
+
+  for (const message of messages) {
+    for (const ran of message.actions ?? []) {
+      const output = ran.output as { ok?: boolean; error?: unknown; data?: unknown } | undefined
+      const ok = output?.ok !== false
+
+      tried.push({
+        action: ran.name,
+        ok,
+        // The error when it failed, because that is the useful half. On success
+        // the fact that it ran is usually enough, and the data is in the store.
+        ...(ok ? {} : { detail: String(output?.error ?? 'failed').slice(0, 200) }),
+      })
+    }
+  }
+
+  return tried.length > 0 ? tried : undefined
+}
+
+/**
+ * Everything the person picking this up should not have to ask for.
+ *
+ * One read of the conversation rather than three, and every part optional: a
+ * store that cannot be read costs the context, never the ticket. A ticket that
+ * failed to open because the summary could not be fetched would be the worst
+ * possible trade.
+ */
+async function contextFor(
+  ctx: ActionContext,
+): Promise<Pick<EscalationRequest, 'transcript' | 'tried' | 'mood' | 'summary'>> {
+  if (!ctx.store || !ctx.conversationId) return {}
 
   try {
     const thread = await ctx.store.getConversation(ctx.conversationId)
-    const said = (thread?.messages ?? [])
+    if (!thread) return {}
+
+    const said = thread.messages
       .slice(-CARRIED)
       .map((message) => `${message.role === 'user' ? 'Customer' : 'Agent'}: ${message.content}`)
 
-    return said.length > 0 ? said.join('\n') : undefined
+    const meta = thread.conversation.meta ?? {}
+    const mood = meta[INSIGHT_KEYS.mood]
+    const summary = meta[INSIGHT_KEYS.summary]
+
+    return {
+      ...(said.length > 0 ? { transcript: said.join('\n') } : {}),
+      ...(attempted(thread.messages) ? { tried: attempted(thread.messages) } : {}),
+      ...(typeof mood === 'string' ? { mood } : {}),
+      ...(typeof summary === 'string' ? { summary } : {}),
+    }
   } catch {
-    // A store that cannot be read costs the transcript, not the ticket.
-    return undefined
+    // A store that cannot be read costs the context, not the ticket.
+    return {}
   }
 }
 
@@ -146,7 +248,7 @@ export function escalate(options: EscalateOptions): Action {
         email: input.email ? String(input.email) : ctx.contact?.email,
         name: input.name ? String(input.name) : ctx.contact?.name,
         conversationId: ctx.conversationId,
-        transcript: await transcriptOf(ctx),
+        ...(await contextFor(ctx)),
       }
 
       let id: string | undefined
@@ -154,7 +256,7 @@ export function escalate(options: EscalateOptions): Action {
       if (options.helpdesk) {
         const opened = await options.helpdesk.openTicket({
           subject: ticket.subject,
-          description: ticket.body,
+          description: ticketBody(ticket),
           customer: { name: ticket.name, email: ticket.email },
           conversationId: ticket.conversationId,
           metadata: { priority: ticket.priority },

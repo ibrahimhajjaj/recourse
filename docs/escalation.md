@@ -47,6 +47,39 @@ Freshdesk wants a number for the priority and a throwaway
 password, Intercom attaches a ticket to a contact so the contact is found or
 created first, and Odoo answers `200` for a failure with the reason in the body.
 
+
+## What the person picking it up receives
+
+The commonest way a handover fails is not that it did not happen. It is that it
+happened and the first human reply asks the customer for something they already
+gave, which from their side is worse than never having been offered a bot.
+
+So a ticket carries more than the transcript, in the order somebody reads it:
+
+```
+They want their money back.
+
+Summary: Refund promised on the 3rd, never arrived.
+Customer seems: unhappy
+
+Already tried:
+- lookup_order: ok
+- issue_refund: failed, the payment provider timed out
+
+Conversation so far:
+...
+```
+
+The summary and the mood come from the conversation insights, when they have
+been generated. What was tried comes from what the agent actually ran, which is
+the part a transcript cannot show: without it nobody can tell a lookup that
+failed from one that was never attempted.
+
+Every part is optional and every part is best effort. A store that cannot be
+read costs the context and never the ticket, because a handover that failed to
+open because a summary could not be fetched would be the worst possible trade.
+
+
 ## Getting out of the way once a person arrives
 
 Opening a ticket and carrying on answering is not a handoff. The customer keeps
