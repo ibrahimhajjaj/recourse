@@ -224,9 +224,28 @@ describe('through the chat handler', () => {
 })
 
 describe('identifying the caller', () => {
-  it('takes the first hop of x-forwarded-for', () => {
+  it('takes the hop the proxy appended, not the one the client sent', () => {
     const request = new Request('https://example.com', {
-      headers: { 'x-forwarded-for': '203.0.113.5, 70.41.3.18' },
+      headers: { 'x-forwarded-for': '1.2.3.4, 203.0.113.5' },
+    })
+    expect(callerKey(request)).toBe('203.0.113.5')
+  })
+
+  it("prefers the platform's own header over anything forwarded", () => {
+    const cloudflare = new Request('https://example.com', {
+      headers: { 'cf-connecting-ip': '198.51.100.9', 'x-forwarded-for': '1.2.3.4' },
+    })
+    expect(callerKey(cloudflare)).toBe('198.51.100.9')
+
+    const nginx = new Request('https://example.com', {
+      headers: { 'x-real-ip': '198.51.100.9', 'x-forwarded-for': '1.2.3.4' },
+    })
+    expect(callerKey(nginx)).toBe('198.51.100.9')
+  })
+
+  it('ignores empty hops', () => {
+    const request = new Request('https://example.com', {
+      headers: { 'x-forwarded-for': '203.0.113.5, ' },
     })
     expect(callerKey(request)).toBe('203.0.113.5')
   })
