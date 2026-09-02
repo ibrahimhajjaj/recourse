@@ -65,13 +65,15 @@ const DEFAULT_SERVED = 'recourse'
 const DEFAULT_MAX_HISTORY = 10
 
 /**
- * The most of any single message that is read.
+ * The most of any single message that is read, when nothing says otherwise.
  *
  * A caller can put a novel in one message. Truncating is the honest response:
  * refusing the request would break a client over something it cannot see, and
- * sending it whole is somebody else deciding what this costs.
+ * sending it whole is somebody else deciding what this costs. Where that line
+ * falls is a deployment's call, so `maxMessageLength` moves it and this is
+ * only where it starts.
  */
-const MAX_MESSAGE_LENGTH = 4000
+const DEFAULT_MAX_MESSAGE_LENGTH = 4000
 
 /**
  * Serves the agent at `/v1/chat/completions` and `/v1/models`.
@@ -84,6 +86,7 @@ export function createOpenAiHandler(options: OpenAiHandlerOptions) {
   const agent = agentFor(options)
   const served = options.served ?? DEFAULT_SERVED
   const withCitations = options.citations !== false
+  const maxMessageLength = options.maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH
   const inMemory = createRateLimiter(options.rateLimit)
   const limiter: RateLimiter = options.rateLimiter ?? { check: inMemory }
 
@@ -124,7 +127,7 @@ export function createOpenAiHandler(options: OpenAiHandlerOptions) {
 
     let messages: Message[]
     try {
-      messages = readMessages(body.messages)
+      messages = readMessages(body.messages, maxMessageLength)
     } catch (error) {
       return fail(error instanceof Error ? error.message : 'bad request', 400, cors)
     }
@@ -292,7 +295,7 @@ function sourcesFooter(sources: SourceRef[]): string {
  * System messages are dropped rather than obeyed, because a caller is not
  * entitled to rewrite the instructions the business set.
  */
-function readMessages(raw: CompletionRequest['messages']): Message[] {
+function readMessages(raw: CompletionRequest['messages'], maxMessageLength: number): Message[] {
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error('messages must be a non-empty array')
   }
@@ -302,7 +305,7 @@ function readMessages(raw: CompletionRequest['messages']): Message[] {
   for (const entry of raw) {
     if (entry?.role !== 'user' && entry?.role !== 'assistant') continue
 
-    const content = readContent(entry.content)
+    const content = readContent(entry.content, maxMessageLength)
     if (content) messages.push({ role: entry.role, content })
   }
 
@@ -314,15 +317,15 @@ function readMessages(raw: CompletionRequest['messages']): Message[] {
   return messages
 }
 
-function readContent(content: unknown): string {
-  if (typeof content === 'string') return content.trim().slice(0, MAX_MESSAGE_LENGTH)
+function readContent(content: unknown, maxMessageLength: number): string {
+  if (typeof content === 'string') return content.trim().slice(0, maxMessageLength)
   if (!Array.isArray(content)) return ''
 
   return content
     .map((part) => (typeof part?.text === 'string' ? part.text : ''))
     .join('')
     .trim()
-    .slice(0, MAX_MESSAGE_LENGTH)
+    .slice(0, maxMessageLength)
 }
 
 /** The protocol's error shape, which clients parse rather than display raw. */
