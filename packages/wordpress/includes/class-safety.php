@@ -366,7 +366,7 @@ class Safety {
 	 * @return array<int, array{category: string, score: float, reason: string}>
 	 */
 	private static function encoded_payload( $text ) {
-		$prose   = preg_replace( '#https?://\S+#i', ' ', $text );
+		$prose   = preg_replace( '#\bhttps?://\S+#i', ' ', $text );
 		$prose   = null === $prose ? $text : $prose;
 		$signals = array();
 
@@ -417,7 +417,7 @@ class Safety {
 			);
 		}
 
-		if ( preg_match( '/(.){200,}/u', $text ) ) {
+		if ( preg_match( '/(.)\1{200,}/u', $text ) ) {
 			$signals[] = array(
 				'category' => 'injection',
 				'score'    => 0.6,
