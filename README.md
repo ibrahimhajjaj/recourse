@@ -211,7 +211,8 @@ the thing you came for.
 | Start conversations, and tell other systems | [docs/reaching-out.md](docs/reaching-out.md) |
 | Wire it to Zapier, ViaSocket, Make or n8n | [docs/automation.md](docs/automation.md) |
 | Read your tickets from Claude Desktop or your editor | [docs/automation.md](docs/automation.md#reading-it-from-inside-a-coding-agent) |
-| Let a non-developer fix a wrong answer | [docs/config-assistant.md](docs/config-assistant.md) |
+| Let a non-developer fix a wrong answer | [docs/corrections.md](docs/corrections.md) |
+| Let a non-developer change the configuration | [docs/config-assistant.md](docs/config-assistant.md) |
 | Change what it does without forking it | [docs/hooks.md](docs/hooks.md) |
 | Serve a help centre people can search | [docs/retrieval.md](docs/retrieval.md#the-same-index-as-a-page-people-can-search) |
 | Find out whether any of it actually works | [docs/evals.md](docs/evals.md) |

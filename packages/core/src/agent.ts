@@ -4,6 +4,7 @@ import { actionsToTools, offeredActions } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
 import type { Channel, Store, StoredMessage } from './store/types.js'
 import { matchingProcedures, renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
+import { asMatch, correctionFor, type CorrectionStore } from './corrections.js'
 import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
 import { answerFilter, type Hooks } from './hooks.js'
@@ -109,6 +110,17 @@ export interface AgentOptions {
    * your API, search the web. Without these it is a search box that talks.
    */
   actions?: Action[]
+  /**
+   * Answers the support team has written to override the documentation.
+   *
+   * The loop this closes: the agent says something wrong, and the person who
+   * knows it is wrong cannot change a knowledge base built at deploy time. With
+   * this they write the right answer and it applies to the next message, with
+   * no rebuild and nobody deploying anything.
+   *
+   * A correction beats retrieval where it matches, so the match is strict.
+   */
+  corrections?: CorrectionStore
   /**
    * Whether to stream what a thinking model is thinking.
    *
@@ -369,9 +381,39 @@ export function createAgent(options: AgentOptions) {
    * previous turn folded in, so changing the subject does not drag the old
    * topic along with it.
    */
+  /**
+   * The team's own answer to this question, if they have written one.
+   *
+   * Never allowed to cost a turn. A correction store that is unreachable means
+   * the customer gets the documentation's answer, which is what they would have
+   * got anyway; throwing here would mean they get nothing at all.
+   */
+  async function correctionMatch(question: string): Promise<Match | undefined> {
+    if (!options.corrections) return undefined
+
+    try {
+      const found = correctionFor(question, await options.corrections.list())
+
+      return found ? asMatch(found) : undefined
+    } catch (error) {
+      console.error('[recourse] could not read the corrections:', error)
+
+      return undefined
+    }
+  }
+
   async function search(messages: Message[], signal?: AbortSignal): Promise<Match[]> {
-    const asked = await asIndexed(retrievalQuery(messages), signal)
+    const question = retrievalQuery(messages)
+
+    // Before retrieval, not after. Somebody on the support team wrote this
+    // about this exact question going wrong, and the whole reason it exists is
+    // that the documentation got it wrong. Ranking it against the pages it was
+    // written to override would sometimes lose.
+    const corrected = await correctionMatch(question)
+
+    const asked = await asIndexed(question, signal)
     const matches = await retriever.retrieve(asked, { signal })
+    if (corrected) return [corrected, ...matches]
     if (matches.length > 0) return matches
 
     const withContext = contextualQuery(messages)

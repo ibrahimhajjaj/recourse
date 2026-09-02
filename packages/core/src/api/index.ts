@@ -1,4 +1,5 @@
 import type { Store } from '../store/types.js'
+import type { CorrectionStore } from '../corrections.js'
 import type { Helpdesk } from '../helpdesk/service.js'
 import type { KnowledgeBase } from '../knowledge/base.js'
 import type { StatusCategory } from '../helpdesk/types.js'
@@ -15,6 +16,12 @@ export interface ApiOptions {
   helpdesk?: Helpdesk
   /** Enables the source routes, so content can be managed without a deploy. */
   knowledge?: KnowledgeBase
+  /**
+   * Enables the correction routes, so a wrong answer can be fixed by the person
+   * who noticed it. Pass the same store the agent was built with, or the two
+   * disagree and a correction written here never reaches an answer.
+   */
+  corrections?: CorrectionStore
   /**
    * Bearer tokens allowed to call this. Omit it and the API is open, which is
    * only ever right behind your own network.
@@ -253,7 +260,61 @@ export function createApiHandler(options: ApiOptions) {
 
   // ---- knowledge sources ---------------------------------------------------
 
+  /** Said plainly, because the fix is one option rather than a bug. */
+  const noCorrections = () =>
+    json({ error: { code: 'not_configured', message: 'no correction store is configured on this agent' } }, 501)
+
   const knowledge = () => options.knowledge
+
+  /**
+   * Corrections: what the support team says the answer should have been.
+   *
+   * On the management API rather than anywhere public, because a correction
+   * outranks the documentation. Anyone who can write one can decide what the
+   * agent says, which is exactly the authority a support lead needs and exactly
+   * the authority a visitor must not have.
+   */
+  const corrections = () => options.corrections
+
+  router.get('/corrections', async () => {
+    const store = corrections()
+    return store ? ok(await store.list()) : noCorrections()
+  })
+
+  router.post('/corrections', async (request) => {
+    const store = corrections()
+    if (!store) return noCorrections()
+
+    const parsed = await readJson<{ question?: unknown; answer?: unknown; author?: unknown }>(request)
+    if ('error' in parsed) return parsed.error
+
+    const question = typeof parsed.body.question === 'string' ? parsed.body.question.trim() : ''
+    const answer = typeof parsed.body.answer === 'string' ? parsed.body.answer.trim() : ''
+
+    // Both, and said plainly. A correction with no question matches nothing and
+    // one with no answer would blank an answer that at least used to be wrong
+    // in a useful direction.
+    if (!question) return badRequest('a correction needs the question that went wrong')
+    if (!answer) return badRequest('a correction needs the answer it should have given')
+
+    return json(
+      {
+        data: await store.add({
+          question,
+          answer,
+          ...(typeof parsed.body.author === 'string' ? { author: parsed.body.author } : {}),
+        }),
+      },
+      201,
+    )
+  })
+
+  router.delete('/corrections/:id', async (_request, params) => {
+    const store = corrections()
+    if (!store) return noCorrections()
+
+    return (await store.remove(params.id as string)) ? ok({ removed: true }) : notFound('correction')
+  })
 
   router.get('/sources', async (request) => {
     const kb = knowledge()
