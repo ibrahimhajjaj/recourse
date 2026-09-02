@@ -212,7 +212,6 @@ describe('an agent using a registry', () => {
 
     const index = await buildIndex({
       sources: [textSource([{ id: 'd', title: 'Delivery', text: 'Delivery takes four days.' }])],
-      embed: false,
     })
 
     const hooks = createHooks()

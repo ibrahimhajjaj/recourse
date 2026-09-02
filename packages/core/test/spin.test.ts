@@ -33,7 +33,10 @@ function stuck(vary: boolean) {
             {
               type: 'finish' as const,
               finishReason: { unified: 'tool-calls', raw: 'tool-calls' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,
@@ -54,7 +57,7 @@ async function spin(vary: boolean) {
       {
         name: 'lookup_order',
         whenToUse: 'Look an order up.',
-        collect: [{ name: 'order', description: 'the order number', required: true }],
+        collect: [{ name: 'order', type: 'string', description: 'the order number', required: true }],
         execute: async () => {
           ran++
           throw new Error('no such order')
@@ -102,28 +105,40 @@ describe('an action that is working', () => {
       doStream: async () => {
         call++
 
+        if (call <= 5) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: 'tool-call' as const, toolCallId: `c${call}`, toolName: 'lookup_order', input: JSON.stringify({ order: `LUM-${call}` }) },
+                {
+                  type: 'finish' as const,
+                  finishReason: { unified: 'tool-calls', raw: 'tool-calls' } as const,
+                  usage: {
+                    inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                    outputTokens: { total: 1, text: 1, reasoning: 0 },
+                  },
+                },
+              ],
+              chunkDelayInMs: 0,
+            }),
+          }
+        }
+
         return {
           stream: simulateReadableStream({
-            chunks:
-              call <= 5
-                ? [
-                    { type: 'tool-call' as const, toolCallId: `c${call}`, toolName: 'lookup_order', input: JSON.stringify({ order: `LUM-${call}` }) },
-                    {
-                      type: 'finish' as const,
-                      finishReason: { unified: 'tool-calls', raw: 'tool-calls' } as const,
-                      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-                    },
-                  ]
-                : [
-                    { type: 'text-start' as const, id: '0' },
-                    { type: 'text-delta' as const, id: '0', delta: 'All five are on their way.' },
-                    { type: 'text-end' as const, id: '0' },
-                    {
-                      type: 'finish' as const,
-                      finishReason: { unified: 'stop', raw: 'stop' } as const,
-                      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-                    },
-                  ],
+            chunks: [
+              { type: 'text-start' as const, id: '0' },
+              { type: 'text-delta' as const, id: '0', delta: 'All five are on their way.' },
+              { type: 'text-end' as const, id: '0' },
+              {
+                type: 'finish' as const,
+                finishReason: { unified: 'stop', raw: 'stop' } as const,
+                usage: {
+                  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                  outputTokens: { total: 1, text: 1, reasoning: 0 },
+                },
+              },
+            ],
             chunkDelayInMs: 0,
           }),
         }
@@ -137,7 +152,7 @@ describe('an action that is working', () => {
         {
           name: 'lookup_order',
           whenToUse: 'Look an order up.',
-          collect: [{ name: 'order', description: 'the order number', required: true }],
+          collect: [{ name: 'order', type: 'string', description: 'the order number', required: true }],
           execute: async () => {
             ran++
             return { status: 'shipped' }

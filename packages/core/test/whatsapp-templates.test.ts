@@ -317,6 +317,7 @@ describe('opening conversations in a campaign', () => {
     const { fetch, calls } = responding({ messages: [{ id: 'wamid.C' }] })
 
     const result = await runCampaign({
+      name: 'Order updates',
       channel: 'whatsapp',
       template: 'ignored on whatsapp',
       recipients: [
@@ -348,6 +349,7 @@ describe('opening conversations in a campaign', () => {
     const { fetch, calls } = responding({ messages: [{ id: 'wamid.D' }] })
 
     await runCampaign({
+      name: 'Order updates',
       channel: 'whatsapp',
       template: 'x',
       recipients: [{ to: '447700900001', consented: true, variables: { name: 'Amina' } }],

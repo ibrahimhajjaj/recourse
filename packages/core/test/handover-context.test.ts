@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { escalate, ticketBody, type EscalationRequest } from '../src/actions/builtin/escalate.js'
 import { memoryStore } from '../src/store/memory.js'
+import { message } from '../src/store/conformance.js'
 import { INSIGHT_KEYS } from '../src/insights.js'
 import type { ActionContext } from '../src/actions/types.js'
 
@@ -57,15 +58,18 @@ describe('gathering that context from the conversation', () => {
 
   it('carries what ran, the mood and the summary off the stored conversation', async () => {
     const store = memoryStore()
-    await store.appendMessage('c1', { role: 'user', content: 'where is my refund' })
-    await store.appendMessage('c1', {
-      role: 'assistant',
-      content: 'Let me check.',
-      actions: [
-        { name: 'lookup_order', input: { order: 'LUM-1' }, output: { ok: true, data: {} } },
-        { name: 'issue_refund', input: {}, output: { ok: false, error: 'provider timed out' } },
-      ],
-    })
+    await store.appendMessage('c1', message({ content: 'where is my refund' }))
+    await store.appendMessage(
+      'c1',
+      message({
+        role: 'assistant',
+        content: 'Let me check.',
+        actions: [
+          { name: 'lookup_order', input: { order: 'LUM-1' }, output: { ok: true, data: {} } },
+          { name: 'issue_refund', input: {}, output: { ok: false, error: 'provider timed out' } },
+        ],
+      }),
+    )
 
     const thread = await store.getConversation('c1')
     await store.updateConversation('c1', {

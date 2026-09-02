@@ -17,7 +17,7 @@ import {
   voiceChannel,
 } from '../src/channels/index.js'
 import { signTwilio, verifyRelayHandshake } from '../src/channels/verify.js'
-import type { InboundVoiceMessage, OutboundVoiceMessage } from '../src/channels/index.js'
+import type { InboundVoiceMessage, OutboundVoiceMessage, VoiceSessionOptions } from '../src/channels/index.js'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
 import { textSource } from '../src/sources/text.js'
@@ -51,7 +51,10 @@ function model(text: string, delayMs = 0) {
           {
             type: 'finish' as const,
             finishReason: { unified: 'stop', raw: 'stop' } as const,
-            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+              outputTokens: { total: 1, text: 1, reasoning: 0 },
+            },
           },
         ],
         chunkDelayInMs: delayMs,
@@ -209,12 +212,12 @@ describe('the call webhook', () => {
 })
 
 describe('a call session', () => {
-  function harness(options: Parameters<typeof createVoiceSession>[0] extends never ? never : Record<string, unknown>) {
+  function harness(options: Omit<VoiceSessionOptions, 'send'>) {
     const sent: OutboundVoiceMessage[] = []
     const session = createVoiceSession({
       send: (message) => sent.push(message),
       ...options,
-    } as Parameters<typeof createVoiceSession>[0])
+    })
     return { sent, session, spoken: () => sent.filter((m) => m.type === 'text').map((m) => (m as { token: string }).token).join('') }
   }
 
@@ -284,7 +287,10 @@ describe('a call session', () => {
             {
               type: 'finish' as const,
               finishReason: { unified: 'stop', raw: 'stop' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,
@@ -454,7 +460,6 @@ describe('the plain TwiML voice channel', () => {
   })
 
   it('hangs up after repeated silence rather than looping forever', async () => {
-    const handle = await channel({ maxSilence: 2 })
     const request = await post({ CallSid: 'CA1', From: '+1', SpeechResult: '' })
     const url2 = new URL(request.url)
     url2.searchParams.set('silence', '1')

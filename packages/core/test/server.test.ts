@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
 import { buildIndex } from '../src/knowledge/build.js'
@@ -45,7 +44,10 @@ function mockModel(text = 'You have 30 days to request a refund [1].') {
           {
             type: 'finish' as const,
             finishReason: { unified: 'stop', raw: 'stop' } as const,
-            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+              outputTokens: { total: 1, text: 1, reasoning: 0 },
+            },
           },
         ],
         chunkDelayInMs: 0,
@@ -99,7 +101,7 @@ describe('prompt', () => {
 
     it('keeps it inside step 4 when actions exist too', () => {
       const instructions = built({
-        actions: [{ name: 'look_up_order', whenToUse: 'when they ask about an order', parameters: {} }],
+        actions: [{ name: 'look_up_order', whenToUse: 'when they ask about an order' }],
       })
       const lookup = instructions.indexOf('6. Asking something you could look up')
       expect(instructions.indexOf('FALLBACK_MARKER')).toBeGreaterThan(lookup)
@@ -458,7 +460,7 @@ describe('knowledge tool', () => {
 
     const result = await built.execute?.(
       { question: 'what is the refund window' },
-      { toolCallId: 't1', messages: [] },
+      { toolCallId: 't1', messages: [], context: undefined },
     )
     expect((result as { passages: unknown[] }).passages.length).toBeGreaterThan(0)
   })
@@ -634,7 +636,10 @@ describe('client action results coming back from the browser', () => {
               {
                 type: 'finish' as const,
                 finishReason: { unified: 'stop', raw: 'stop' } as const,
-                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                usage: {
+                  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                  outputTokens: { total: 1, text: 1, reasoning: 0 },
+                },
               },
             ],
             chunkDelayInMs: 0,

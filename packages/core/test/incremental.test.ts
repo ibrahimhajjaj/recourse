@@ -15,6 +15,7 @@ function counting(name = 'test-embedder', dimensions = 8): Embedder & { seen: st
 
   return {
     name,
+    dimensions,
     seen,
     async embed(values: string[]) {
       seen.push(...values)

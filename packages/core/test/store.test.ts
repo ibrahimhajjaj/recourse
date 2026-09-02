@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
 import { fileStore, memoryStore } from '../src/store/index.js'
-import { message, storeConformance } from '../src/store/conformance.js'
+import { storeConformance } from '../src/store/conformance.js'
 import type { Store, StoredMessage } from '../src/store/index.js'
 import { createAgent } from '../src/agent.js'
 import { collectLeads } from '../src/actions/index.js'
@@ -103,7 +103,10 @@ describe('the agent recording to a store', () => {
             {
               type: 'finish' as const,
               finishReason: { unified: 'stop', raw: 'stop' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,
@@ -178,7 +181,10 @@ describe('a turn the browser interrupted', () => {
             {
               type: 'finish' as const,
               finishReason: { unified: 'stop', raw: 'stop' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,
@@ -212,7 +218,10 @@ describe('a turn the browser interrupted', () => {
             {
               type: 'finish' as const,
               finishReason: { unified: 'stop', raw: 'stop' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,

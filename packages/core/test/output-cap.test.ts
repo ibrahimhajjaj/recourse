@@ -10,7 +10,6 @@ let cached: KnowledgeIndex | null = null
 async function index(): Promise<KnowledgeIndex> {
   cached ??= await buildIndex({
     sources: [textSource([{ id: 'hours', title: 'Hours', text: 'We are open nine to five, Monday to Friday.' }])],
-    embed: false,
   })
 
   return cached
