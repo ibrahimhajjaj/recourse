@@ -330,16 +330,29 @@ describe('stored references', () => {
   })
 })
 
-const MINIO = 'http://127.0.0.1:59000'
-const minioUp = await fetch(`${MINIO}/minio/health/live`, { signal: AbortSignal.timeout(1500) })
-  .then((response) => response.ok)
-  .catch(() => false)
+// Only probed when somebody has said where the server is. Reaching for a
+// fixed port on every run means a stray connection attempt on a developer's
+// machine, to a port that may well belong to something else of theirs. The
+// docker command that starts one is in the comment at the top of
+// test/blobs.test.ts.
+const MINIO = process.env.TEST_S3_ENDPOINT
+
+const minioUp = MINIO
+  ? await fetch(`${MINIO}/minio/health/live`, { signal: AbortSignal.timeout(1500) })
+      .then((response) => response.ok)
+      .catch(() => false)
+  : false
+
+// Read only inside the block `describe.skipIf(!minioUp)` guards, and
+// `minioUp` is false whenever there is no endpoint, so the empty string is
+// unreachable rather than a silent default.
+const ENDPOINT = MINIO ?? ''
 
 describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
   it('uploads through the route, then reads it back as an attachment', async () => {
     const blobs = s3Blobs({
       bucket: 'recourse-attachments',
-      endpoint: MINIO,
+      endpoint: ENDPOINT,
       accessKeyId: 'recourse',
       secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
@@ -367,7 +380,7 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
   it('issues a signed url the browser uploads to, and resolves what lands', async () => {
     const blobs = s3Blobs({
       bucket: 'recourse-attachments',
-      endpoint: MINIO,
+      endpoint: ENDPOINT,
       accessKeyId: 'recourse',
       secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
@@ -404,7 +417,7 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
   it('hands an image to the model as a signed link rather than as bytes', async () => {
     const blobs = s3Blobs({
       bucket: 'recourse-attachments',
-      endpoint: MINIO,
+      endpoint: ENDPOINT,
       accessKeyId: 'recourse',
       secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
@@ -430,7 +443,7 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
   it('sends an image as bytes when asked to, for a model that cannot fetch', async () => {
     const blobs = s3Blobs({
       bucket: 'recourse-attachments',
-      endpoint: MINIO,
+      endpoint: ENDPOINT,
       accessKeyId: 'recourse',
       secretAccessKey: 'recourse-secret',
       region: 'us-east-1',
@@ -455,7 +468,7 @@ describe.skipIf(!minioUp)('the whole path, against a real bucket', () => {
     // decides whether an abandoned upload becomes a confusing answer.
     const blobs = s3Blobs({
       bucket: 'recourse-attachments',
-      endpoint: MINIO,
+      endpoint: ENDPOINT,
       accessKeyId: 'recourse',
       secretAccessKey: 'recourse-secret',
       region: 'us-east-1',

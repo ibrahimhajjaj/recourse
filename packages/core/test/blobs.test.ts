@@ -62,19 +62,30 @@ blobBehaviour('r2 binding', () => r2Blobs(fakeBucket()))
  *   docker run -d --name recourse-minio -p 59000:9000 \
  *     -e MINIO_ROOT_USER=recourse -e MINIO_ROOT_PASSWORD=recourse-secret \
  *     --entrypoint sh minio/minio -c "mkdir -p /data/recourse-attachments && exec minio server /data"
+ *
+ * The block below runs only when TEST_S3_ENDPOINT says where that server is,
+ * and skips itself otherwise.
  */
-const MINIO = 'http://127.0.0.1:59000'
+// Only probed when somebody has said where the server is. Reaching for a
+// fixed port on every run means a stray connection attempt on a developer's
+// machine, to a port that may well belong to something else of theirs.
+const MINIO = process.env.TEST_S3_ENDPOINT
 
-const minioUp = await fetch(`${MINIO}/minio/health/live`, {
-  signal: AbortSignal.timeout(1500),
-})
-  .then((response) => response.ok)
-  .catch(() => false)
+const minioUp = MINIO
+  ? await fetch(`${MINIO}/minio/health/live`, { signal: AbortSignal.timeout(1500) })
+      .then((response) => response.ok)
+      .catch(() => false)
+  : false
+
+// Read only inside the block `describe.skipIf(!minioUp)` guards, and
+// `minioUp` is false whenever there is no endpoint, so the empty string is
+// unreachable rather than a silent default.
+const ENDPOINT = MINIO ?? ''
 
 function minio(): Blobs {
   return s3Blobs({
     bucket: 'recourse-attachments',
-    endpoint: MINIO,
+    endpoint: ENDPOINT,
     accessKeyId: 'recourse',
     secretAccessKey: 'recourse-secret',
     region: 'us-east-1',
@@ -143,7 +154,7 @@ describe.skipIf(!minioUp)('s3 against minio', () => {
   it('names the S3 error code rather than only the status', async () => {
     const wrong = s3Blobs({
       bucket: 'recourse-attachments',
-      endpoint: MINIO,
+      endpoint: ENDPOINT,
       accessKeyId: 'recourse',
       secretAccessKey: 'not-the-password',
       region: 'us-east-1',
