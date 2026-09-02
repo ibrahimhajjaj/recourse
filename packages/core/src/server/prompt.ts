@@ -261,6 +261,18 @@ function describeContact(contact?: Contact): string[] {
 }
 
 /**
+ * One passage as the model will read it.
+ *
+ * Written once because two things need the same string: the prompt prints it,
+ * and the screen decides whether it may be printed. A heading that only one of
+ * them looks at is a field an indexed page can hide an instruction in.
+ */
+export function passageText(match: Match): string {
+  const heading = [match.chunk.title, match.chunk.section].filter(Boolean).join(' > ')
+  return `${heading}\n${match.chunk.text}`
+}
+
+/**
  * Builds the system prompt.
  *
  * Grouped into named sections because the ordering matters more than the
@@ -279,10 +291,7 @@ export function buildInstructions(options: InstructionOptions): string {
   const fallback = persona.fallback ?? DEFAULT_FALLBACK
 
   const context = matches
-    .map((match, position) => {
-      const heading = [match.chunk.title, match.chunk.section].filter(Boolean).join(' > ')
-      return `[${position + 1}] ${heading}\n${match.chunk.text}`
-    })
+    .map((match, position) => `[${position + 1}] ${passageText(match)}`)
     .join('\n\n---\n\n')
 
   // Procedure-only actions are described inside their procedure, not here, so
