@@ -40,6 +40,24 @@ class Safety {
 	const THRESHOLD = 0.8;
 
 	/**
+	 * Characters that carry no meaning to a reader in any script.
+	 *
+	 * The tag block, U+E0000 to U+E007F, is in the set because it exists for
+	 * nothing except carrying a second message no reader can see. The joining
+	 * characters other scripts genuinely need are deliberately absent, for the
+	 * reason spelled out on `strip_invisible`.
+	 */
+	const INVISIBLE = '/[\x{200B}\x{200E}\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{FEFF}\x{E0000}-\x{E007F}]/u';
+
+	/**
+	 * The part of that set with no innocent explanation at all.
+	 *
+	 * A stray zero-width space is something a word processor does by itself. A
+	 * tag character is not, so it scores as an attack rather than as noise.
+	 */
+	const TAG_BLOCK = '/[\x{E0000}-\x{E007F}]/u';
+
+	/**
 	 * Phrasings that only appear in text written at the agent.
 	 *
 	 * Kept in step with `OVERRIDE_PHRASES` in the TypeScript rules. Anything
@@ -107,9 +125,47 @@ class Safety {
 	 * @return string
 	 */
 	public static function strip_invisible( $text ) {
-		$stripped = preg_replace( '/[\x{200B}\x{200E}\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{FEFF}]/u', '', $text );
+		$stripped = preg_replace( self::INVISIBLE, '', $text );
 
 		return null === $stripped ? $text : $stripped;
+	}
+
+	/**
+	 * Takes those characters out of a visitor's message, and says that it did.
+	 *
+	 * Stripped rather than refused, because the visible question is usually
+	 * genuine and answering it beats accusing somebody of what their word
+	 * processor did. Recorded rather than cleaned silently, because a phrase
+	 * hidden inside a word is nobody's word processor, and a turn that was
+	 * quietly rewritten before anything looked at it is a turn with no trail.
+	 *
+	 * @param string $text The message as it arrived.
+	 * @return array{text: string, signals: array<int, array{category: string, score: float, reason: string}>}
+	 */
+	private static function invisible_text( $text ) {
+		$found = preg_match_all( self::INVISIBLE, $text );
+
+		if ( empty( $found ) ) {
+			return array(
+				'text'    => $text,
+				'signals' => array(),
+			);
+		}
+
+		return array(
+			'text'    => self::strip_invisible( $text ),
+			'signals' => array(
+				array(
+					'category' => 'injection',
+					'score'    => preg_match( self::TAG_BLOCK, $text ) ? 0.9 : 0.45,
+					'reason'   => sprintf(
+						/* translators: %d: how many characters were removed. */
+						__( 'stripped %d invisible characters', 'recourse' ),
+						$found
+					),
+				),
+			),
+		);
 	}
 
 	/**
@@ -119,22 +175,52 @@ class Safety {
 	 * @return array{score: float, why: string}
 	 */
 	public static function inspect( $text ) {
-		$clean = self::strip_invisible( (string) $text );
 		$worst = array(
 			'score' => 0.0,
 			'why'   => '',
 		);
 
-		foreach ( self::phrases() as $phrase ) {
-			if ( preg_match( $phrase['pattern'], $clean ) && $phrase['score'] > $worst['score'] ) {
+		foreach ( self::overrides( $text ) as $signal ) {
+			if ( $signal['score'] > $worst['score'] ) {
 				$worst = array(
-					'score' => $phrase['score'],
-					'why'   => $phrase['why'],
+					'score' => $signal['score'],
+					'why'   => $signal['reason'],
 				);
 			}
 		}
 
 		return $worst;
+	}
+
+	/**
+	 * Every override phrasing the text matches, one signal each.
+	 *
+	 * One per match rather than only the strongest. A message that reaches for
+	 * the instructions two different ways in one sentence is better evidence
+	 * than a message that tries once, and keeping only the highest score threw
+	 * that away: two attempts and one attempt came out of here identical.
+	 *
+	 * `inspect` still answers the narrower question of how bad the worst of
+	 * them is, which is all screening a page needs.
+	 *
+	 * @param string $text A passage, or a visitor's message.
+	 * @return array<int, array{category: string, score: float, reason: string}>
+	 */
+	private static function overrides( $text ) {
+		$clean   = self::strip_invisible( (string) $text );
+		$signals = array();
+
+		foreach ( self::phrases() as $phrase ) {
+			if ( preg_match( $phrase['pattern'], $clean ) ) {
+				$signals[] = array(
+					'category' => 'injection',
+					'score'    => $phrase['score'],
+					'reason'   => $phrase['why'],
+				);
+			}
+		}
+
+		return $signals;
 	}
 
 	/**
@@ -220,8 +306,9 @@ class Safety {
 	 * @return array{text: string, signals: array<int, array{category: string, score: float, reason: string}>}
 	 */
 	public static function check_input( $text ) {
-		$text    = self::strip_invisible( (string) $text );
-		$signals = array();
+		$invisible = self::invisible_text( (string) $text );
+		$text      = $invisible['text'];
+		$signals   = $invisible['signals'];
 
 		$payment = self::redact_payment( $text );
 		if ( ! empty( $payment['redacted'] ) ) {
@@ -237,13 +324,8 @@ class Safety {
 			);
 		}
 
-		$override = self::inspect( $text );
-		if ( $override['score'] > 0.0 ) {
-			$signals[] = array(
-				'category' => 'injection',
-				'score'    => $override['score'],
-				'reason'   => $override['why'],
-			);
+		foreach ( self::overrides( $text ) as $signal ) {
+			$signals[] = $signal;
 		}
 
 		foreach ( self::encoded_payload( $text ) as $signal ) {
@@ -686,6 +768,21 @@ class Safety {
 			}
 		}
 
+		foreach ( self::phone_numbers( $text ) as $candidate ) {
+			$known = false;
+
+			foreach ( self::phone_numbers( $grounded ) as $number ) {
+				if ( self::same_phone_number( $candidate, $number ) ) {
+					$known = true;
+					break;
+				}
+			}
+
+			if ( ! $known ) {
+				$found[] = __( 'a phone number', 'recourse' );
+			}
+		}
+
 		if ( preg_match_all( "#https?://[^\\s<>()\\[\\]\"']+#", $text, $links ) ) {
 			foreach ( $links[0] as $link ) {
 				$trimmed = rtrim( $link, '.,;:!?)' );
@@ -713,5 +810,61 @@ class Safety {
 				),
 			),
 		);
+	}
+
+	/**
+	 * Digit runs long enough to be a telephone number rather than a quantity.
+	 *
+	 * Nine digits is the floor because below it the run is a year, a price or
+	 * an order number, and flagging those would bury the one case this is for.
+	 *
+	 * @param string $text Anything.
+	 * @return array<int, string>
+	 */
+	private static function phone_numbers( $text ) {
+		if ( ! preg_match_all( '/\+?\d[\d\s().-]{7,17}\d/', $text, $found ) ) {
+			return array();
+		}
+
+		$numbers = array();
+
+		foreach ( $found[0] as $candidate ) {
+			$candidate = trim( $candidate );
+
+			if ( strlen( preg_replace( '/\D/', '', $candidate ) ) >= 9 ) {
+				$numbers[] = $candidate;
+			}
+		}
+
+		return $numbers;
+	}
+
+	/**
+	 * Whether two written numbers are the same telephone number.
+	 *
+	 * They rarely match as strings. The same line is "+44 20 7946 0958" on a
+	 * contact page and "020 7946 0958" in an answer, and a check that called
+	 * those two different numbers would flag correct answers until people
+	 * stopped reading its output.
+	 *
+	 * The rule that works without knowing any country's dialling plan: drop
+	 * the separators, drop the leading trunk zero, and ask whether one is a
+	 * suffix of the other. A country code is a prefix, so comparing from the
+	 * right-hand end is exactly what ignoring one amounts to.
+	 *
+	 * @param string $left  One number as it was written.
+	 * @param string $right The other.
+	 * @return bool
+	 */
+	private static function same_phone_number( $left, $right ) {
+		$left  = ltrim( preg_replace( '/\D/', '', $left ), '0' );
+		$right = ltrim( preg_replace( '/\D/', '', $right ), '0' );
+
+		if ( strlen( $left ) < 9 || strlen( $right ) < 9 ) {
+			return false;
+		}
+
+		return substr( $left, -strlen( $right ) ) === $right
+			|| substr( $right, -strlen( $left ) ) === $left;
 	}
 }
