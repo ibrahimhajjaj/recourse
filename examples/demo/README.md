@@ -21,6 +21,13 @@ The account id is already in `wrangler.jsonc`. It is not a secret; it is in
 every dashboard URL. The token beside it is, which is why it is a secret and not
 a var. Create it under **AI > Workers AI > Use REST API** in the dashboard.
 
+Deploy with `npm run deploy` rather than `wrangler deploy`. Two of the source
+files here are generated and git-ignored, the knowledge base and the inlined
+widget, so wrangler on its own ships whatever was last written to disk. It does
+not fail when they are stale, it publishes the old ones, and the only sign is an
+upload size that did not change. `npm run deploy` runs the build first. It also
+puts the local wrangler on the path, which a bare `wrangler` is not.
+
 ## Why the REST endpoint and not the AI binding
 
 A Worker can reach Workers AI through an `ai` binding, which needs no token at
