@@ -221,6 +221,17 @@ async function runIngest(flags: Record<string, string | boolean>, io: Io): Promi
   return 0
 }
 
+/**
+ * A passage, short enough to scan, and honest about whether it was cut.
+ *
+ * The three dots used to be unconditional, so a passage that already fitted
+ * ended in four of them and read like the text kept going when it did not.
+ */
+export function excerpt(text: string, limit = 300): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > limit ? `${flat.slice(0, limit)}...` : flat
+}
+
 async function runAsk(question: string, flags: Record<string, string | boolean>, io: Io): Promise<number> {
   if (!question.trim()) {
     io.err('ask needs a question: recourse ask "how do I cancel?"\n')
@@ -245,7 +256,7 @@ async function runAsk(question: string, flags: Record<string, string | boolean>,
       const heading = headingOf(match.chunk.title, match.chunk.section)
       io.out(
         `[${position + 1}] ${heading}  (${match.from.join('+')}, ${match.score.toFixed(4)})\n` +
-          `${match.chunk.text.slice(0, 300).replace(/\s+/g, ' ')}...\n` +
+          `${excerpt(match.chunk.text)}\n` +
           `${match.chunk.url ?? ''}\n\n`,
       )
     }
