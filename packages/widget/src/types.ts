@@ -157,6 +157,14 @@ export type StreamFrame =
   | { type: 'done'; finishReason?: string }
   | { type: 'error'; message: string }
   | { type: 'action'; name: string; status: 'running' | 'done' | 'failed'; summary?: string }
+  /**
+   * The model thinking, on a deployment that asked the server to send it.
+   *
+   * Only ever arrives where the server was told to send it, which is not the
+   * open web: reasoning is the model restating its own instructions. Shown
+   * where the answer is not yet, and replaced by the answer when it starts.
+   */
+  | { type: 'reasoning'; text: string }
   | {
       type: 'client-action'
       id: string

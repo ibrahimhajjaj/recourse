@@ -181,6 +181,19 @@ export interface Message {
 export type StreamFrame =
   | { type: 'sources'; sources: SourceRef[] }
   | { type: 'delta'; text: string }
+  /**
+   * The model thinking, on a model that thinks out loud.
+   *
+   * Never sent unless the deployment asks for it, and the reason is not taste.
+   * Reasoning is where a model talks about its own instructions: "the prompt
+   * says not to give a discount, but they are annoyed". Streaming that to a
+   * member of the public hands them the system prompt a sentence at a time and
+   * tells them exactly which rule to push against.
+   *
+   * It is not the answer and is never treated as one. It is not stored in the
+   * transcript, not screened as output, and not part of what a filter sees.
+   */
+  | { type: 'reasoning'; text: string }
   | { type: 'done'; finishReason?: string }
   | { type: 'error'; message: string }
   /** A server action ran. Lets the client show progress and react. */

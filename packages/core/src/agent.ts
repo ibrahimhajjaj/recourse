@@ -110,6 +110,23 @@ export interface AgentOptions {
    */
   actions?: Action[]
   /**
+   * Whether to stream what a thinking model is thinking.
+   *
+   * Off, and this default is load-bearing. Reasoning is where a model works
+   * through its own instructions out loud, so it routinely restates them: the
+   * refusal it is weighing, the rule it is applying, the thing it was told not
+   * to say. Sent to a member of the public that is the system prompt leaking a
+   * sentence at a time, and a map of which rule to push against.
+   *
+   * Turn it on where the reader is trusted and the thinking is the point: an
+   * internal help desk, an agent console, a debugging view. Not on a widget
+   * facing the open web.
+   *
+   * Reasoning never becomes the answer. It is not stored, not screened as
+   * output, and no answer filter sees it.
+   */
+  reasoning?: boolean
+  /**
    * How many model round trips one question may take. Each action call costs
    * one, so this caps a runaway loop rather than the useful work.
    */
@@ -333,6 +350,9 @@ export function createAgent(options: AgentOptions) {
     options.classifier === false ? 1 : (options.classifier?.passageThreshold ?? DEFAULT_PASSAGE_THRESHOLD)
   const actions = options.actions ?? []
   const maxSteps = options.maxSteps ?? 6
+  // Off unless asked for. See `reasoning` on the options for why that is not a
+  // matter of taste.
+  const showsReasoning = options.reasoning === true
   const takeover = options.takeover === true ? {} : options.takeover === false ? null : (options.takeover ?? null)
 
   // Which procedures this agent can run at all. Which of their actions are
@@ -707,6 +727,14 @@ export function createAgent(options: AgentOptions) {
       })
 
       for await (const part of result.fullStream) {
+        // Sent on its own channel and nowhere else: not added to the answer,
+        // not screened as output, not stored. A model thinking out loud is
+        // talking about its instructions, and the answer is what it decided.
+        if (part.type === 'reasoning-delta') {
+          if (showsReasoning && part.text) yield { type: 'reasoning', text: part.text }
+          continue
+        }
+
         if (part.type === 'text-delta') {
           answered += part.text
 

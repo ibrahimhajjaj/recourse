@@ -779,6 +779,17 @@ export function createWidget(options: WidgetOptions) {
      * half-written sentence reads as a fault.
      */
     let working: HTMLElement | null = null
+    /**
+     * What a thinking model has said to itself so far, this turn.
+     *
+     * Kept here rather than beside the transcript because it is not part of it:
+     * the turn ends and it goes, and nothing about it is ever stored or sent.
+     */
+    let thought = ''
+    const showThought = (text: string) => {
+      thought += text
+      showWorking(lastLine(thought))
+    }
     const showWorking = (label: string | null) => {
       if (answer.content) return
 
@@ -841,7 +852,7 @@ export function createWidget(options: WidgetOptions) {
           showError(message)
           emit('error', { message })
         },
-        onFrame: (frame) => handleFrame(frame, requested, showWorking),
+        onFrame: (frame) => handleFrame(frame, requested, showWorking, showThought),
       },
       state.controller?.signal,
       strings,
@@ -895,6 +906,20 @@ export function createWidget(options: WidgetOptions) {
   }
 
 /**
+ * The last line of what a model has thought so far.
+ *
+ * Thinking arrives as a stream of fragments and runs to paragraphs. The visitor
+ * is waiting for an answer, not reading an essay, so one line of it is shown at
+ * a time and the rest scrolls past underneath.
+ */
+function lastLine(text: string): string {
+  const lines = text.split('\n').filter((line) => line.trim())
+  const line = lines[lines.length - 1] ?? ''
+
+  return line.length > 120 ? `${line.slice(-120).trimStart()}` : line
+}
+
+/**
  * An action's name as something a customer can read.
  *
  * `look_up_billing` becomes "look up billing". Deployments name their actions
@@ -915,11 +940,19 @@ function readable(name: string): string {
     }>,
     /** Shows what the agent is doing, when the caller is a live turn. */
     showWorking: (label: string | null) => void = () => {},
+    /** Adds to what a thinking model has said to itself this turn. */
+    showThought: (text: string) => void = () => {},
   ) {
     if (frame.type === 'client-action') {
       requested.push({ id: frame.id, name: frame.name, input: frame.input, payload: frame.payload })
     } else if (frame.type === 'suggestions') {
       state.suggestions = frame.items
+    } else if (frame.type === 'reasoning') {
+      // In the working line rather than the transcript. It is not the answer,
+      // it is why the answer is taking a moment, and it is gone once the answer
+      // starts. Kept to one line: a thinking model can produce paragraphs of
+      // this and none of it is what the visitor asked for.
+      showThought(frame.text)
     } else if (frame.type === 'action') {
       emit('action', { name: frame.name, status: frame.status })
       // The frame already crossed the whole stack to get here. Showing it is

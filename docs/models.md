@@ -89,3 +89,29 @@ are separate `createAgent` calls over the same store.
 ---
 
 [Back to the README](../README.md)
+
+## Models that think out loud
+
+Some models stream their reasoning before their answer. It is off:
+
+```ts
+import { createAgent } from '@recourse-ai/core'
+
+createAgent({ index, model, reasoning: true })
+```
+
+**Read the default as a security setting, not a preference.** Reasoning is where
+a model works through its instructions out loud, so it restates them: the rule
+it is applying, the refusal it is weighing, the thing it was told not to say.
+Streamed to a member of the public, that is the system prompt arriving a
+sentence at a time, along with a map of which rule to lean on.
+
+Turn it on where the reader is trusted and the thinking is the point: an
+internal help desk, an agent console, a debugging view. Not a widget on the open
+web.
+
+Reasoning never becomes the answer. It is not written to the transcript, not
+screened as output, and no answer filter sees it, so a hook that rewrites what
+the customer reads cannot accidentally rewrite the model's thinking into it. The
+widget shows the latest line of it where the typing indicator would be, and it
+is gone the moment the answer starts.
