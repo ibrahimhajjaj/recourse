@@ -19,6 +19,7 @@
 
 import type { LanguageModel } from 'ai'
 import { patchConversationMeta } from './store/meta.js'
+import { getLogger } from './diagnostics.js'
 import type { Conversation, Store, StoredMessage } from './store/types.js'
 
 /** Where the answers live on the conversation, so a store needs no migration. */
@@ -118,7 +119,7 @@ export async function summariseStale(
     try {
       ok = (await summarise(conversation.id, options)) !== null
     } catch (error) {
-      console.error(`[recourse] could not summarise ${conversation.id}:`, error)
+      getLogger().error(`could not summarise ${conversation.id}:`, error)
     }
 
     if (ok) {
@@ -188,7 +189,7 @@ async function ask(
 
     return parse(text)
   } catch (error) {
-    console.error('[recourse] could not summarise a conversation:', error)
+    getLogger().error('could not summarise a conversation:', error)
 
     return null
   }

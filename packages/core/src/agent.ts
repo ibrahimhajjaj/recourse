@@ -18,7 +18,7 @@ import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
-import { describeFailure, logFailure, type Logger } from './diagnostics.js'
+import { describeFailure, logFailure, getLogger, type Logger } from './diagnostics.js'
 import { PAUSED_MESSAGE, WAITING_MESSAGE, hasPerson, isEndCommand, isPaused, resumeAgent, type TakeoverOptions } from './takeover.js'
 import {
   buildInstructions,
@@ -405,6 +405,7 @@ const DEFAULT_PASSAGE_THRESHOLD = 0.8
 export function createAgent(options: AgentOptions) {
   const index = parseIndex(options.index)
   const model = options.model ?? DEFAULT_MODEL
+  const log = options.logger ?? getLogger()
 
   const embedder =
     options.embedder === false || !index.vectors
@@ -428,7 +429,7 @@ export function createAgent(options: AgentOptions) {
   const { usable: procedures, dropped } = usableProcedures(options.procedures ?? [], actions)
 
   for (const { name, missing } of dropped) {
-    console.warn(`[recourse] procedure "${name}" disabled: no action named ${missing.join(', ')}`)
+    log.warn(`procedure "${name}" disabled: no action named ${missing.join(', ')}`)
   }
 
   /**
@@ -451,7 +452,7 @@ export function createAgent(options: AgentOptions) {
 
       return found ? asMatch(found) : undefined
     } catch (error) {
-      console.error('[recourse] could not read the corrections:', error)
+      log.error('could not read the corrections:', error)
 
       return undefined
     }
@@ -595,7 +596,7 @@ export function createAgent(options: AgentOptions) {
     // that crosses the line is precisely the one nobody wanted to pay for.
     const allowance = options.budget ? await options.budget.check() : { ok: true as const }
     if (!allowance.ok) {
-      console.warn(`[recourse] budget reached, not calling the model: ${allowance.reason ?? 'capped'}`)
+      log.warn(`budget reached, not calling the model: ${allowance.reason ?? 'capped'}`)
       onQuiet()
       yield* stayQuiet(allowance.message ?? 'I cannot answer right now. Leave your question and a person will reply.', {
         conversationId,
@@ -616,7 +617,7 @@ export function createAgent(options: AgentOptions) {
     // authority and never passes through the input screen at all. Anything in
     // a retrieved passage that reads as an instruction to the agent is not
     // content, whatever page it came from.
-    const matches = classifier ? withoutPoisoned(found, passageThreshold) : found
+    const matches = classifier ? withoutPoisoned(found, passageThreshold, log) : found
     onMatches(matches)
 
     // Only the newest message's files. Older ones were already read into an
@@ -939,7 +940,7 @@ export function createAgent(options: AgentOptions) {
       const diagnosis = describeFailure(failure, prepared !== null)
       if (!another || delivered || ran.length > 0 || !diagnosis.fallbackWorthTrying) break
 
-      console.warn(`[recourse] first model failed (${diagnosis.reason}); trying the fallback model.`)
+      log.warn(`first model failed (${diagnosis.reason}); trying the fallback model.`)
     }
 
     if (checksOutput && !withheld && answered.length > released) {
@@ -972,9 +973,7 @@ export function createAgent(options: AgentOptions) {
         answered = answered.slice(0, released)
       }
 
-      console.warn(
-        `[recourse] answer withheld: ${withheld.matched?.reason ?? withheld.action}`,
-      )
+      log.warn(`answer withheld: ${withheld.matched?.reason ?? withheld.action}`)
     }
 
     // Whatever the screening noticed reaches the transcript either way. When
@@ -1263,7 +1262,7 @@ function lastBoundary(text: string): number {
  * clears it is unambiguous: text telling the reader to ignore its
  * instructions, adopt a new role, or emit a marker.
  */
-function withoutPoisoned(matches: Match[], threshold: number): Match[] {
+function withoutPoisoned(matches: Match[], threshold: number, logger: Logger): Match[] {
   const kept: Match[] = []
 
   for (const match of matches) {
@@ -1275,8 +1274,8 @@ function withoutPoisoned(matches: Match[], threshold: number): Match[] {
     if (worst >= threshold) {
       // Loud on purpose. A poisoned knowledge base is something the business
       // has to go and fix; quietly dropping the page hides an intrusion.
-      console.warn(
-        `[recourse] ignoring a retrieved passage from "${match.chunk.title}": ` +
+      logger.warn(
+        `ignoring a retrieved passage from "${match.chunk.title}": ` +
           `${signals.find((signal) => signal.score === worst)?.reason}. ` +
           'Check this page for text aimed at the agent rather than the reader.',
       )

@@ -24,6 +24,8 @@
  * broken extension should not be able to break the answer.
  */
 
+import { getLogger } from './diagnostics.js'
+
 /** Runs once per turn and sees the answer as it streams. */
 export interface AnswerFilter {
   /** A fragment on its way out. Return what to send, or '' to hold it. */
@@ -139,7 +141,7 @@ export function createHooks(inherited?: {
           ;(entry.fn as (...a: unknown[]) => void)(...(args as unknown[]))
         } catch (error) {
           // The thing being watched still happened, so the turn carries on.
-          console.error(`[recourse] a listener for ${String(name)} threw:`, error)
+          getLogger().error(`a listener for ${String(name)} threw:`, error)
         }
       }
     },
@@ -170,7 +172,7 @@ export function answerFilter(hooks: Hooks | undefined, context: FilterContext): 
       // where two copies of an interface are still two different things.
       if (typeof filter?.push === 'function' && typeof filter?.flush === 'function') built.push(filter)
     } catch (error) {
-      console.error('[recourse] an answer filter could not be built:', error)
+      getLogger().error('an answer filter could not be built:', error)
     }
   }
 
@@ -190,7 +192,7 @@ export function answerFilter(hooks: Hooks | undefined, context: FilterContext): 
       // "[object Object]" on somebody's screen.
       if (typeof out !== 'string') {
         failed.add(filter)
-        console.error('[recourse] an answer filter returned something that is not text; ignoring it')
+        getLogger().error('an answer filter returned something that is not text; ignoring it')
 
         return text
       }
@@ -198,7 +200,7 @@ export function answerFilter(hooks: Hooks | undefined, context: FilterContext): 
       return out
     } catch (error) {
       failed.add(filter)
-      console.error('[recourse] an answer filter threw; ignoring it for the rest of this answer:', error)
+      getLogger().error('an answer filter threw; ignoring it for the rest of this answer:', error)
 
       return text
     }

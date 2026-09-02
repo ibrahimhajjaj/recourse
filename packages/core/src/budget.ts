@@ -13,6 +13,8 @@
  * a snapshot of. Set both and whichever is reached first stops the turn.
  */
 
+import { getLogger } from './diagnostics.js'
+
 /** What one model call consumed. Either half may be missing; providers vary. */
 export interface Usage {
   inputTokens?: number | undefined
@@ -302,8 +304,8 @@ export function createBudget(options: BudgetOptions = {}): Budget {
     const age = Date.now() - Date.parse(PRICES_CHECKED)
     if (age > STALE_AFTER_MS) {
       const months = Math.floor(age / (30 * 86_400_000))
-      console.warn(
-        `[recourse] the built-in model prices were last checked ${PRICES_CHECKED}, about ${months} months ago, ` +
+      getLogger().warn(
+        `the built-in model prices were last checked ${PRICES_CHECKED}, about ${months} months ago, ` +
           'and a dollar cap is only as good as they are. Pass your own `prices`, or cap in tokens instead.',
       )
     }
@@ -345,7 +347,7 @@ export function createBudget(options: BudgetOptions = {}): Budget {
 
         const reason = `${name} reached: ${round(used)} of ${cap}`
         if (!pauses) {
-          console.warn(`[recourse] ${reason}. Still answering, because onExceeded is "warn".`)
+          getLogger().warn(`${reason}. Still answering, because onExceeded is "warn".`)
           continue
         }
         return { ok: false, reason, message: options.message ?? DEFAULT_MESSAGE }
@@ -366,8 +368,8 @@ export function createBudget(options: BudgetOptions = {}): Budget {
       // and that should pass in silence.
       if (usd === undefined && !unpriced.has(model)) {
         unpriced.add(model)
-        console.warn(
-          `[recourse] no price for model "${model}", so it counts towards token caps but not spend caps. ` +
+        getLogger().warn(
+          `no price for model "${model}", so it counts towards token caps but not spend caps. ` +
             `Pass prices: { "${model}": { input: 0, output: 0 } } to declare it free, ` +
             'or its real rates per million tokens if you cap in dollars.',
         )
