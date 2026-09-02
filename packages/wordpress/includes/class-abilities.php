@@ -179,7 +179,7 @@ class Abilities {
 		$settings = Settings::all();
 
 		$result = Model::answer(
-			Prompt::instructions( $matches, $settings['persona'], ! empty( Actions::all() ) ),
+			Prompt::instructions( $matches, apply_filters( 'recourse_persona', $settings['persona'] ), ! empty( Actions::all() ) ),
 			array(
 				array(
 					'role'    => 'user',
