@@ -82,6 +82,39 @@ createChatHandler({
 `OPENAI_COMPATIBLE_BASE_URL` and `OPENAI_COMPATIBLE_MODEL` are both set, and a
 gateway id otherwise.
 
+## When a server sends a number where the protocol says text
+
+The OpenAI streaming protocol says each chunk carries its text in
+`delta.content`, as a string. Some servers round-trip the token through a JSON
+parser on the way out, so a token that happens to be valid JSON arrives as
+whatever it parsed to: the number `6` instead of the string `"6"`.
+
+You see it as missing characters rather than as an error. A citation marker
+`[1]` renders as `[]`, a price `$0.005` renders as `$`, and a client that
+checks the field against the protocol stops the answer part-way through.
+
+`repairNumericContent` is a `fetch` that puts the value back to text before
+anything reads it:
+
+```ts
+import { models, repairNumericContent } from '@recourse-ai/core'
+
+models.openaiCompatible({
+  baseURL,
+  model,
+  apiKey,
+  fetch: repairNumericContent(),
+})
+```
+
+It cannot corrupt a correct answer, because a server that follows the protocol
+never puts a number in that field, so there is no legitimate value to lose. It
+also cannot undo the parse: a token of `"155724\n"` reaches the wire as
+`155724` with the newline already gone, and only the server can fix that half.
+Report it upstream rather than leaving this in place quietly.
+
+Cloudflare Workers AI's OpenAI-compatible endpoint needs this today.
+
 **Two models, one deployment** is worth knowing about: nothing stops a cheap
 model answering chat while a better one drafts help desk replies, since they
 are separate `createAgent` calls over the same store.
