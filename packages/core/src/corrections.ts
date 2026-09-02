@@ -139,6 +139,30 @@ export function memoryCorrections(initial: Correction[] = []): CorrectionStore {
 const OVERLAP = 0.66
 
 /**
+ * The terms of a stored correction, worked out once.
+ *
+ * `correctionFor` runs on every turn against every correction there is, and
+ * splitting, stemming and de-duplicating wording that has not changed since
+ * somebody typed it is work with no result. The key is the wording itself, so
+ * a hit can never be stale, and the map is emptied rather than grown without
+ * limit: the keys come from whatever a team has written down over the life of
+ * the process.
+ */
+const TERMS = new Map<string, string[]>()
+const TERMS_HELD = 500
+
+function termsOf(question: string): string[] {
+  const held = TERMS.get(question)
+  if (held) return held
+
+  const terms = [...new Set(tokenize(question))]
+  if (TERMS.size >= TERMS_HELD) TERMS.clear()
+  TERMS.set(question, terms)
+
+  return terms
+}
+
+/**
  * The correction that answers this question, if one does.
  *
  * Matched on the customer's own words rather than by embedding, and that is not
@@ -154,15 +178,15 @@ export function correctionFor(question: string, corrections: Correction[]): Corr
   let best: { correction: Correction; score: number } | undefined
 
   for (const correction of corrections) {
-    const wanted = tokenize(correction.question)
+    const wanted = termsOf(correction.question)
     if (wanted.length === 0) continue
 
     let shared = 0
-    for (const term of new Set(wanted)) {
+    for (const term of wanted) {
       if (asked.has(term)) shared++
     }
 
-    const score = shared / new Set(wanted).size
+    const score = shared / wanted.length
     if (score < OVERLAP) continue
     if (!best || score > best.score) best = { correction, score }
   }
