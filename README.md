@@ -4,8 +4,13 @@ A customer support agent that learns your own content, answers with citations,
 and does the things a support agent has to do: capture a lead, look up an order,
 open a ticket, hand over to a person.
 
-It is the self-hosted shape of what Chatbase sells, with two differences: you own
-the code, and there is nothing to sign up for to get it working.
+Two things separate it from the hosted tools. You write the procedures it
+follows, step by step, so it does what your business actually does rather than
+what somebody else's settings page allows. And it installs on WordPress as a
+plugin, running the same engine as the package, so the site your help pages are
+already on can run the agent that answers from them.
+
+Self-hosted and MIT. There is nothing to sign up for to get it working.
 
 ## It runs before you configure anything
 
@@ -137,6 +142,10 @@ files, slide decks, spreadsheets and the OpenDocument and EPUB formats all
 convert, because a price list is usually a spreadsheet and an onboarding pack is
 usually a deck. Retrieval is keyword ranking and vector search fused, and it
 degrades to keyword-only when you have no embedding credential.
+
+**Fixable by the person who spots the mistake.** When it answers something
+wrong, whoever noticed writes what it should have said and that applies to the
+next message. No rebuild, no deploy, no engineer.
 
 **Acts, rather than only replying.** Capture a lead, collect custom fields, call
 your API, search the web, look up a Stripe subscription or a Shopify order, show
