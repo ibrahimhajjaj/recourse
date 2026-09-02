@@ -44,3 +44,35 @@ describe('the admin page', () => {
     }
   })
 })
+
+describe('the page a support lead actually uses', () => {
+  it('parses, so a typo is caught here and not by them', () => {
+    const script = ADMIN_PAGE.slice(
+      ADMIN_PAGE.indexOf('<script type="module">') + '<script type="module">'.length,
+      ADMIN_PAGE.lastIndexOf('</script>'),
+    )
+
+    // Compiled, never run: there is no document here and running it would prove
+    // nothing anyway. Nothing else checks this at all. The page is a template
+    // string, so an unbalanced bracket ships happily and fails for the first
+    // person who opens it.
+    //
+    // Wrapped in an async function because the script uses top-level await,
+    // which is legal in a module and not in a bare function body.
+    expect(() => new Function(`return (async () => {${script}})`)).not.toThrow()
+  })
+
+  it('can write, not only read', () => {
+    // The whole reason a read-only page was not enough: the person who spots a
+    // wrong answer has to be able to fix it here.
+    expect(ADMIN_PAGE).toContain("data-view=\"corrections\"")
+    expect(ADMIN_PAGE).toContain("send('/corrections', 'POST'")
+    expect(ADMIN_PAGE).toContain("send('/corrections/' + correction.id, 'DELETE')")
+  })
+
+  it('turns a failed question into a correction in one click', () => {
+    // Two disconnected screens would be a list of problems and a form. The
+    // button is what makes it a loop.
+    expect(ADMIN_PAGE).toContain("show('corrections', { question: gap.question })")
+  })
+})

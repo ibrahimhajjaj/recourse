@@ -50,6 +50,16 @@ export const ADMIN_PAGE = `<!doctype html>
     border-radius:6px; background:var(--bg); color:var(--ink)
   }
   .field textarea { resize:vertical; min-height:56px }
+  .card { display:flex; flex-direction:column; gap:6px; margin-bottom:20px; max-width:620px }
+  .card label { font-size:12px; color:var(--dim) }
+  .card textarea {
+    font:inherit; font-size:13px; padding:6px 8px; border:1px solid var(--line);
+    border-radius:6px; background:var(--bg); color:var(--ink); resize:vertical
+  }
+  .card button[type=submit] {
+    font:inherit; font-size:13px; align-self:flex-start; margin-top:6px; padding:6px 12px;
+    border:1px solid var(--line); border-radius:6px; background:var(--soft); color:var(--ink); cursor:pointer
+  }
   .switches { display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:12px }
   .switches label { font-size:13px; display:flex; gap:6px; align-items:center }
   /* A definite height, not min-height: the frame inside asks for 100% of it,
@@ -82,6 +92,7 @@ export const ADMIN_PAGE = `<!doctype html>
   <nav>
     <button data-view="activity" aria-current="true">Activity</button>
     <button data-view="gaps">Answer gaps</button>
+    <button data-view="corrections">Corrections</button>
     <button data-view="tickets">Tickets</button>
     <button data-view="leads">Leads</button>
     <button data-view="sources">Sources</button>
@@ -105,6 +116,26 @@ async function api(path) {
   const response = await fetch(base + path, { headers: { accept: 'application/json' } })
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error?.message || response.statusText)
   return (await response.json()).data
+}
+
+/**
+ * A write. Errors come back as data rather than thrown, because the caller
+ * wants to put the reason on the screen next to the field that caused it.
+ */
+async function send(path, method, body) {
+  try {
+    const response = await fetch(base + path, {
+      method,
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    })
+
+    const payload = await response.json().catch(() => ({}))
+
+    return response.ok ? payload : { error: payload.error || { message: 'That did not work.' } }
+  } catch {
+    return { error: { message: 'Could not reach the server.' } }
+  }
 }
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString() : '')
@@ -312,11 +343,108 @@ const views = {
   async gaps() {
     const stats = await api('/stats')
     return table(
-      ['Question nobody could answer', 'Times asked'],
+      ['Question nobody could answer', 'Times asked', ''],
       (stats.topGaps || []).map((gap) =>
-        el('tr', {}, [el('td', { textContent: gap.question }), el('td', { textContent: String(gap.count) })]),
+        el('tr', {}, [
+          el('td', { textContent: gap.question }),
+          el('td', { textContent: String(gap.count) }),
+          // The point of the list. Reading which questions failed and being
+          // unable to do anything about them is the state this page was in.
+          el('td', {}, el('button', {
+            className: 'link',
+            textContent: 'Answer it',
+            onclick: () => show('corrections', { question: gap.question }),
+          })),
+        ]),
       ),
     )
+  },
+
+  /**
+   * What the team says the answer should have been.
+   *
+   * The only view here that writes. Everything else reports; this is where
+   * somebody who is not a developer changes what the agent says, which is the
+   * whole reason a read-only page was not enough.
+   */
+  async corrections(prefill = {}) {
+    const wrap = el('div')
+    const form = el('form', { className: 'card' })
+
+    const question = el('textarea', {
+      rows: 2,
+      placeholder: 'The question, in the words the customer used',
+      value: prefill.question || '',
+    })
+    const answer = el('textarea', { rows: 4, placeholder: 'What it should have said' })
+    const status = el('p', { className: 'muted' })
+
+    form.append(
+      el('label', { textContent: 'Question that went wrong' }),
+      question,
+      el('label', { textContent: 'Correct answer' }),
+      answer,
+      el('button', { type: 'submit', textContent: 'Save correction' }),
+      status,
+    )
+
+    const list = el('div')
+
+    const refresh = async () => {
+      const saved = await api('/corrections')
+      list.replaceChildren(
+        table(
+          ['Question', 'Answer', 'Written by', ''],
+          (saved || []).map((correction) =>
+            el('tr', {}, [
+              el('td', { textContent: correction.question }),
+              el('td', { textContent: correction.answer }),
+              el('td', { className: 'muted', textContent: correction.author || '' }),
+              el('td', {}, el('button', {
+                className: 'link',
+                textContent: 'Remove',
+                onclick: async () => {
+                  await send('/corrections/' + correction.id, 'DELETE')
+                  await refresh()
+                },
+              })),
+            ]),
+          ),
+        ),
+      )
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      status.textContent = ''
+
+      if (!question.value.trim() || !answer.value.trim()) {
+        status.textContent = 'Both the question and the answer are needed.'
+        return
+      }
+
+      const result = await send('/corrections', 'POST', {
+        question: question.value.trim(),
+        answer: answer.value.trim(),
+      })
+
+      if (result.error) {
+        status.textContent = result.error.message || 'That did not save.'
+        return
+      }
+
+      // Said plainly, because "it applies immediately" is the thing that makes
+      // this worth using rather than filing a ticket.
+      status.textContent = 'Saved. The next customer to ask gets this answer.'
+      answer.value = ''
+      question.value = ''
+      await refresh()
+    })
+
+    wrap.append(form, list)
+    await refresh()
+
+    return wrap
   },
 
   async tickets() {
@@ -382,7 +510,7 @@ async function renderStats() {
   )
 }
 
-async function show(name) {
+async function show(name, prefill) {
   const host = document.getElementById('view')
   host.replaceChildren(el('p', { className: 'empty', textContent: 'Loading…' }))
 
@@ -391,7 +519,7 @@ async function show(name) {
   }
 
   try {
-    host.replaceChildren(await views[name]())
+    host.replaceChildren(await views[name](prefill))
   } catch (error) {
     // A disabled feature answers 501, which is information rather than a fault.
     host.replaceChildren(el('div', { className: 'error', textContent: error.message }))

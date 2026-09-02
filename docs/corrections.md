@@ -29,6 +29,17 @@ curl -X POST https://support.example/admin/corrections \
 Nothing is rebuilt and nothing is re-embedded. The next customer to ask gets the
 corrected answer.
 
+## Without curl
+
+Turn the admin page on and there is a Corrections view: the list, a form, and a
+remove button. The Answer gaps view gains an **Answer it** button beside every
+question nobody could answer, which opens the form with that question already
+filled in.
+
+That is the loop, and it is why a read-only page was not enough. Reading a list
+of questions the agent failed and being unable to do anything about them is
+where this page was.
+
 ## Why it outranks your documentation
 
 A correction is put in front of the retrieved pages rather than ranked against
