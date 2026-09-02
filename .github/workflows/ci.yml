@@ -90,6 +90,7 @@ jobs:
 
     env:
       TEST_DATABASE_URL: postgres://postgres:recourse@localhost:5432/recourse
+      TEST_S3_ENDPOINT: http://127.0.0.1:59000
 
     steps:
       - uses: actions/checkout@v5
@@ -107,6 +108,29 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      # Not a `services:` container, because a service entry has no field for
+      # the image's command and this one needs two: `server /data`, and a
+      # `mkdir` first so the bucket the tests write to exists at all. Without a
+      # real S3 server the nineteen tests covering request signing skip
+      # themselves on every push, which is the one part of the storage code a
+      # mock cannot check: the signature is computed here and verified there.
+      - name: an S3 server for the signing tests
+        run: |
+          docker run -d --name recourse-minio -p 59000:9000 \
+            -e MINIO_ROOT_USER=recourse -e MINIO_ROOT_PASSWORD=recourse-secret \
+            --entrypoint sh minio/minio \
+            -c "mkdir -p /data/recourse-attachments && exec minio server /data"
+          # Polled rather than slept on. A fixed sleep is either too short on a
+          # slow runner, which skips the tests silently, or wasted time on
+          # every other run.
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:59000/minio/health/live && break
+            sleep 1
+          done
+          # Unguarded on purpose: if thirty seconds were not enough the step
+          # fails here, rather than the job going green on nineteen skips.
+          curl -fsS http://127.0.0.1:59000/minio/health/live
 
       # Build first, which is the order `pnpm verify` uses and the order the
       # packages actually depend on. The store adapters lint by typechecking
