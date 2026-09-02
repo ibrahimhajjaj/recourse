@@ -54,20 +54,27 @@ final class ContentGateTest extends TestCase {
 	 * @return void
 	 */
 	public function test_a_published_post_is_not_refused_by_the_gate(): void {
-		$refused = false;
+		$outcome = null;
 
-		// Past the gate it needs the post body, the title and the permalink,
-		// none of which exist without WordPress. So the proof that a published
-		// post was allowed through is that it got far enough to fail on one of
-		// those, rather than quietly returning null. The assertion is kept
-		// outside the try, or a failed assertion would be caught as the very
-		// throwable it is looking for and the test would pass either way.
+		// Past the gate it needs the title and the permalink, neither of which
+		// exists without WordPress. So the proof that a published post was
+		// allowed through is that it reached one of them: refusing returns null
+		// long before either is called.
+		//
+		// Named rather than caught as any throwable, because "something went
+		// wrong" would also be satisfied by the gate breaking. It was: the post
+		// had no body, the gate refused it for being empty, and a warning about
+		// the missing property was mistaken for having got this far.
 		try {
-			$refused = null === Content::to_document( new Recourse_Fake_Post( 'publish' ) );
-		} catch ( \Throwable $error ) {
-			$refused = false;
+			$outcome = null === Content::to_document( new Recourse_Fake_Post( 'publish' ) ) ? 'refused' : 'built';
+		} catch ( \Error $error ) {
+			$outcome = $error->getMessage();
 		}
 
-		$this->assertFalse( $refused, 'the gate refused a published post' );
+		$this->assertStringContainsString(
+			'get_the_title',
+			(string) $outcome,
+			'a published post should have reached the WordPress-only half of the gate'
+		);
 	}
 }
