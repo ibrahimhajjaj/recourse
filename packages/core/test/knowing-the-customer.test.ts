@@ -43,18 +43,15 @@ describe('what the agent knows about who is asking', () => {
     expect(proven).not.toContain('NOT confirmed')
   })
 
-  it('hands anything touching the account to a person', () => {
-    const instructions = buildInstructions({ matches: [], contact: { ...sam, verified: true } })
+  it('does not repeat the security rule, which applies to everybody', () => {
+    // Handing over on account security is a step in the prompt proper. Somebody
+    // with no account at all can still say they have been hacked, so putting it
+    // here would have given it only to visitors the host happened to identify.
+    const withRecord = buildInstructions({ matches: [], contact: { ...sam, verified: true } })
+    const anonymous = buildInstructions({ matches: [] })
 
-    // His point, and the right one: a human on a desk helps from the record and
-    // knows the moment something stops being a question and starts being a
-    // security matter.
-    for (const trigger of ['password change', 'payment detail', 'they have been hacked']) {
-      expect(instructions.toLowerCase()).toContain(trigger.toLowerCase().split(' ')[0] as string)
-    }
-
-    expect(instructions).toContain('goes to a')
-    expect(instructions).toContain('Do not verify them yourself')
+    expect(anonymous).toContain('hacked')
+    expect(withRecord.split('hacked').length).toBe(2)
   })
 
   it('adds nothing for a contact carrying no facts', () => {

@@ -30,11 +30,26 @@ attacker whether they guessed right.
 something checked it, the record is a hint for phrasing an answer and nothing
 that can be acted on, and the prompt says so in those words.
 
-**Anything touching the account goes to a person.** An email or password change,
-a payment detail, a charge they do not recognise, somebody saying they have been
-hacked. The agent says it is passing them over and does it. It does not verify
-anybody itself and it does not decide the request is fine, because both of those
-are decisions with a victim when they are wrong.
+**Anything touching the account goes to a person**, and that rule is not part of
+this block: it applies to everybody, including a visitor nobody has identified,
+because somebody with no account at all can still say they have been hacked.
+
+It is written as a list of things people say rather than as a category, on the
+assumption that the model is not clever. "Account security" is a heading a large
+model infers and a small one does not, so the prompt names the situations: they
+have been hacked, somebody else is in their account, they do not recognise a
+charge, they want to change an email or password, they are locked out, they want
+money sent to a different card, they are asking on somebody else's behalf, they
+want data deleted, they mention a lawyer or a regulator, or they may be in
+danger.
+
+The second half is about how this actually gets defeated, which is pressure
+rather than cleverness. The agent is told not to work out who anybody is, not to
+ask for a password or a photograph of a document, and not to say whether a name
+or an order number somebody gave is correct, because confirming it is how an
+attacker learns what to guess next. Being angry, being in a hurry, claiming to
+work there and saying somebody already approved it are named as what they are:
+the usual ways this gets talked past, and not reasons to continue.
 
 An anonymous visitor produces exactly the prompt they always did. Nothing is
 added when there is nobody to add.

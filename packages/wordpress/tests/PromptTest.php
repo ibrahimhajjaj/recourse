@@ -72,7 +72,9 @@ class PromptTest extends TestCase {
 		$this->assertStringContainsString( '1. Saying hello, thank you or goodbye', $instructions );
 		$this->assertStringContainsString( '2. Asking about you', $instructions );
 		$this->assertStringContainsString( '3. Asking for something you will never do', $instructions );
-		$this->assertStringContainsString( '4. Asking something you could look up', $instructions );
+		$this->assertStringContainsString( '4. Anything to do with the security of an account', $instructions );
+		$this->assertStringContainsString( '5. While you hand over, decide nothing', $instructions );
+		$this->assertStringContainsString( '6. Asking something you could look up', $instructions );
 	}
 
 	/**
