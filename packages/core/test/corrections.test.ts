@@ -1,11 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MockLanguageModelV4 } from 'ai/test'
 import { simulateReadableStream } from 'ai'
 import { correctionFor, memoryCorrections } from '../src/corrections.js'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
 import { textSource } from '../src/sources/text.js'
+import { tokenize } from '../src/knowledge/tokenize.js'
 import type { KnowledgeIndex } from '../src/types.js'
+
+vi.mock('../src/knowledge/tokenize.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../src/knowledge/tokenize.js')>()
+  return { tokenize: vi.fn(real.tokenize) }
+})
 
 let cached: KnowledgeIndex | null = null
 const index = async () =>
@@ -297,5 +303,30 @@ describe('correcting an answer over the management API', () => {
 
     expect(response.status).toBe(501)
     expect(((await response.json()) as any).error.code).toBe('not_supported')
+  })
+})
+
+describe('what a correction costs on every turn', () => {
+  // Wording that appears nowhere else in this file: the memo lives as long as
+  // the module does, so a question another test already asked would have been
+  // tokenised before this one runs.
+  const stored = [
+    { id: 'a', question: 'is the canvas holdall waterproof', answer: 'Showerproof, not waterproof.', createdAt: '2026-01-01' },
+    { id: 'b', question: 'do you monogram a wallet', answer: 'Yes, three letters.', createdAt: '2026-01-01' },
+  ]
+
+  it('tokenises a stored correction once, whatever the customer asks', () => {
+    vi.mocked(tokenize).mockClear()
+
+    correctionFor('is the canvas holdall waterproof?', stored)
+    correctionFor('do you monogram a wallet?', stored)
+    correctionFor('how much is delivery?', stored)
+
+    // Three turns and two corrections. Only the customer's own question is
+    // new each time, and it is the only thing that has to be split again.
+    for (const correction of stored) {
+      const runs = vi.mocked(tokenize).mock.calls.filter(([text]) => text === correction.question)
+      expect(runs, correction.question).toHaveLength(1)
+    }
   })
 })
