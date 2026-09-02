@@ -170,6 +170,32 @@ entirely, with a warning. Half a procedure is worse than none: the agent follows
 four steps, reaches a tool that is not there, and improvises the ending the
 procedure existed to prevent.
 
+## When the model gets stuck
+
+A model that gets an unhelpful result sometimes tries the same thing again, and
+then again. Every attempt is a real request to a real system and a round trip
+somebody pays for, so a turn is bounded three ways.
+
+**The same call twice is allowed, a third time is refused.** The second is
+deliberate: a model retrying once after a transient failure is doing the right
+thing. Arguments are compared regardless of the order they were written in, so
+reshuffling them is not a new call. `repeatLimit` changes it, `0` turns it off.
+
+**An action that has failed three times in a turn stops being run**, whatever
+arguments it was given. This is the one the check above cannot see: a model
+guessing at an order number sends a different one each time, so nothing repeats
+and nothing trips, while each attempt still reaches the real system. Measured on
+a model that would not stop, the step cap alone allowed six real requests; this
+brings it to three. It counts failures, not calls, so looking up six orders that
+all succeed is untouched. `failureLimit` changes it.
+
+**A turn stops after six steps** regardless, which is what bounds a model that
+alternates between actions rather than repeating one. `maxSteps` changes it.
+
+Each refusal goes back to the model as an instruction rather than an error,
+because an error is a thing models retry. It names the way out: ask the customer
+for what is missing, or say what could not be done.
+
 ## Holding an action back until it is wanted
 
 Every action's name, description and inputs go to the model on every turn,

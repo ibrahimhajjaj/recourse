@@ -57,6 +57,15 @@ export interface ToolBuildOptions {
    * transient failure is doing the right thing.
    */
   repeatLimit?: number
+  /**
+   * How many times one action may fail in a turn before it stops being run.
+   *
+   * Separate from `repeatLimit`, and catching what that cannot: a model varying
+   * an argument it is guessing at. Nothing repeats, so nothing trips, and every
+   * attempt is a real request to a real system. Three, which is enough for a
+   * genuine transient failure and short of a spin. Zero turns it off.
+   */
+  failureLimit?: number
 }
 
 /**
@@ -70,6 +79,20 @@ const STOP_REPEATING =
   'You already called this with exactly these arguments and the result has not changed. ' +
   'Do not call it again. Use what you already have, or ask the customer for something ' +
   'that would change the answer.'
+
+/**
+ * What the model is told once an action has failed enough times this turn.
+ *
+ * The repeat check above cannot see this one, because nothing repeats: a model
+ * guessing an order number sends a different one each time, so every call
+ * hashes differently and every one is a fresh request to somebody's order
+ * system. Guessing is the only thing that has changed between them, and the
+ * customer is the only place the missing information actually is.
+ */
+const STOP_GUESSING =
+  'This has failed several times already this turn with different arguments. Stop calling it. ' +
+  'You are guessing at something only the customer can tell you, so ask them for it plainly, ' +
+  'or say what you could not do.'
 
 /**
  * Compiles actions into an AI SDK tool set.
@@ -114,8 +137,11 @@ export function offeredActions(
 export function actionsToTools(actions: Action[], options: ToolBuildOptions): ToolSet {
   const tools: ToolSet = {}
   const repeatLimit = options.repeatLimit ?? 2
+  const failureLimit = options.failureLimit ?? 3
   /** Signature of every server call this turn, and how often it has been made. */
   const calls = new Map<string, number>()
+  /** Failures per action this turn, whatever arguments they were made with. */
+  const failures = new Map<string, number>()
 
   for (const action of offeredActions(actions, options)) {
 
@@ -137,10 +163,19 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                 return { ok: false, error: STOP_REPEATING }
               }
 
+              const failed = failures.get(action.name) ?? 0
+
+              if (failureLimit > 0 && failed >= failureLimit) {
+                console.warn(`[recourse] "${action.name}" has failed ${failed} times this turn; refusing to run it again.`)
+                return { ok: false, error: STOP_GUESSING }
+              }
+
               try {
                 const data = await action.execute?.(input, options.context)
                 return { ok: true, data: shrink(data, options.results) }
               } catch (error) {
+                failures.set(action.name, failed + 1)
+
                 // Handed back as data rather than thrown, so the agent can tell
                 // the customer what failed instead of the turn dying silently.
                 // Redacted first: an action that fails on an authenticated
