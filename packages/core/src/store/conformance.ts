@@ -126,6 +126,24 @@ export function storeConformance(options: ConformanceOptions): void {
       expect(page.items[0]?.id).toBe('new')
     })
 
+    it('reads several transcripts in one call, where it offers one', async () => {
+      const store = await make()
+      if (!store.getConversations) return
+
+      await store.appendMessage('c1', message({ content: 'one' }))
+      await store.appendMessage('c2', message({ content: 'two' }))
+      await store.appendMessage('c2', message({ content: 'and again' }))
+
+      const threads = await store.getConversations(['c1', 'c2', 'never-existed'])
+      const byId = new Map(threads.map((thread) => [thread.conversation.id, thread]))
+
+      // The id with nothing behind it is left out rather than returned empty,
+      // so a caller can trust the length of what came back.
+      expect(threads).toHaveLength(2)
+      expect(byId.get('c1')?.messages).toHaveLength(1)
+      expect(byId.get('c2')?.messages).toHaveLength(2)
+    })
+
     if (can.conversationMeta) {
       it('stores metadata put on a conversation after it started', async () => {
         const store = await make()

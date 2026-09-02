@@ -83,6 +83,16 @@ export interface Store {
   /** Creates the conversation if this is its first message. */
   appendMessage(conversationId: string, message: StoredMessage, conversation?: Partial<Conversation>): Promise<void>
   getConversation(id: string): Promise<{ conversation: Conversation; messages: StoredMessage[] } | null>
+  /**
+   * Several transcripts in one read.
+   *
+   * Optional, because the loop it replaces costs nothing on a store that is a
+   * map in this process. It exists for the ones where every call is a round
+   * trip: reading a page of conversations and their messages is one query per
+   * row without it. Ids with nothing behind them are left out rather than
+   * returned as nulls, and the order of the result is not promised.
+   */
+  getConversations?(ids: string[]): Promise<Array<{ conversation: Conversation; messages: StoredMessage[] }>>
   listConversations(options?: ListOptions): Promise<Page<Conversation>>
   updateConversation(id: string, patch: Partial<Conversation>): Promise<void>
   /**

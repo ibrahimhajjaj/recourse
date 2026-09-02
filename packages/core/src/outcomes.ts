@@ -11,7 +11,7 @@
  * applies by instinct and almost no tool reports.
  */
 
-import type { Conversation, Store } from './store/types.js'
+import type { Conversation, Store, StoredMessage } from './store/types.js'
 
 export interface Outcomes {
   /** Conversations examined. */
@@ -111,13 +111,24 @@ export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
     else byPerson.set(who, [conversation])
   }
 
+  // One read for the page, where the store can do it.
+  //
+  // The loop below wants two things off each transcript, the thumbs and
+  // whether anything went unanswered, and neither is on the conversation. Read
+  // one at a time that was a query per row: five hundred of them by default,
+  // against a D1 budget of fifty queries per Worker invocation.
+  const threads = new Map<string, StoredMessage[]>()
+  for (const thread of await readThreads(options.store, ordered.map((conversation) => conversation.id))) {
+    threads.set(thread.conversation.id, thread.messages)
+  }
+
   for (const conversation of ordered) {
-    const thread = await options.store.getConversation(conversation.id)
+    const said = threads.get(conversation.id) ?? []
 
     // Counted for every conversation, escalated or not: the split is the whole
     // point, and skipping the escalated ones would leave only one side of it.
     const side = conversation.ticketId ? tally.rated.withPerson : tally.rated.byAgent
-    for (const message of thread?.messages ?? []) {
+    for (const message of said) {
       if (message.feedback === 'positive') side.positive++
       else if (message.feedback === 'negative') side.negative++
     }
@@ -127,7 +138,7 @@ export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
       continue
     }
 
-    const gaveUp = (thread?.messages ?? []).some((message) => message.unanswered === true)
+    const gaveUp = said.some((message) => message.unanswered === true)
 
     if (gaveUp) {
       tally.unanswered++
@@ -152,6 +163,28 @@ export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
   }
 
   return tally
+}
+
+/**
+ * Every transcript in the page, in as few reads as the store allows.
+ *
+ * `getConversations` is optional, so this is the loop it replaces. A store
+ * holding everything in this process answers either shape at the same speed;
+ * the ones this is for go over a network for each call.
+ */
+async function readThreads(
+  store: Store,
+  ids: string[],
+): Promise<Array<{ conversation: Conversation; messages: StoredMessage[] }>> {
+  if (store.getConversations) return store.getConversations(ids)
+
+  const threads: Array<{ conversation: Conversation; messages: StoredMessage[] }> = []
+  for (const id of ids) {
+    const thread = await store.getConversation(id)
+    if (thread) threads.push(thread)
+  }
+
+  return threads
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { outcomes } from '../src/outcomes.js'
-import type { Conversation, Store } from '../src/store/types.js'
+import type { Conversation, Store, StoredMessage } from '../src/store/types.js'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -155,5 +155,64 @@ describe('whether the agent is helping or intercepting', () => {
 
     expect(report.rated.byAgent).toEqual({ positive: 0, negative: 0 })
     expect(report.rated.withPerson).toEqual({ positive: 0, negative: 0 })
+  })
+})
+
+describe('what reading a report costs the store', () => {
+  const three = () =>
+    had(
+      { id: 'a', at: Date.now() - DAY, rated: 'positive' },
+      { id: 'b', at: Date.now() - DAY, unanswered: true },
+      { id: 'c', at: Date.now() - DAY },
+    )
+
+  it('asks for the transcripts once, not once per conversation', async () => {
+    const store = three()
+    const one = store.getConversation.bind(store)
+    let singles = 0
+    let batches = 0
+
+    const counted: Store = {
+      ...store,
+      async getConversation(id: string) {
+        singles++
+        return one(id)
+      },
+      async getConversations(ids: string[]) {
+        batches++
+        const threads: Array<{ conversation: Conversation; messages: StoredMessage[] }> = []
+        for (const id of ids) {
+          const thread = await one(id)
+          if (thread) threads.push(thread)
+        }
+        return threads
+      },
+    }
+
+    const report = await outcomes({ store: counted })
+
+    expect(report.conversations).toBe(3)
+    expect(report.unanswered).toBe(1)
+    expect(report.rated.byAgent.positive).toBe(1)
+    expect(batches).toBe(1)
+    expect(singles).toBe(0)
+  })
+
+  it('falls back to reading them one at a time', async () => {
+    // Every store written against the interface before this existed, which is
+    // why the batch read is optional.
+    const store = three()
+    const one = store.getConversation.bind(store)
+    let singles = 0
+    const counted = {
+      ...store,
+      async getConversation(id: string) {
+        singles++
+        return one(id)
+      },
+    } as unknown as Store
+
+    expect((await outcomes({ store: counted })).unanswered).toBe(1)
+    expect(singles).toBe(3)
   })
 })
