@@ -464,12 +464,32 @@ const views = {
     // form is a second place for the validation to drift.
     let editing = null
 
+    // Hidden until an edit begins. Without it the only way out of edit mode is
+    // to submit, so somebody who clicked Edit and then typed a different
+    // correction would silently overwrite the one they meant to keep and add
+    // nothing. That is a lost correction with no warning and no undo.
+    const cancel = el('button', { type: 'button', className: 'link', textContent: 'Cancel', hidden: true })
+
+    const stopEditing = () => {
+      editing = null
+      question.value = ''
+      answer.value = ''
+      submit.textContent = 'Save correction'
+      cancel.hidden = true
+    }
+
+    cancel.onclick = () => {
+      stopEditing()
+      status.textContent = ''
+    }
+
     form.append(
       el('label', { textContent: 'Question that went wrong' }),
       question,
       el('label', { textContent: 'Correct answer' }),
       answer,
       submit,
+      cancel,
       status,
     )
 
@@ -494,6 +514,7 @@ const views = {
                     question.value = correction.question
                     answer.value = correction.answer
                     submit.textContent = 'Save changes'
+                    cancel.hidden = false
                     status.textContent = 'Editing. Its author and the date it was written are kept.'
                   },
                 }),
@@ -541,10 +562,7 @@ const views = {
       status.textContent = editing
         ? 'Changed. The next customer to ask gets this answer.'
         : 'Saved. The next customer to ask gets this answer.'
-      editing = null
-      submit.textContent = 'Save correction'
-      answer.value = ''
-      question.value = ''
+      stopEditing()
       await refresh()
     })
 
