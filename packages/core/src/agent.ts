@@ -14,6 +14,7 @@ import { createRetriever, type RetrieverOptions } from './retrieve/retriever.js'
 import { createEmbedder } from './embed.js'
 import { prepareAttachments, type PrepareOptions } from './attachments-prepare.js'
 import { blocks, createClassifier } from './safety/classify.js'
+import { screenInput } from './turn/screen.js'
 import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
@@ -540,26 +541,14 @@ export function createAgent(options: AgentOptions) {
     const contact = call.contact ?? options.contact
     const channel = call.channel ?? options.channel ?? 'web'
 
-    const last = messages[messages.length - 1]
     const store = options.store
 
-    // Before retrieval and before the model, because a refused message should
-    // cost neither. This is the tier that makes the hostile path faster than
-    // the ordinary one rather than slower.
-    const screened = classifier ? await classifier.check(last?.content ?? '', { conversationId }) : null
+    const screened = await screenInput(messages, classifier, conversationId)
+    messages = screened.messages
+    const question = screened.question
 
-    // Detectors may rewrite as well as judge: smuggled invisible characters
-    // come out here, so everything downstream reads what the customer sees.
-    if (screened && last && screened.text !== last.content) {
-      messages = messages.map((message, position) =>
-        position === messages.length - 1 ? { ...message, content: screened.text } : message,
-      )
-    }
-
-    const question = messages[messages.length - 1]?.content ?? ''
-
-    if (screened && blocks(screened)) {
-      yield* refuse(screened, { conversationId, channel, contact, question })
+    if (screened.decision && blocks(screened.decision)) {
+      yield* refuse(screened.decision, { conversationId, channel, contact, question })
       return
     }
 
