@@ -275,6 +275,29 @@ class SafetyTest extends TestCase {
 	}
 
 	/**
+	 * Grounding reads the shape the retriever actually hands over.
+	 *
+	 * Nested under `chunk`, so a check reading a top-level `text` key had
+	 * nothing to compare against and called every address in the answer
+	 * invented, the ones copied out of a passage included.
+	 */
+	public function test_output_grounds_a_contact_in_the_shape_the_retriever_returns() {
+		$sources = array(
+			array(
+				'chunk' => array(
+					'title' => 'Contact us',
+					'text'  => 'Email the shop at hello@lumen.example.',
+				),
+				'score' => 0.5,
+			),
+		);
+
+		$signals = Safety::check_output( 'You can email them at hello@lumen.example.', $sources );
+
+		$this->assertSame( array(), $signals );
+	}
+
+	/**
 	 * The grounding check still runs when retrieval found nothing.
 	 */
 	public function test_output_grounds_even_with_no_sources() {
