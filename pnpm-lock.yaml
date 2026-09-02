@@ -18,8 +18,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       ai:
-        specifier: ^7.0.84
-        version: 7.0.84(zod@4.5.1)
+        specifier: ^7.0.91
+        version: 7.0.91(zod@4.5.1)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^5.20260902.1
@@ -40,8 +40,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       ai:
-        specifier: ^7.0.84
-        version: 7.0.84(zod@4.5.1)
+        specifier: ^7.0.91
+        version: 7.0.91(zod@4.5.1)
       next:
         specifier: ^16.3.3
         version: 16.3.3(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -71,8 +71,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       ai:
-        specifier: ^7.0.84
-        version: 7.0.84(zod@4.5.1)
+        specifier: ^7.0.91
+        version: 7.0.91(zod@4.5.1)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^5.20260902.1
@@ -100,8 +100,8 @@ importers:
         specifier: ^22.10.2
         version: 22.20.1
       ai:
-        specifier: ^7.0.84
-        version: 7.0.84(zod@4.5.1)
+        specifier: ^7.0.91
+        version: 7.0.91(zod@4.5.1)
       happy-dom:
         specifier: ^20.11.13
         version: 20.11.13
@@ -141,8 +141,8 @@ importers:
         specifier: ^8.11.10
         version: 8.23.1
       ai:
-        specifier: ^7.0.84
-        version: 7.0.84(zod@4.5.1)
+        specifier: ^7.0.91
+        version: 7.0.91(zod@4.5.1)
       pg:
         specifier: ^8.13.1
         version: 8.23.0
@@ -215,8 +215,8 @@ importers:
 
 packages:
 
-  '@ai-sdk/gateway@4.0.68':
-    resolution: {integrity: sha512-XKvZv6HFoMOWK64zXMaQatk4SxBzBDkGg7enXPWsCkxqPP4zDhFewOoBKasf3FPnZP9ceE+Yj3BgW925blAWtw==}
+  '@ai-sdk/gateway@4.0.73':
+    resolution: {integrity: sha512-1Gp6QtVHfegKoMcf1pjk4fpgDg1cUdK5NnrEiUsYhLWa6owDMmF7kP+qL7ZgQNDYKTOijT+5cTeHrL281kUiiQ==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -232,6 +232,16 @@ packages:
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@5.0.36':
+    resolution: {integrity: sha512-MFXBn6XDyf37PNQAge/HTatPJE8Vmg/g/w4WPtjSV53jq8FKAzoaN5+43hsdQa9bqgN+/13jxug9ChvsG+godQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider@4.0.10':
+    resolution: {integrity: sha512-fX2ENAc7iDpZ+Wp4+Rk06Usn/Ys7dI9uAkGv0jlF6XVrW13NkRWx5Ou+U6lIM2E1fTLkCs16GGrUAaVvroag7A==}
+    engines: {node: '>=22'}
 
   '@ai-sdk/provider@4.0.8':
     resolution: {integrity: sha512-aWO7iwhFUGf347tCwNGggggfmZigaSu7TF739IZSrWWABUp7zkb4Cr3fMqvBe5EIS7ABJJu3Cadn0g/zs1G0QQ==}
@@ -1350,8 +1360,8 @@ packages:
     resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
     engines: {node: '>=10.0.0'}
 
-  ai@7.0.84:
-    resolution: {integrity: sha512-znHNBWADOy79k8EK7636kDm5LmnjF4tMzegC2TfmlLDobDZbs0z0OXD2sxtH3eDTp5Re+pJQESvjinWJ6+kadQ==}
+  ai@7.0.91:
+    resolution: {integrity: sha512-Hn0iIQY1FXow2wd+DxzdA/4ijY+6TP9CREqpN3aIs01wnBW9119yHW0Dvn53sTQzkk7+rSVXaXlDAYM5hhMJZA==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2040,10 +2050,10 @@ packages:
 
 snapshots:
 
-  '@ai-sdk/gateway@4.0.68(zod@4.5.1)':
+  '@ai-sdk/gateway@4.0.73(zod@4.5.1)':
     dependencies:
-      '@ai-sdk/provider': 4.0.8
-      '@ai-sdk/provider-utils': 5.0.33(zod@4.5.1)
+      '@ai-sdk/provider': 4.0.10
+      '@ai-sdk/provider-utils': 5.0.36(zod@4.5.1)
       '@vercel/oidc': 3.2.0
       zod: 4.5.1
 
@@ -2061,6 +2071,19 @@ snapshots:
       eventsource-parser: 3.1.1
       undici: 7.29.0
       zod: 4.5.1
+
+  '@ai-sdk/provider-utils@5.0.36(zod@4.5.1)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.10
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.1
+      undici: 7.29.0
+      zod: 4.5.1
+
+  '@ai-sdk/provider@4.0.10':
+    dependencies:
+      json-schema: 0.4.0
 
   '@ai-sdk/provider@4.0.8':
     dependencies:
@@ -2826,11 +2849,11 @@ snapshots:
 
   '@xmldom/xmldom@0.8.15': {}
 
-  ai@7.0.84(zod@4.5.1):
+  ai@7.0.91(zod@4.5.1):
     dependencies:
-      '@ai-sdk/gateway': 4.0.68(zod@4.5.1)
-      '@ai-sdk/provider': 4.0.8
-      '@ai-sdk/provider-utils': 5.0.33(zod@4.5.1)
+      '@ai-sdk/gateway': 4.0.73(zod@4.5.1)
+      '@ai-sdk/provider': 4.0.10
+      '@ai-sdk/provider-utils': 5.0.36(zod@4.5.1)
       zod: 4.5.1
 
   argparse@1.0.10:

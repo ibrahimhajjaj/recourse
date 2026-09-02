@@ -124,7 +124,7 @@
   },
   "peerDependencies": {
     "@firecrawl/anydoc": "^0.2.4",
-    "ai": "^7.0.84",
+    "ai": "^7.0.91",
     "mammoth": "^1.12.2",
     "pdfjs-dist": "^6.2.108"
   },
@@ -148,7 +148,7 @@
   "devDependencies": {
     "@firecrawl/anydoc": "^0.2.4",
     "@types/node": "^22.10.2",
-    "ai": "^7.0.84",
+    "ai": "^7.0.91",
     "happy-dom": "^20.11.13",
     "mammoth": "^1.12.2",
     "pdfjs-dist": "^6.2.108",

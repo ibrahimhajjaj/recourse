@@ -27,7 +27,7 @@
   "devDependencies": {
     "@ai-sdk/openai-compatible": "^3.0.40",
     "@types/node": "^22.10.5",
-    "ai": "^7.0.84",
+    "ai": "^7.0.91",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7",
