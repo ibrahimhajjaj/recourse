@@ -37,7 +37,7 @@ emitting one instruction twice.
 cd packages/wordpress && composer install && ./vendor/bin/phpunit
 ```
 
-89 tests, 727 assertions, and `php -l` plus PHP_CodeSniffer against the
+90 tests, 731 assertions, and `php -l` plus PHP_CodeSniffer against the
 WordPress coding standard in the same gate.
 
 ## PHP 7.4, decided from the numbers rather than by taste
