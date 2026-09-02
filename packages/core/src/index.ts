@@ -383,8 +383,8 @@ export type {
   RedisLedgerOptions,
 } from './budget.js'
 
-export { describeFailure, logFailure } from './diagnostics.js'
-export type { Diagnostic, FailureReason } from './diagnostics.js'
+export { describeFailure, logFailure, consoleLogger, setLogger, getLogger } from './diagnostics.js'
+export type { Diagnostic, FailureReason, Logger } from './diagnostics.js'
 
 export { isPaused, waitedTooLong, UNANSWERED_MESSAGE, pauseAgent, resumeAgent, PAUSED_KEY, PAUSED_AT_KEY, PAUSED_MESSAGE, assignAgent, hasPerson, endedBecause, isEndCommand, END_COMMANDS, ASSIGNED_KEY, ENDED_BECAUSE_KEY, WAITING_MESSAGE } from './takeover.js'
 export type { TakeoverOptions, EndReason } from './takeover.js'

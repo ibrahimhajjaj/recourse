@@ -118,18 +118,81 @@ export function describeFailure(error: unknown, hadAttachments = false): Diagnos
 }
 
 /**
+ * Where this library's own diagnostics go.
+ *
+ * Two levels and nothing else. `warn` is something an operator should look at
+ * and the turn survived; `error` is something that failed. A level for tracing
+ * would invite this library to narrate itself into somebody's log bill, and a
+ * level below warn has no reader.
+ *
+ * `fields` are the facts a log search needs (a conversation id, a model name),
+ * kept out of the message so a structured sink can index them and the default
+ * can still print one line.
+ */
+export interface Logger {
+  warn(message: string, fields?: Record<string, unknown>): void
+  error(message: string, error?: unknown, fields?: Record<string, unknown>): void
+}
+
+/**
+ * The default, and what everybody gets who configures nothing.
+ *
+ * It prints exactly what the raw `console` calls printed before there was a
+ * seam here: the `[recourse]` prefix, then the message, then `key=value` pairs,
+ * then the error object itself so a stack trace survives.
+ */
+export const consoleLogger: Logger = {
+  warn(message, fields) {
+    console.warn(`[recourse] ${message}${pairs(fields)}`)
+  },
+  error(message, error, fields) {
+    // Spread rather than a branch, so a call with no error object passes one
+    // argument and not one argument and an `undefined`. Tests assert on the
+    // exact argument list a console call was made with.
+    console.error(`[recourse] ${message}${pairs(fields)}`, ...(error === undefined ? [] : [error]))
+  },
+}
+
+function pairs(fields?: Record<string, unknown>): string {
+  const entries = Object.entries(fields ?? {})
+  return entries.length === 0 ? '' : ` ${entries.map(([key, value]) => `${key}=${String(value)}`).join(' ')}`
+}
+
+let installed: Logger = consoleLogger
+
+/**
+ * The sink for the modules that are handed no options object of their own.
+ *
+ * Most of this library takes options and reads `logger` off them, which is what
+ * keeps one deployment's sink out of another's in a process serving several.
+ * A handful of places have nowhere to read it from: a pure function that
+ * formats a tone, a document reader called from an ingest pipeline, a hook
+ * registry the caller built. Those use this, so a consumer can still redirect
+ * them once at start-up instead of patching the global console.
+ */
+export function setLogger(logger: Logger | undefined): void {
+  installed = logger ?? consoleLogger
+}
+
+export function getLogger(): Logger {
+  return installed
+}
+
+/**
  * One line an operator can grep for, holding the provider's own words.
  *
- * This is the only place they are allowed to go. `console.error` reaches the
+ * They go to the logger and nowhere else. The default logger writes to the
  * process log, which the business already controls and the customer cannot
- * read, and where a stack trace was going to end up anyway.
+ * read, and where a stack trace was going to end up anyway; a deployment that
+ * wants them somewhere else passes its own.
  */
-export function logFailure(diagnostic: Diagnostic, error: unknown, extra: Record<string, string> = {}): void {
-  const fields = Object.entries({ ...extra, ref: diagnostic.reference, reason: diagnostic.reason })
-    .map(([key, value]) => `${key}=${value}`)
-    .join(' ')
-
-  console.error(`[recourse] model call failed ${fields}`, error)
+export function logFailure(
+  diagnostic: Diagnostic,
+  error: unknown,
+  extra: Record<string, string> = {},
+  logger: Logger = getLogger(),
+): void {
+  logger.error('model call failed', error, { ...extra, ref: diagnostic.reference, reason: diagnostic.reason })
 }
 
 /** Short and unique enough that a customer can quote it back the same day. */
