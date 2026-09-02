@@ -30,6 +30,7 @@
 
 import { generateText, type LanguageModel } from 'ai'
 import type { ClassifyContext, Signal } from './types.js'
+import { getLogger } from '../diagnostics.js'
 
 export interface LabelledExample {
   text: string
@@ -173,8 +174,8 @@ export function modelClassifier(options: ModelClassifierOptions) {
         // the whole allowance went on a thought that never finished. Saying so
         // is the difference between a classifier that is off and a classifier
         // that looks on and is not.
-        console.warn(
-          '[recourse] the classifier answered with an unfinished thought rather than a category. ' +
+        getLogger().warn(
+          'the classifier answered with an unfinished thought rather than a category. ' +
             'A reasoning model needs maxOutputTokens raised.',
         )
         return []
@@ -194,8 +195,8 @@ export function modelClassifier(options: ModelClassifierOptions) {
         },
       ]
     } catch (error) {
-      console.warn(
-        `[recourse] the classifier could not run: ${error instanceof Error ? error.message : String(error)}`,
+      getLogger().warn(
+        `the classifier could not run: ${error instanceof Error ? error.message : String(error)}`,
       )
       return []
     }

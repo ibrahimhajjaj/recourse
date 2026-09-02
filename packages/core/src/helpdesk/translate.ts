@@ -13,6 +13,7 @@
  */
 
 import { generateText, type LanguageModel } from 'ai'
+import { getLogger } from '../diagnostics.js'
 
 export interface TranslationOptions {
   /** The language the team reads. BCP-47, or a plain name the model knows. */
@@ -138,7 +139,7 @@ export async function detectAndTranslate(
     const parsed = parse(raw)
 
     if (!parsed) {
-      console.warn('[recourse] the translation model did not return usable JSON')
+      getLogger().warn('the translation model did not return usable JSON')
       return { language: 'unknown', skipped: true }
     }
 
@@ -150,7 +151,7 @@ export async function detectAndTranslate(
 
     return { language: parsed.language, translation: parsed.translation, skipped: false }
   } catch (error) {
-    console.warn(`[recourse] translation failed: ${error instanceof Error ? error.message : String(error)}`)
+    getLogger().warn(`translation failed: ${error instanceof Error ? error.message : String(error)}`)
     return { language: 'unknown', skipped: true }
   }
 }
