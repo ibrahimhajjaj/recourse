@@ -249,7 +249,12 @@ async function carryOver(
   // into safely, and guessing which end is short would misalign every row.
   if (rows.length !== before.chunks.length) return empty
 
-  const key = async (text: string, id: string) => (keyed ? `${id} ${await digest(text)}` : digest(text))
+  // The separator is written as an escape rather than as the byte itself.
+  // A literal NUL in a source file makes grep treat the whole file as binary
+  // and skip it in silence, so every search of this codebase returned nothing
+  // from here and looked like the pattern was wrong.
+  const key = async (text: string, id: string) =>
+    keyed ? `${id}\u0000${await digest(text)}` : digest(text)
 
   const known = new Map<string, number>()
   await Promise.all(
