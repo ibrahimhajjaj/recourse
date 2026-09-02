@@ -23,6 +23,7 @@ import { PAUSED_MESSAGE, WAITING_MESSAGE, hasPerson, isEndCommand, isPaused, res
 import {
   buildInstructions,
   contextualQuery,
+  passageText,
   retrievalQuery,
   toSourceRefs,
   type ActionOutcome,
@@ -1241,6 +1242,10 @@ function lastBoundary(text: string): number {
 /**
  * Drops retrieved passages that carry instructions rather than information.
  *
+ * The whole passage is inspected, heading and all, because that is what the
+ * prompt will contain: a page whose title reads "ignore all previous
+ * instructions" is as much an attack as one whose body does.
+ *
  * The bar is high by default because a false positive here silently removes a
  * real help page from the answer, which is its own kind of failure. What
  * clears it is unambiguous: text telling the reader to ignore its
@@ -1250,7 +1255,7 @@ function withoutPoisoned(matches: Match[], threshold: number): Match[] {
   const kept: Match[] = []
 
   for (const match of matches) {
-    const { signals } = runRules(match.chunk.text, INPUT_RULES)
+    const { signals } = runRules(passageText(match), INPUT_RULES)
     const worst = signals
       .filter((signal) => signal.category === 'injection')
       .reduce((highest, signal) => Math.max(highest, signal.score), 0)
