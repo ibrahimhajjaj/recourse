@@ -2,6 +2,7 @@ import type { Agent } from '../agent.js'
 import type { Channel } from '../store/types.js'
 import type { Contact } from '../actions/types.js'
 import type { Message, SourceRef } from '../types.js'
+import { getLogger } from '../diagnostics.js'
 
 export interface ChannelBase {
   agent: Agent
@@ -100,7 +101,7 @@ export function answerInBackground(
       options.onError?.(error, { channel, conversationId: message.conversationId })
       // Logged rather than rethrown: nothing is listening, and an unhandled
       // rejection would take the whole worker down with it.
-      console.error(`[recourse] ${channel} turn failed`, error)
+      getLogger().error(`${channel} turn failed`, error)
     }
   })()
 

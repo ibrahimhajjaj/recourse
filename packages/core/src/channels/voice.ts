@@ -2,6 +2,7 @@ import { verifyTwilio } from './verify.js'
 import { createSentenceBuffer, toSpeech } from './voice-speech.js'
 import type { ChannelBase } from './shared.js'
 import type { Message } from '../types.js'
+import { getLogger } from '../diagnostics.js'
 
 // ---- the TwiML endpoint -----------------------------------------------------
 
@@ -336,7 +337,7 @@ export function createVoiceSession(options: VoiceSessionOptions) {
     } catch (error) {
       if (signal.aborted) return
       options.onError?.(error, { channel: 'phone', conversationId: state.conversationId ?? '' })
-      console.error('[recourse] voice turn failed', error)
+      getLogger().error('voice turn failed', error)
       options.send({ type: 'text', token: 'Sorry, I could not do that just now.', last: true })
     } finally {
       touch()
@@ -395,7 +396,7 @@ export function createVoiceSession(options: VoiceSessionOptions) {
         }
 
         case 'error': {
-          console.error('[recourse] conversation relay error:', message.description)
+          getLogger().error('conversation relay error:', message.description)
           return
         }
       }
