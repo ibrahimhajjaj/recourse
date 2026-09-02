@@ -323,3 +323,19 @@ describe('every connector', () => {
     error.mockRestore()
   })
 })
+
+describe('what a provider body is allowed to put in the log', () => {
+  it('keeps the reason and takes out anything shaped like a credential', async () => {
+    // The body is the only thing that explains a 422, so it stays. What does
+    // not stay is a token the provider echoed back at us: a log is read by
+    // more people than a request is, and it outlives the request by months.
+    const { redact } = await import('../src/actions/shrink.js')
+
+    const body = 'Subject is required. Retry at https://desk.example/cb?token=abcdef0123456789abcdef'
+    const logged = redact(body)
+
+    expect(logged).toContain('Subject is required')
+    expect(logged).not.toContain('abcdef0123456789abcdef')
+    expect(logged).toContain('[redacted]')
+  })
+})

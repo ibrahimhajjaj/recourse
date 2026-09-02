@@ -15,6 +15,7 @@
  */
 
 import { getLogger } from '../diagnostics.js'
+import { redact } from '../actions/shrink.js'
 
 export interface Transcript {
   text: string
@@ -78,7 +79,7 @@ export function elevenLabsTranscriber(options: ElevenLabsTranscriberOptions): Tr
 
       if (!response.ok) {
         // The body can name the key's permissions, so it stays in the log.
-        getLogger().warn(`ElevenLabs transcription failed: ${response.status} ${await response.text()}`)
+        getLogger().warn(`ElevenLabs transcription failed: ${response.status} ${redact(await response.text()).slice(0, 400)}`)
         throw new Error('transcription failed')
       }
 
@@ -128,7 +129,7 @@ export function openAiCompatibleTranscriber(options: OpenAiTranscriberOptions = 
       })
 
       if (!response.ok) {
-        getLogger().warn(`transcription failed: ${response.status} ${await response.text()}`)
+        getLogger().warn(`transcription failed: ${response.status} ${redact(await response.text()).slice(0, 400)}`)
         throw new Error('transcription failed')
       }
 
