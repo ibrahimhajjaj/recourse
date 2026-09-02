@@ -272,3 +272,30 @@ describe('what a caller is allowed to send', () => {
     expect(response.status).toBe(200)
   })
 })
+
+describe('the error type a client branches on', () => {
+  it('calls an upstream failure a server error, not a bad request', async () => {
+    // A client retries a server error and gives up on an invalid request, so
+    // labelling a transient failure as the latter loses the answer for good.
+    const broken = new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error('the provider is having a moment')
+      },
+    })
+    const handle = createOpenAiHandler({ index: await index(), model: broken })
+    const response = await handle(post({ messages: [{ role: 'user', content: 'refunds?' }] }))
+    const body = (await response.json()) as { error: { type: string } }
+
+    expect(response.status).toBe(502)
+    expect(body.error.type).toBe('server_error')
+  })
+
+  it('still calls a malformed request an invalid request', async () => {
+    const handle = await handler()
+    const response = await handle(post({}))
+    const body = (await response.json()) as { error: { type: string } }
+
+    expect(response.status).toBe(400)
+    expect(body.error.type).toBe('invalid_request_error')
+  })
+})

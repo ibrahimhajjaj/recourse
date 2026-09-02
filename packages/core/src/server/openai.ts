@@ -349,13 +349,19 @@ function readContent(content: unknown, maxMessageLength: number): string {
     .slice(0, maxMessageLength)
 }
 
-/** The protocol's error shape, which clients parse rather than display raw. */
+/**
+ * The protocol's error shape, which clients parse rather than display raw.
+ *
+ * The type is what a client branches on, so it has to distinguish "you sent
+ * something wrong" from "we could not answer just now". Calling an upstream
+ * failure an invalid request tells every retrying client to give up on a
+ * request that would have worked a second later.
+ */
 function fail(message: string, status: number, headers: Record<string, string>): Response {
-  return json(
-    { error: { message, type: status === 429 ? 'rate_limit_error' : 'invalid_request_error', code: null } },
-    status,
-    headers,
-  )
+  const type =
+    status === 429 ? 'rate_limit_error' : status >= 500 ? 'server_error' : 'invalid_request_error'
+
+  return json({ error: { message, type, code: null } }, status, headers)
 }
 
 function json(payload: unknown, status: number, headers: Record<string, string>): Response {
