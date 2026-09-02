@@ -213,6 +213,36 @@ Each refusal goes back to the model as an instruction rather than an error,
 because an error is a thing models retry. It names the way out: ask the customer
 for what is missing, or say what could not be done.
 
+## Writing one yourself
+
+`httpAction` covers calling an API. When the thing you need is code rather than
+a request, `defineAction` is the same shape with the body left to you:
+
+```ts
+import { defineAction } from '@recourse-ai/core'
+
+defineAction({
+  name: 'check_delivery_slot',
+  whenToUse: 'They ask whether a date is available for delivery.',
+  collect: [{ name: 'date', description: 'the date they asked for', required: true }],
+  async execute({ date }, ctx) {
+    const slots = await ourBookingSystem.slotsOn(String(date))
+
+    return { available: slots.length > 0, next: slots[0] ?? null }
+  },
+})
+```
+
+Whatever `execute` returns goes back to the model as the result, so return the
+answer rather than the raw record: a model handed forty fields will quote the
+wrong one. Throwing is fine and expected; the message reaches the model as a
+failure it can explain, redacted first, and the action stops being called after
+a few failures in a turn.
+
+`ctx` carries the conversation id, the contact, the signed private facts, and
+`emit` for a frame the browser should see. It is the same context the built-in
+actions get, because they are written with this.
+
 ## Holding an action back until it is wanted
 
 Every action's name, description and inputs go to the model on every turn,

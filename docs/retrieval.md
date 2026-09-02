@@ -62,6 +62,36 @@ Measured on the retrieval suite, which is deterministic and runs in CI: this
 took it from 20 of 22 to 22 of 22, and the two it fixed were the only two
 failures left.
 
+## The other ways content gets in
+
+A website and a folder are two of five. The rest matter more than they look,
+because the best answers usually come from the shortest source:
+
+```ts
+import { qnaSource, textSource, notionSource } from '@recourse-ai/core'
+```
+
+**`qnaSource`** takes question and answer pairs. This is the one to reach for
+when an answer keeps coming out wrong: a page written for a reader is not
+written for a question, and one pair beats a page of prose about the same
+subject. It is also what a support team can write without touching the website.
+
+```ts
+qnaSource([
+  { question: 'Do you deliver to Ireland?', answer: 'Yes, and it takes about a week.' },
+])
+```
+
+**`textSource`** takes documents you already have in memory, from your own
+database, CMS or anywhere else. It is the escape hatch: if you can produce
+`{ id, title, text }`, it can be indexed.
+
+**`notionSource`** reads a Notion database, for teams whose help content lives
+there rather than on the site.
+
+All of them compose. Passing four sources to `buildIndex` indexes all four into
+one knowledge base, and a chunk cites whichever it came from.
+
 ## What a folder can be made of
 
 `filesSource` reads a directory into the index. Markdown and text need nothing.
