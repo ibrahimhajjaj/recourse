@@ -172,7 +172,7 @@ async function ask(
       // nobody can diff, and this is read by people comparing conversations.
       temperature: 0,
       maxOutputTokens: 300,
-      system:
+      instructions:
         'You are labelling a customer support conversation for a support lead who will skim it.\n' +
         'Reply with exactly three lines and nothing else:\n' +
         'TITLE: at most eight words, what the customer wanted\n' +
