@@ -8,6 +8,7 @@ import { routeTicket, type RoutingRule } from './routing.js'
 import { DEFAULT_STATUSES, defaultStatusFor, validateStatuses } from './statuses.js'
 import { detectAndTranslate, type TranslationOptions } from './translate.js'
 import { anyoneOnShift, availabilityAt, type Schedule } from './schedule.js'
+import { RESOLVED_CATEGORIES } from './types.js'
 import type {
   StatusCategory,
   Team,
@@ -241,6 +242,18 @@ export function createHelpdesk(options: HelpdeskOptions) {
       if (!status) throw new Error(`no status in the "${patch.statusCategory}" category`)
       resolved.statusId = status.id
       resolved.statusCategory = status.category
+    }
+
+    // Closed, and now not closed. Counted here because it is the only moment
+    // the transition is visible: a ticket keeps its current status and nothing
+    // else, so afterwards there is no way to tell this one from a ticket that
+    // was never resolved at all.
+    if (
+      resolved.statusCategory &&
+      RESOLVED_CATEGORIES.includes(existing.statusCategory) &&
+      !RESOLVED_CATEGORIES.includes(resolved.statusCategory)
+    ) {
+      resolved.reopened = (existing.reopened ?? 0) + 1
     }
 
     if (patch.assigneeId !== undefined) resolved.assigneeId = patch.assigneeId ?? undefined

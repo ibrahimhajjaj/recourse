@@ -69,6 +69,12 @@ rated   by the agent  41 up / 66 down
 actually happened. The gap is where the quiet failures live, and reading that
 gap over time is worth more than either number on its own.
 
+A ticket carries `reopened`, counted the moment it goes from a resolved status
+back to an open one. It is the same question as `cameBack` asked of the desk
+rather than the chat: one ticket closed once is work finished, and the same
+ticket closed three times is somebody being handed the same wrong answer three
+times. On a dashboard that counts closures those look identical.
+
 The thumbs are split by whether a person ever joined, which is the comparison
 almost nobody makes. One number would read as ninety-nine up against
 seventy-five down and look survivable. Split, the agent is losing and the team

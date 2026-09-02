@@ -57,6 +57,18 @@ export interface Ticket {
   description: string
   statusId: string
   statusCategory: StatusCategory
+  /**
+   * How many times this was closed and came back.
+   *
+   * The number a deflection rate cannot show. A ticket closed once is work
+   * finished; the same ticket closed three times is a customer being handed the
+   * same wrong answer three times, and it looks identical on a dashboard that
+   * only counts closures.
+   *
+   * Counted on the transition rather than kept as a history, because the
+   * question people ask is "how often does this come back", not "when".
+   */
+  reopened?: number
   assigneeId?: string
   teamId?: string
   customer: TicketCustomer
