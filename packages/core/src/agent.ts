@@ -821,9 +821,14 @@ export function createAgent(options: AgentOptions) {
           }
         }),
         abortSignal: signal,
-        // Already filtered, so the tool set is exactly what the prompt named.
+        // Already filtered, but the tool builder is public and filters for
+        // itself, so it is handed the same decision. Without it every
+        // procedure-only action is dropped on the second pass, and the model is
+        // told to call something it was never given. The conversation is not
+        // passed again: relevantWhen has been applied and would only be redone.
         tools: actionsToTools(offered, {
           context,
+          unlocked,
           ...(options.actionResults ? { results: options.actionResults } : {}),
           ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
         }),
