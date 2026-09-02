@@ -9,7 +9,15 @@ import { memoryStore } from '../src/store/memory.js'
 import { createRetriever } from '../src/retrieve/retriever.js'
 import { createKnowledgeSearch, knowledgeTool } from '../src/tool.js'
 import { createAgent } from '../src/agent.js'
-import { buildInstructions, contextualQuery, retrievalQuery, toSourceRefs, toneRules } from '../src/server/prompt.js'
+import {
+  buildInstructions,
+  contextualQuery,
+  fallbackFor,
+  languageOf,
+  retrievalQuery,
+  toSourceRefs,
+  toneRules,
+} from '../src/server/prompt.js'
 import type { Document, KnowledgeIndex, Match, StreamFrame } from '../src/types.js'
 
 const documents: Document[] = [
@@ -136,6 +144,56 @@ describe('prompt', () => {
       for (const phrase of ['contact us', 'reach out to us', 'get in touch with us']) {
         expect(instructions).toContain(`"${phrase}"`)
       }
+    })
+  })
+
+  // The prompt says reply in the customer's language and then hands over one
+  // exact sentence for when it cannot answer, so the sentence goes out in
+  // whatever language it was typed in. A map settles which sentence. Nothing
+  // here generates one, which is why every case is synchronous and modelless.
+  describe('a fallback sentence per language', () => {
+    it('a plain string is emitted as it always was', () => {
+      expect(fallbackFor('I cannot help.')).toBe('I cannot help.')
+      expect(fallbackFor('I cannot help.', 'ar')).toBe('I cannot help.')
+    })
+
+    it('an empty string falls to the built-in sentence', () => {
+      expect(fallbackFor('')).toContain("I'm not sure about that one.")
+    })
+
+    it('a map with a match emits that sentence byte for byte', () => {
+      expect(fallbackFor({ en: 'EN_MARKER', ar: 'AR_MARKER' }, 'ar')).toBe('AR_MARKER')
+    })
+
+    it('a map with no match emits the first entry', () => {
+      expect(fallbackFor({ en: 'EN_MARKER', ar: 'AR_MARKER' }, 'de')).toBe('EN_MARKER')
+      expect(fallbackFor({ en: 'EN_MARKER', ar: 'AR_MARKER' })).toBe('EN_MARKER')
+    })
+
+    it('an empty map falls to the built-in sentence', () => {
+      expect(fallbackFor({})).toContain("I'm not sure about that one.")
+    })
+
+    it('the whole prompt carries the chosen sentence and only it', () => {
+      const instructions = buildInstructions({
+        matches: [],
+        persona: { fallback: { en: 'EN_MARKER', ar: 'AR_MARKER' } },
+        language: 'ar',
+      })
+      expect(instructions.split('AR_MARKER').length - 1).toBe(1)
+      expect(instructions).not.toContain('EN_MARKER')
+    })
+
+    it('reads the script the customer wrote in', () => {
+      expect(languageOf('كم يستغرق التوصيل')).toBe('ar')
+      expect(languageOf('أين طلبي؟ لم يصل بعد')).toBe('ar')
+      expect(languageOf('私の注文はどこですか')).toBe('ja')
+      expect(languageOf('Где мой заказ')).toBe('ru')
+      expect(languageOf('Where is my order? It has not arrived yet.')).toBe('en')
+    })
+
+    it('says nothing rather than guessing between two Latin languages', () => {
+      expect(languageOf('Wo ist meine Bestellung? Sie ist noch nicht angekommen.')).toBeUndefined()
     })
   })
 
