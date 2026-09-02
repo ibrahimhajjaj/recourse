@@ -56,7 +56,7 @@ if (args.includes('--lint-only')) {
   // catches what a reviewer at wp.org would send back, and leaving it out of
   // the gate meant it only ever ran when somebody remembered to run it.
   if (!existsSync(join(root, 'vendor', 'bin', 'phpcs'))) {
-    console.log('phpcs not installed; run `composer install` in packages/wordpress')
+    console.log('phpcs not installed here; it runs in CI under the php job, or after `composer install` in packages/wordpress')
     process.exit(0)
   }
 
@@ -64,7 +64,7 @@ if (args.includes('--lint-only')) {
 }
 
 if (!existsSync(join(root, 'vendor', 'bin', 'phpunit'))) {
-  skip('no vendor directory; run `composer install` in packages/wordpress')
+  skip('no vendor directory here; the suite runs in CI under the php job, or after `composer install` in packages/wordpress')
 }
 
 process.exit(runSuite(['vendor/bin/phpunit']))
