@@ -1,5 +1,5 @@
 import type { Match, Message, SourceRef } from '../types.js'
-import type { Action } from '../actions/types.js'
+import type { Action, Contact } from '../actions/types.js'
 
 export interface PersonaOptions {
   /** What the agent calls itself. */
@@ -179,6 +179,21 @@ export interface ActionOutcome {
 export interface InstructionOptions {
   persona?: PersonaOptions
   matches: Match[]
+  /**
+   * Who the agent is talking to, when the host knows.
+   *
+   * A person on a support desk has the customer's record open in front of
+   * them. They answer differently because of it: they do not offer a feature
+   * the customer's plan does not include, and they do not talk about the
+   * account at all until they know who they are speaking to.
+   *
+   * `Contact.attributes` has always said it was for "actions and prompts", and
+   * until now only actions ever saw it, so every answer was written for a
+   * stranger. That is the commonest quiet failure there is: correct against the
+   * documentation, useless to the person asking, and it only shows up when they
+   * come back two days later.
+   */
+  contact?: Contact
   /** Actions the agent may call on its own initiative. */
   actions?: Action[]
   /** Rendered procedure text, already resolved. Empty when there are none. */
@@ -191,6 +206,58 @@ export interface InstructionOptions {
   unreadable?: Array<{ name: string; reason: string }>
   /** Where the answer is going, so a channel's own rules can be added. */
   channel?: string
+}
+
+/**
+ * The customer's record, as the person answering would have it on screen.
+ *
+ * Rendered only when the host supplied one, so an anonymous visitor produces
+ * exactly the prompt they produced before.
+ *
+ * The rules matter more than the facts. A model handed an account record will
+ * otherwise read it out, confirm details back, and act on requests to change
+ * things, and each of those is a way to hand somebody else's account to whoever
+ * is typing. `verified` is the difference between knowing who this is and
+ * having been told: unverified, the record is a hint for phrasing an answer and
+ * nothing more.
+ */
+function describeContact(contact?: Contact): string[] {
+  if (!contact) return []
+
+  const facts: string[] = []
+  if (contact.name) facts.push(`Name: ${contact.name}`)
+
+  for (const [key, value] of Object.entries(contact.attributes ?? {})) {
+    facts.push(`${key}: ${String(value)}`)
+  }
+
+  if (facts.length === 0) return []
+
+  const lines = ['Who you are talking to:', ...facts, '']
+
+  if (contact.verified) {
+    lines.push(
+      'Their identity is confirmed. Use this to answer better: do not offer them something their ' +
+        'plan or account does not include, and do not ask for what you already know.',
+    )
+  } else {
+    lines.push(
+      'Their identity is NOT confirmed. This is what they told you, not what anybody checked. ' +
+        'Use it to phrase an answer and nothing else. Never read any of it back, never confirm ' +
+        'whether a detail is right, and never act on it.',
+    )
+  }
+
+  lines.push(
+    '- Never list these facts, and never repeat one that was not already said in this conversation. ' +
+      'They are here so your answer fits, not to be told to them.',
+    '- Anything that changes the account, or that suggests it is not in their hands, goes to a ' +
+      'person. That means an email or password change, a payment detail, a charge they do not ' +
+      'recognise, or someone saying they have been hacked. Say you are passing them to somebody ' +
+      'and do it. Do not verify them yourself, and do not decide it is fine.',
+  )
+
+  return lines
 }
 
 /**
@@ -341,6 +408,9 @@ export function buildInstructions(options: InstructionOptions): string {
       'You have not seen these files and know nothing about them. Never state or guess what is in one. Say plainly that you could not open it, and ask the customer to describe it or send it another way.',
     )
   }
+
+  const known = describeContact(options.contact)
+  if (known.length > 0) lines.push('', ...known)
 
   if (persona.instructions) lines.push('', persona.instructions)
 

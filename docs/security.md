@@ -1,5 +1,45 @@
 # Locking it down
 
+
+## Knowing who is asking
+
+A person on a support desk has the customer's record open. They answer from it,
+and they know when a conversation stops being a question and becomes a security
+matter.
+
+Pass a `contact` and the agent gets the same. `Contact.attributes` reaches the
+prompt, so the answer is written for the plan the person is actually on rather
+than for a stranger:
+
+```ts
+contact: {
+  name: 'Sam Okafor',
+  email: 'sam@shop.example',
+  attributes: { plan: 'Starter', customerSince: '2024' },
+  verified: true,
+}
+```
+
+The rules that come with it matter more than the facts.
+
+**The record is never read out.** A model handed an account will otherwise
+recite it, and confirming a detail back to whoever is typing is how you tell an
+attacker whether they guessed right.
+
+**`verified` is the whole difference.** Anybody can type an email address. Until
+something checked it, the record is a hint for phrasing an answer and nothing
+that can be acted on, and the prompt says so in those words.
+
+**Anything touching the account goes to a person.** An email or password change,
+a payment detail, a charge they do not recognise, somebody saying they have been
+hacked. The agent says it is passing them over and does it. It does not verify
+anybody itself and it does not decide the request is fine, because both of those
+are decisions with a victim when they are wrong.
+
+An anonymous visitor produces exactly the prompt they always did. Nothing is
+added when there is nobody to add.
+
+
 ## Already handled, before you configure anything
 
 - Model output is rendered by building DOM nodes, never by assigning
