@@ -150,6 +150,17 @@ defineProcedure({
 })
 ```
 
+A procedure reaches the prompt only on turns its trigger matches. Eight
+ordinary procedures write out to around nine hundred tokens, and on a message
+like "hi" none of them apply, so none are sent. The same test decides which of
+their actions are bound, so the prompt never describes a step calling something
+the model has not been given.
+
+Matched against the whole conversation rather than the last message, so a
+procedure stays in the prompt while it is being worked through: the customer
+answering "LUM-1234" three turns in no longer says anything that looks like a
+refund request.
+
 An action marked `procedureOnly` is never offered to the agent's own judgment.
 It becomes callable only for the procedures that name it, so a refund tool
 cannot fire because a conversation drifted somewhere suggestive.

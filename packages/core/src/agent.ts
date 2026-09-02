@@ -3,7 +3,7 @@ import type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame }
 import { actionsToTools, offeredActions } from './actions/define.js'
 import type { Action, ActionContext, Contact } from './actions/types.js'
 import type { Channel, Store, StoredMessage } from './store/types.js'
-import { renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
+import { matchingProcedures, renderProcedures, unlockedBy, usableProcedures } from './procedures/index.js'
 import type { Webhooks } from './webhooks/index.js'
 import type { Procedure } from './procedures/types.js'
 import { answerFilter, type Hooks } from './hooks.js'
@@ -563,7 +563,15 @@ export function createAgent(options: AgentOptions) {
      * putting in front of the model this turn.
      */
     const said = messages.map((message) => message.content).join('\n')
-    const unlocked = unlockedBy(procedures, said)
+    /**
+     * The procedures this turn is about, decided once.
+     *
+     * Both the prompt and the tool set are built from this same list, because
+     * they have to agree: describing a procedure whose actions are not bound
+     * tells the model to call something it has not been given.
+     */
+    const applicable = matchingProcedures(procedures, said)
+    const unlocked = unlockedBy(applicable)
     /**
      * Decided from the whole conversation, so an action stays available for a
      * flow that is halfway through and is absent from a turn that never
@@ -584,7 +592,7 @@ export function createAgent(options: AgentOptions) {
       persona: options.persona,
       matches,
       actions: offered,
-      procedures: renderProcedures(procedures, {
+      procedures: renderProcedures(applicable, {
         contact,
         ...(options.procedureVariables ? { extra: options.procedureVariables() } : {}),
       }),

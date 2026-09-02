@@ -83,6 +83,26 @@ export function usableProcedures(
 }
 
 /**
+ * The procedures the conversation is actually about.
+ *
+ * Computed once and handed to both the prompt and the unlock check, so the two
+ * cannot disagree. They did: every procedure was described in the prompt on
+ * every turn while only the matching one had its actions bound, which told the
+ * model to call a tool it had not been given. On a conversation of "hi" that
+ * meant a refund procedure spelled out in full, naming an action that was not
+ * there.
+ *
+ * Not just a saving, though it is one. Eight ordinary procedures render to
+ * around nine hundred tokens, and almost none of them have anything to do with
+ * what is being said.
+ */
+export function matchingProcedures(procedures: Procedure[], conversation?: string): Procedure[] {
+  if (conversation === undefined) return procedures
+
+  return procedures.filter((procedure) => mentions(procedure.trigger, conversation))
+}
+
+/**
  * Action names any usable procedure needs, so procedure-only ones unlock.
  *
  * Pass the **whole conversation** rather than the last message, which is what
