@@ -18,7 +18,7 @@ import { INPUT_RULES, runRules } from './safety/rules.js'
 import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
-import { describeFailure, logFailure } from './diagnostics.js'
+import { describeFailure, logFailure, type Logger } from './diagnostics.js'
 import { PAUSED_MESSAGE, WAITING_MESSAGE, hasPerson, isEndCommand, isPaused, resumeAgent, type TakeoverOptions } from './takeover.js'
 import {
   buildInstructions,
@@ -276,6 +276,14 @@ export interface AgentOptions {
    * ```
    */
   hooks?: Hooks
+  /**
+   * Where this agent's own warnings and failures go.
+   *
+   * Defaults to the process log. Pass one to send them to whatever the rest of
+   * the deployment already uses, or to drop them: a library that can only shout
+   * at stdout is a library nobody can run inside anything else.
+   */
+  logger?: Logger
 }
 
 export interface StreamOptions {
