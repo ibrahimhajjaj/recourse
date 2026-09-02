@@ -36,6 +36,14 @@ export interface Correction {
   /** Who wrote it, for the audit trail. Never shown to a customer. */
   author?: string
   createdAt: string
+  /**
+   * When it was last edited, absent until it is.
+   *
+   * Separate from `createdAt` rather than overwriting it, because the two
+   * answer different questions: when somebody decided this, and whether the
+   * wording in front of you now is the wording they decided on.
+   */
+  updatedAt?: string
 }
 
 /**
@@ -49,6 +57,20 @@ export interface CorrectionStore {
   list(): Promise<Correction[]>
   add(correction: Omit<Correction, 'id' | 'createdAt'>): Promise<Correction>
   remove(id: string): Promise<boolean>
+  /**
+   * Edits one in place, returning it, or undefined when there is no such id.
+   *
+   * Optional, because this interface is published as something to implement
+   * against your own database and a fourth required method would stop every
+   * such implementation compiling. A store without it can still be corrected;
+   * the editing path answers 501 and remove-then-add still works, which is
+   * what everybody was doing anyway.
+   *
+   * In place, because remove-then-add is what this replaces: it mints a new
+   * id, a new createdAt and usually a new author, so the record of who decided
+   * something is lost by the act of fixing a typo in it.
+   */
+  update?(id: string, patch: Partial<Pick<Correction, 'question' | 'answer' | 'author'>>): Promise<Correction | undefined>
 }
 
 /**
@@ -83,6 +105,24 @@ export function memoryCorrections(initial: Correction[] = []): CorrectionStore {
       held.splice(at, 1)
 
       return true
+    },
+
+    async update(id, patch) {
+      const at = held.findIndex((correction) => correction.id === id)
+      if (at < 0) return undefined
+
+      // Merged rather than replaced, so a caller sending only an answer does
+      // not blank the question it was written about.
+      const edited: Correction = {
+        ...(held[at] as Correction),
+        ...(patch.question === undefined ? {} : { question: patch.question }),
+        ...(patch.answer === undefined ? {} : { answer: patch.answer }),
+        ...(patch.author === undefined ? {} : { author: patch.author }),
+        updatedAt: new Date().toISOString(),
+      }
+      held[at] = edited
+
+      return edited
     },
   }
 }
