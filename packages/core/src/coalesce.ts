@@ -18,6 +18,7 @@
  */
 
 import { PAUSED_KEY } from './takeover.js'
+import { patchConversationMeta } from './store/meta.js'
 import type { Conversation, Store, StoredMessage } from './store/types.js'
 
 export const HOLD_KEYS = {
@@ -97,16 +98,13 @@ export async function hold(conversationId: string, options: HoldOptions): Promis
 
   const now = Date.now()
 
-  await options.store.updateConversation(conversationId, {
-    meta: {
-      ...meta,
-      // Restarted on every arrival, which is what makes it a silence detector
-      // rather than a timer from the first word.
-      [HOLD_KEYS.dueAt]: new Date(now + options.windowMs).toISOString(),
-      // Set once and left alone, so the ceiling below is measured from when
-      // the customer started rather than from their most recent keystroke.
-      [HOLD_KEYS.firstAt]: typeof meta[HOLD_KEYS.firstAt] === 'string' ? meta[HOLD_KEYS.firstAt] : new Date(now).toISOString(),
-    },
+  await patchConversationMeta(options.store, conversationId, {
+    // Restarted on every arrival, which is what makes it a silence detector
+    // rather than a timer from the first word.
+    [HOLD_KEYS.dueAt]: new Date(now + options.windowMs).toISOString(),
+    // Set once and left alone, so the ceiling below is measured from when the
+    // customer started rather than from their most recent keystroke.
+    ...(typeof meta[HOLD_KEYS.firstAt] === 'string' ? {} : { [HOLD_KEYS.firstAt]: new Date(now).toISOString() }),
   })
 
   return { ready: false, messages: [] }
@@ -185,32 +183,27 @@ async function release(store: Store, conversation: Conversation): Promise<boolea
   if (typeof meta[HOLD_KEYS.dueAt] !== 'string') return false
 
   const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  await store.updateConversation(conversation.id, { meta: { ...meta, [HOLD_KEYS.claim]: token } })
+  await patchConversationMeta(store, conversation.id, { [HOLD_KEYS.claim]: token })
 
   const after = await store.getConversation(conversation.id)
   if (after?.conversation.meta?.[HOLD_KEYS.claim] !== token) return false
 
-  const next = { ...(after?.conversation.meta ?? {}) }
-  delete next[HOLD_KEYS.dueAt]
-  delete next[HOLD_KEYS.firstAt]
-  delete next[HOLD_KEYS.claim]
-
-  await store.updateConversation(conversation.id, { meta: next })
+  await patchConversationMeta(store, conversation.id, {
+    [HOLD_KEYS.dueAt]: null,
+    [HOLD_KEYS.firstAt]: null,
+    [HOLD_KEYS.claim]: null,
+  })
 
   return true
 }
 
 /** Drops a hold without taking the burst, for one a person now owns. */
 async function forget(store: Store, conversationId: string): Promise<void> {
-  const thread = await store.getConversation(conversationId)
-  if (!thread) return
-
-  const next = { ...(thread.conversation.meta ?? {}) }
-  delete next[HOLD_KEYS.dueAt]
-  delete next[HOLD_KEYS.firstAt]
-  delete next[HOLD_KEYS.claim]
-
-  await store.updateConversation(conversationId, { meta: next })
+  await patchConversationMeta(store, conversationId, {
+    [HOLD_KEYS.dueAt]: null,
+    [HOLD_KEYS.firstAt]: null,
+    [HOLD_KEYS.claim]: null,
+  })
 }
 
 /**
