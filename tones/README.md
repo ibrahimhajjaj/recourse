@@ -34,6 +34,11 @@ Pass the file's contents where a name would go:
 persona: { tone: readFileSync('tones/night-shift.md', 'utf8') }
 ```
 
+That path is a file in your own repository, not one inside the package. The
+three packs in this folder are examples to copy: take `first-line.md`,
+`night-shift.md` or `regulated.md` into your project, edit the lines until they
+sound like your team, and hand the contents to `tone:` as a string.
+
 In WordPress, tick "Use a tone I paste in instead" and paste it.
 
 Sharing one is sending the file. Adopting one is pasting it. There is no
