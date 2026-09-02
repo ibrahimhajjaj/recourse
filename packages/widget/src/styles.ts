@@ -171,10 +171,12 @@ export const styles = `
   border-radius: 999px;
   padding: 3px 9px;
   text-decoration: none;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps rather than truncates. A page and the heading inside it do not fit
+     on one line in a panel this narrow, and "What it c..." names nothing the
+     reader can recognise or decide to open. Bounded by the panel instead of a
+     fixed width, so it holds at any size the host gives it. */
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 .sources a:hover { color: var(--rc-ink); border-color: var(--rc-muted); }
 
