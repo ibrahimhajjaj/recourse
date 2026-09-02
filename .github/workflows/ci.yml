@@ -115,6 +115,18 @@ jobs:
       # `dist` that does not exist yet. It passed on a developer's machine
       # only because theirs was already built.
       - run: pnpm -r --filter "./packages/*" build
+
+      # public/recourse.js is a build output that lives in the history: the
+      # landing page and the demo both serve it, and the widget's own build
+      # rewrites it. Nothing noticed when a widget change was committed without
+      # it, so the file on the site was months behind the code, and the fix
+      # each time was somebody spotting it by hand. The build above has already
+      # refreshed it, so a dirty file here means the commit is missing it.
+      - name: the committed widget bundle is current
+        run: |
+          git diff --exit-code --stat public/recourse.js \
+            || (echo "::error::public/recourse.js is stale; run 'pnpm --filter @recourse-ai/widget build' and commit the result" && exit 1)
+
       - run: pnpm -r --filter "./packages/*" lint
       - run: pnpm -r --filter "./packages/*" test
 
