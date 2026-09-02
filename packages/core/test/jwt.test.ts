@@ -158,6 +158,40 @@ describe('verifying a bot framework token', () => {
       }),
     ).not.toBeNull()
   })
+
+  it('rejects a token with no expiry, which would otherwise never expire', async () => {
+    const { keys, sign } = await issuer()
+    const { exp: _omitted, ...noExpiry } = valid
+    const token = await sign(noExpiry)
+    expect(
+      await verifyJwt({ token, openIdUrl: 'unused', issuer: ISSUER, audience: AUDIENCE, keys, now }),
+    ).toBeNull()
+  })
+
+  it('rejects an expiry that is a string rather than a number', async () => {
+    const { keys, sign } = await issuer()
+    const token = await sign({ ...valid, exp: String(Math.floor(now / 1000) + 600) })
+    expect(
+      await verifyJwt({ token, openIdUrl: 'unused', issuer: ISSUER, audience: AUDIENCE, keys, now }),
+    ).toBeNull()
+  })
+
+  it('rejects a not-before that is a string rather than a number', async () => {
+    const { keys, sign } = await issuer()
+    const token = await sign({ ...valid, nbf: String(Math.floor(now / 1000) - 10) })
+    expect(
+      await verifyJwt({ token, openIdUrl: 'unused', issuer: ISSUER, audience: AUDIENCE, keys, now }),
+    ).toBeNull()
+  })
+
+  it('accepts a token with an expiry and no not-before', async () => {
+    const { keys, sign } = await issuer()
+    const { nbf: _unused, ...withoutNbf } = valid
+    const token = await sign(withoutNbf)
+    expect(
+      await verifyJwt({ token, openIdUrl: 'unused', issuer: ISSUER, audience: AUDIENCE, keys, now }),
+    ).not.toBeNull()
+  })
 })
 
 describe('teams message text', () => {
