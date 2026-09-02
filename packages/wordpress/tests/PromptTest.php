@@ -209,6 +209,17 @@ class PromptTest extends TestCase {
 			'bare'        => Prompt::instructions( array() ),
 			'withActions' => Prompt::instructions( array(), array(), true ) . \Recourse\Actions::instructions( $actions ),
 			'brisk'       => Prompt::instructions( array(), array( 'tone' => 'brisk' ) ),
+			'fallbackMap' => Prompt::instructions(
+				array(),
+				array(
+					'fallback' => array(
+						'en' => 'EN_FALLBACK_MARKER',
+						'ar' => 'AR_FALLBACK_MARKER',
+					),
+				),
+				false,
+				'ar'
+			),
 		);
 
 		foreach ( $fixture['prompt'] as $name => $expected ) {
@@ -218,6 +229,26 @@ class PromptTest extends TestCase {
 				"the {$name} prompt has drifted from the TypeScript one"
 			);
 		}
+	}
+
+	/**
+	 * A map with nothing matching falls to its first entry.
+	 *
+	 * The plugin passes no language today, so this is the path every site
+	 * configuring a map actually takes. It has to be the sentence they typed
+	 * first, not the built-in English one.
+	 */
+	public function test_a_fallback_map_falls_to_its_first_entry() {
+		$persona = array(
+			'fallback' => array(
+				'en' => 'EN_FALLBACK_MARKER',
+				'ar' => 'AR_FALLBACK_MARKER',
+			),
+		);
+
+		$this->assertStringContainsString( 'EN_FALLBACK_MARKER', Prompt::instructions( array(), $persona ) );
+		$this->assertStringNotContainsString( 'AR_FALLBACK_MARKER', Prompt::instructions( array(), $persona ) );
+		$this->assertStringContainsString( 'AR_FALLBACK_MARKER', Prompt::instructions( array(), $persona, false, 'ar' ) );
 	}
 
 	/**

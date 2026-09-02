@@ -191,6 +191,14 @@ const PROMPTS = {
     actions: [{ name: 'look_up_order', whenToUse: 'when they ask about an order', parameters: {} }],
   }),
   brisk: buildInstructions({ matches: [], persona: { tone: 'brisk' } }),
+  // A map with a match. The picker is the only new thing between the two
+  // ports here, so the case that matters is a language the map has: a case it
+  // does not have would pass even if one side never looked at the language.
+  fallbackMap: buildInstructions({
+    matches: [],
+    persona: { fallback: { en: 'EN_FALLBACK_MARKER', ar: 'AR_FALLBACK_MARKER' } },
+    language: 'ar',
+  }),
 }
 
 /**
