@@ -114,6 +114,25 @@ const STOP_GUESSING =
  * model reaching for something that is not there, which it reports to the
  * customer as a failure.
  */
+/**
+ * The label shown while an action runs, when it has one.
+ *
+ * Wrapped, because this is deployment code running inside the turn: a summary
+ * that throws would take down a lookup that was about to succeed, over a string
+ * nobody needed.
+ */
+function summarise(action: Action, input: ActionInput): string {
+  if (!action.summarise) return ''
+
+  try {
+    const label = action.summarise(input)
+    return typeof label === 'string' ? label.slice(0, 120) : ''
+  } catch (error) {
+    console.error(`[recourse] the summary for "${action.name}" threw:`, error)
+    return ''
+  }
+}
+
 export function offeredActions(
   actions: Action[],
   options: Pick<ToolBuildOptions, 'unlocked' | 'conversation'>,
@@ -170,11 +189,25 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                 return { ok: false, error: STOP_GUESSING }
               }
 
+              // Reported for every action rather than only the ones that
+              // remembered to. A lookup can take five seconds, and without this
+              // the visitor watches three dots and cannot tell the difference
+              // between working and broken.
+              const label = summarise(action, input)
+              options.context.emit?.({
+                type: 'action',
+                name: action.name,
+                status: 'running',
+                ...(label ? { summary: label } : {}),
+              })
+
               try {
                 const data = await action.execute?.(input, options.context)
+                options.context.emit?.({ type: 'action', name: action.name, status: 'done' })
                 return { ok: true, data: shrink(data, options.results) }
               } catch (error) {
                 failures.set(action.name, failed + 1)
+                options.context.emit?.({ type: 'action', name: action.name, status: 'failed' })
 
                 // Handed back as data rather than thrown, so the agent can tell
                 // the customer what failed instead of the turn dying silently.

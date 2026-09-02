@@ -48,7 +48,6 @@ export function httpAction(options: HttpActionOptions): Action {
     async execute(input: ActionInput, ctx) {
       const url = interpolate(options.url, input, true)
 
-      ctx.emit({ type: 'action', name: options.name, status: 'running' })
 
       const response = await fetchWithRetry(
         url,
@@ -63,7 +62,6 @@ export function httpAction(options: HttpActionOptions): Action {
       const text = await response.text()
 
       if (!response.ok) {
-        ctx.emit({ type: 'action', name: options.name, status: 'failed' })
         // The status goes to the model, the body does not: an error page can
         // carry stack traces and internal hostnames.
         throw new Error(`${options.name} failed with status ${response.status}`)
@@ -80,7 +78,6 @@ export function httpAction(options: HttpActionOptions): Action {
         throw new Error(`${options.name} did not return JSON`)
       }
 
-      ctx.emit({ type: 'action', name: options.name, status: 'done' })
       return options.allowFields?.length ? pick(data, options.allowFields) : data
     },
   })

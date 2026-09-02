@@ -73,6 +73,18 @@ export interface Action {
    */
   procedureOnly?: boolean
   /**
+   * A few words naming what this is doing, shown while it runs.
+   *
+   * Every server action reports that it started and finished on its own, and
+   * the widget shows that instead of three dots. This is for when the name is
+   * not enough: "Searching for waterproof jackets" rather than "Searching the
+   * web". Keep it short and about the customer's request, since they are
+   * reading it while they wait.
+   *
+   * Never put anything private in it. It goes straight to the browser.
+   */
+  summarise?: (input: ActionInput) => string
+  /**
    * Only offer this action when the conversation is about it.
    *
    * Every action's name, description and input schema go to the model on every

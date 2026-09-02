@@ -47,7 +47,6 @@ export function slackNotify(options: SlackNotifyOptions): Action {
 
       if (!response.ok) throw new Error(`Slack notification failed (${response.status})`)
 
-      ctx.emit({ type: 'action', name: 'notify_the_team', status: 'done' })
       return { notified: true, message: 'The team has been told. Do not promise a response time.' }
     },
   })

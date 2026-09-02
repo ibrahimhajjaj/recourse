@@ -170,6 +170,23 @@ entirely, with a warning. Half a procedure is worse than none: the agent follows
 four steps, reaches a tool that is not there, and improvises the ending the
 procedure existed to prevent.
 
+## What the visitor sees while it runs
+
+A lookup can take five seconds. Every server action reports that it started,
+and then that it finished or failed, and the widget shows that instead of a
+typing indicator. Nothing has to be added to an action to get it.
+
+Add `summarise` when the name is not enough:
+
+```ts
+summarise: (input) => `Looking up ${input.order}`
+```
+
+It is shown to the visitor while they wait, so keep it short, keep it about
+what they asked for, and put nothing private in it: it goes straight to the
+browser. A summary that throws is dropped and the action still runs, because a
+label nobody needed should never cost a lookup that was about to work.
+
 ## When the model gets stuck
 
 A model that gets an unhelpful result sometimes tries the same thing again, and

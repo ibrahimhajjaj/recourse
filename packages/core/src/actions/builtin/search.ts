@@ -30,11 +30,14 @@ export function webSearch(options: WebSearchOptions = {}): Action {
 
     collect: [{ name: 'query', type: 'string', description: 'A focused search query, not a sentence.' }],
 
+    // What is being searched for, rather than the bare fact that a search is
+    // happening. It is what the visitor is waiting on, so it is what they read.
+    summarise: (input) => `Searching for ${String(input.query ?? '').slice(0, 60)}`,
+
     async execute(input, ctx) {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (options.apiKey) headers.Authorization = `Bearer ${options.apiKey}`
 
-      ctx.emit({ type: 'action', name: 'search_the_web', status: 'running', summary: String(input.query ?? '') })
 
       const response = await fetchWithRetry(
         'https://api.firecrawl.dev/v2/search',
@@ -55,7 +58,6 @@ export function webSearch(options: WebSearchOptions = {}): Action {
         snippet: (item.description ?? '').slice(0, 400),
       }))
 
-      ctx.emit({ type: 'action', name: 'search_the_web', status: 'done', summary: `${results.length} results` })
       return { results, note: 'Cite these by URL and say the information came from the web.' }
     },
   })

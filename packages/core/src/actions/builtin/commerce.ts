@@ -66,14 +66,12 @@ export function stripeBilling(options: StripeOptions): Action {
       const email = String(input.email ?? '').trim()
       if (!email) throw new Error('an email address is needed to look up billing')
 
-      ctx.emit({ type: 'action', name: 'look_up_billing', status: 'running' })
 
       const customers = (await stripe(`/customers?email=${encodeURIComponent(email)}&limit=1`, ctx.signal)) as {
         data?: Array<{ id?: string }>
       }
       const customerId = customers.data?.[0]?.id
       if (!customerId) {
-        ctx.emit({ type: 'action', name: 'look_up_billing', status: 'done' })
         return { found: false, message: 'No billing account with that email. Ask them to check the address.' }
       }
 
@@ -86,7 +84,6 @@ export function stripeBilling(options: StripeOptions): Action {
         }>,
       ])
 
-      ctx.emit({ type: 'action', name: 'look_up_billing', status: 'done' })
 
       // Trimmed hard: a raw Stripe object is thousands of tokens of internal
       // ids and flags, none of which a customer asked about.
@@ -163,7 +160,6 @@ export function shopifyOrders(options: ShopifyOptions): Action {
       if (orderNumber) query.set('name', orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`)
       if (email) query.set('email', email)
 
-      ctx.emit({ type: 'action', name: 'look_up_order', status: 'running' })
 
       let response: Response
       try {
@@ -182,7 +178,6 @@ export function shopifyOrders(options: ShopifyOptions): Action {
       if (!response.ok) throw new Error(`Shopify lookup failed (${response.status})`)
 
       const body = (await response.json()) as { orders?: Array<Record<string, unknown>> }
-      ctx.emit({ type: 'action', name: 'look_up_order', status: 'done' })
 
       const orders = (body.orders ?? []).map((order) => ({
         name: order.name,
