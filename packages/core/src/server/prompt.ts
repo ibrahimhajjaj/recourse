@@ -1,6 +1,7 @@
 import type { Match, Message, SourceRef } from '../types.js'
 import type { Action, Contact } from '../actions/types.js'
 import { getLogger } from '../diagnostics.js'
+import { looksEnglish } from '../helpdesk/translate.js'
 
 export interface PersonaOptions {
   /** What the agent calls itself. */
@@ -58,8 +59,28 @@ export interface PersonaOptions {
    * ```
    */
   perChannel?: Record<string, string>
-  /** Said when the retrieved context does not contain the answer. */
-  fallback?: string
+  /**
+   * Said when the retrieved context does not contain the answer.
+   *
+   * A string, or a sentence per language. The prompt tells the agent to reply
+   * in the customer's language and then hands it one exact sentence to use
+   * when it cannot answer, which are two rules that disagree: the sentence
+   * wins, in whatever language it was typed in. A map settles it without a
+   * translation step, and the absence of a translation step is the point. A
+   * model asked to translate will also improve, and an invented office hour or
+   * address gets into the one sentence nobody reads before it goes out.
+   *
+   * Keyed by language code. Nothing matched, or nothing detected, and the
+   * first entry is used, so write the deployment's own language first.
+   *
+   * ```ts
+   * fallback: {
+   *   en: "I'm not sure about that one. Shall I pass you to someone on the team?",
+   *   ar: 'لست متأكدًا من ذلك. هل أحولك إلى أحد أعضاء الفريق؟',
+   * }
+   * ```
+   */
+  fallback?: string | Record<string, string>
 }
 
 export type Tone = 'plain' | 'warm' | 'brisk' | 'formal'
@@ -106,6 +127,67 @@ const TONES: Record<Tone, string[]> = {
  */
 const DEFAULT_FALLBACK =
   "I'm not sure about that one. Could you put it another way, or shall I pass you to someone on the team?"
+
+/**
+ * The one sentence to use, chosen and never generated.
+ *
+ * Emitted byte for byte, so what a support lead typed into settings is what a
+ * customer reads. There is deliberately no path here that calls a model.
+ *
+ * A map with nothing matching falls to its first entry rather than to the
+ * built-in English one, because the first entry is the deployment's own
+ * language and an unrecognised question is more likely to be from a customer
+ * who reads that than from one who reads ours.
+ */
+export function fallbackFor(
+  fallback: string | Record<string, string> | undefined,
+  language?: string,
+): string {
+  if (typeof fallback === 'string') return fallback || DEFAULT_FALLBACK
+  if (!fallback) return DEFAULT_FALLBACK
+
+  const entries = Object.entries(fallback)
+  if (entries.length === 0) return DEFAULT_FALLBACK
+
+  const matched = language ? fallback[language] : undefined
+
+  return matched ?? (entries[0] as [string, string])[1]
+}
+
+/**
+ * The customer's language, from the writing rather than from a model.
+ *
+ * Script first, which settles nine languages outright and costs one regular
+ * expression. Latin text falls to the same function-word test the ticket
+ * translator uses, so "English" means one thing in this codebase rather than
+ * two.
+ *
+ * Undefined for Latin text that is not English, and that is honest rather than
+ * lazy: a script test cannot tell Spanish from German, and guessing wrong here
+ * would put a Spanish sentence in front of a German customer. Undefined falls
+ * to the configured default, which is what happens today.
+ */
+export function languageOf(text: string): string | undefined {
+  // Japanese before Chinese on purpose. Japanese writing mixes kana with han
+  // characters, so a han-first order calls every Japanese sentence Chinese.
+  const scripts: Array<[RegExp, string]> = [
+    [/[؀-ۿ]/, 'ar'],
+    [/[֐-׿]/, 'he'],
+    [/[Ѐ-ӿ]/, 'ru'],
+    [/[Ͱ-Ͽ]/, 'el'],
+    [/[ऀ-ॿ]/, 'hi'],
+    [/[฀-๿]/, 'th'],
+    [/[぀-ヿ]/, 'ja'],
+    [/[가-힯]/, 'ko'],
+    [/[一-鿿]/, 'zh'],
+  ]
+
+  for (const [pattern, code] of scripts) {
+    if (pattern.test(text)) return code
+  }
+
+  return looksEnglish(text) ? 'en' : undefined
+}
 
 /**
  * The rules for a tone: a built-in one, or one somebody wrote.
@@ -207,6 +289,14 @@ export interface InstructionOptions {
   unreadable?: Array<{ name: string; reason: string }>
   /** Where the answer is going, so a channel's own rules can be added. */
   channel?: string
+  /**
+   * The customer's language, when it is known.
+   *
+   * Only used to pick from a `fallback` map. The agent fills it in from what
+   * was written; a host that already knows, such as a call whose transcriber
+   * reports it, can pass it instead.
+   */
+  language?: string
 }
 
 /**
@@ -289,7 +379,7 @@ export function buildInstructions(options: InstructionOptions): string {
 
   const name = persona.name ?? 'the support assistant'
   const business = persona.business ? ` for ${persona.business}` : ''
-  const fallback = persona.fallback ?? DEFAULT_FALLBACK
+  const fallback = fallbackFor(persona.fallback, options.language)
 
   const context = matches
     .map((match, position) => `[${position + 1}] ${passageText(match)}`)
