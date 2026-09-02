@@ -188,6 +188,20 @@ describe('every command the cli dispatches', () => {
     expect(out.join('')).toContain('Chunks:')
   })
 
+  it('asks where the store is before reporting outcomes', async () => {
+    expect(await main(['outcomes'], io)).toBe(1)
+    expect(err.join('')).toContain('outcomes needs --store <dir>')
+  })
+
+  it('reports outcomes off a file store, including the empty one', async () => {
+    // An empty store is the first thing anybody runs this against, and a
+    // report that threw there would look like a broken command rather than a
+    // store with nothing in it yet.
+    expect(await main(['outcomes', '--store', join(dir, 'store')], io)).toBe(0)
+    expect(out.join('')).toContain('Conversations:  0')
+    expect(out.join('')).toContain('Thumbs, agent alone:   0 up, 0 down')
+  })
+
   it('shows the passages it matched when no model is configured', async () => {
     await main(['ingest', '--path', join(dir, 'docs'), '--no-embed'], io)
     out.length = 0

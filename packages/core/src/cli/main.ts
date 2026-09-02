@@ -25,12 +25,14 @@ Usage
   recourse ingest --path <dir>        Learn a folder of markdown instead
   recourse ask "<question>"           Ask the index a question from the terminal
   recourse stats                      Show what is in the index
+  recourse outcomes --store <dir>     Whether conversations ended, from a file store
   recourse doctor                     Check the index, the model and any
                                       credentials you pass, before a customer
                                       finds the problem for you
 
 Options
   --index <file>    Path to the knowledge index        (default ${DEFAULT_OUT})
+  --store <dir>     Directory a file store writes its logs to
   --max-pages <n>   Cap on pages fetched              (default 50)
   --include <a,b>   Only paths containing these
   --exclude <a,b>   Skip paths containing these
@@ -97,6 +99,8 @@ export async function main(argv: string[], io: Io = processIo()): Promise<number
       return runAsk(positionals.join(' '), flags, io)
     case 'stats':
       return runStats(flags, io)
+    case 'outcomes':
+      return runOutcomes(flags, io)
     case 'doctor':
       return runDoctor(flags, io)
     default:
@@ -374,6 +378,52 @@ async function runStats(flags: Record<string, string | boolean>, io: Io): Promis
       `Characters: ${index.stats.characters.toLocaleString('en-US')}`,
       `Terms:      ${terms.toLocaleString('en-US')}`,
       `Vectors:    ${index.vectors ? `${index.stats.embedded} x ${index.vectors.dimensions}d (${index.vectors.model})` : 'none, keyword-only'}`,
+      '',
+    ].join('\n'),
+  )
+
+  return 0
+}
+
+/**
+ * Whether the conversations ended, read straight off a file store.
+ *
+ * `stats` reports the index; this reports what happened to people. They are
+ * separate commands because they read separate things: one opens a JSON file
+ * built at ingest time, the other opens the logs a running agent appends to.
+ *
+ * Only the file store, because it is the one that needs no service to be
+ * running. A deployment on Postgres or D1 already has the `/outcomes` route.
+ */
+async function runOutcomes(flags: Record<string, string | boolean>, io: Io): Promise<number> {
+  const dir = typeof flags.store === 'string' ? flags.store : undefined
+
+  if (!dir) {
+    io.err('outcomes needs --store <dir>, the folder a file store writes to\n')
+    return 1
+  }
+
+  const { fileStore } = await import('../store/file.js')
+  const { outcomes } = await import('../outcomes.js')
+
+  const report = await outcomes({
+    store: fileStore({ dir: resolve(io.cwd, dir) }),
+    ...(typeof flags.days === 'string' ? { withinDays: Number(flags.days) } : {}),
+  })
+
+  io.out(
+    [
+      `Conversations:  ${report.conversations}`,
+      `Durable:        ${report.durable}`,
+      `Came back:      ${report.cameBack}`,
+      `Escalated:      ${report.escalated}`,
+      `Unanswered:     ${report.unanswered}`,
+      `Anonymous:      ${report.anonymous}`,
+      '',
+      `Thumbs, agent alone:   ${report.rated.byAgent.positive} up, ${report.rated.byAgent.negative} down`,
+      `Thumbs, person joined: ${report.rated.withPerson.positive} up, ${report.rated.withPerson.negative} down`,
+      '',
+      'A conversation with no email cannot be linked to the next one, so "came back" is a floor.',
       '',
     ].join('\n'),
   )
