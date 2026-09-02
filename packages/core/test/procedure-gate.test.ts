@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { MockLanguageModelV4 } from 'ai/test'
+import { simulateReadableStream } from 'ai'
 import { defineProcedure, unlockedBy, usableProcedures } from '../src/procedures/index.js'
 import { actionsToTools } from '../src/actions/define.js'
+import { createAgent } from '../src/agent.js'
+import { buildIndex } from '../src/knowledge/build.js'
+import { textSource } from '../src/sources/text.js'
 
 const refund = {
   name: 'issue_refund',
@@ -64,5 +69,54 @@ describe('an action that only a procedure may reach', () => {
     const { usable: only } = usableProcedures([vague], [refund])
 
     expect(unlockedBy(only, 'completely unrelated').has('issue_refund')).toBe(true)
+  })
+})
+
+/** A model that says one thing and calls nothing, so the turn ends on one step. */
+function answering(text: string) {
+  return new MockLanguageModelV4({
+    doStream: async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: 'text-start' as const, id: '0' },
+          { type: 'text-delta' as const, id: '0', delta: text },
+          { type: 'text-end' as const, id: '0' },
+          {
+            type: 'finish' as const,
+            finishReason: { unified: 'stop', raw: 'stop' } as const,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          },
+        ],
+        chunkDelayInMs: 0,
+      }),
+    }),
+  })
+}
+
+describe('through a whole turn', () => {
+  it('hands the model an action a matched procedure unlocked', async () => {
+    // The gate above is checked at the tool builder. This one is checked where
+    // it matters: the prompt names @issue_refund, so the tool set the model was
+    // handed on the same turn has to contain it.
+    const model = answering('What is the order number?')
+    let offered: string[] = []
+    const original = model.doStream
+    model.doStream = async (options: any) => {
+      offered = (options.tools ?? []).map((tool: any) => tool.name)
+      return original.call(model, options)
+    }
+
+    const agent = createAgent({
+      index: await buildIndex({
+        sources: [textSource([{ id: 'r', title: 'Refunds', text: 'We refund within 30 days.' }])],
+      }),
+      model,
+      actions: [refund, lookup],
+      procedures: [procedure],
+    })
+    for await (const frame of agent.stream('I want a refund please')) void frame
+
+    expect(offered).toContain('issue_refund')
+    expect(offered).toContain('lookup_order')
   })
 })
