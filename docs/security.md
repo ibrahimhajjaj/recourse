@@ -131,6 +131,21 @@ install and nothing to keep connected. `redisRateLimiter({ client })` takes any
 Redis you already have. Both fail open, because a Redis outage turning every
 customer away is a worse failure than a few minutes of unmetered traffic.
 
+## Origins
+
+The chat endpoint answers any origin unless you say otherwise, which is right
+for a public FAQ served off public pages and wrong for anything else: an
+unlisted origin is another site embedding your widget and spending your model
+budget. Set `cors.allowedOrigins` to the exact sites the widget lives on.
+
+```ts
+createChatHandler({ index, cors: { allowedOrigins: ['https://shop.example'] } })
+```
+
+With `identity` or `actions` configured and no origins set, the handler warns
+once at startup, because at that point an unknown origin can look a customer up
+or act for them rather than only read what is already published.
+
 ## Screening what comes in
 
 - A message is screened before retrieval and before the model, with per-category
