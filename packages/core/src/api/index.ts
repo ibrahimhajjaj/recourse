@@ -324,6 +324,50 @@ export function createApiHandler(options: ApiOptions) {
     )
   })
 
+  /**
+   * Edits one, keeping its id, its createdAt and its author.
+   *
+   * Partial: a body with only an answer changes only the answer. That is the
+   * common case, because the question is the customer's exact wording and the
+   * whole point is not to tidy it.
+   */
+  router.patch('/corrections/:id', async (request, params) => {
+    const store = corrections()
+    if (!store) return noCorrections()
+
+    // A store is free not to implement this, so say which of the two problems
+    // it is rather than answering 404 for a correction that exists.
+    if (!store.update) {
+      return json(
+        { error: { code: 'not_supported', message: 'this correction store cannot edit, only add and remove' } },
+        501,
+      )
+    }
+
+    const parsed = await readJson<{ question?: unknown; answer?: unknown; author?: unknown }>(request)
+    if ('error' in parsed) return parsed.error
+
+    const patch: { question?: string; answer?: string; author?: string } = {}
+    if (typeof parsed.body.question === 'string') patch.question = parsed.body.question.trim()
+    if (typeof parsed.body.answer === 'string') patch.answer = parsed.body.answer.trim()
+    if (typeof parsed.body.author === 'string') patch.author = parsed.body.author
+
+    // The same two rules the create route applies, for the same two reasons: a
+    // correction with no question matches nothing, and one with no answer
+    // blanks an answer that was at least wrong in a useful direction. Checked
+    // only for a field that was actually sent, since this is a partial update.
+    if (patch.question !== undefined && !patch.question) {
+      return badRequest('a correction needs the question that went wrong')
+    }
+    if (patch.answer !== undefined && !patch.answer) {
+      return badRequest('a correction needs the answer it should have given')
+    }
+    if (Object.keys(patch).length === 0) return badRequest('nothing to change')
+
+    const edited = await store.update(params.id as string, patch)
+    return edited ? ok(edited) : notFound('correction')
+  })
+
   router.delete('/corrections/:id', async (_request, params) => {
     const store = corrections()
     if (!store) return noCorrections()
