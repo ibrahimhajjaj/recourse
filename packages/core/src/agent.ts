@@ -699,6 +699,9 @@ export function createAgent(options: AgentOptions) {
     const instructionContext: InstructionOptions = {
       persona: options.persona,
       matches,
+      // The record the answer is written against. Actions have always had it;
+      // the prompt has not, so every answer was written for a stranger.
+      ...(contact ? { contact } : {}),
       actions: offered,
       procedures: renderProcedures(applicable, {
         contact,
