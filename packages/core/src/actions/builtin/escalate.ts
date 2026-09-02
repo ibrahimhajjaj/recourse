@@ -3,6 +3,7 @@ import { pauseAgent } from '../../takeover.js'
 import type { Action, ActionContext, ActionField, ActionInput } from '../types.js'
 import type { StoredMessage } from '../../store/types.js'
 import { INSIGHT_KEYS } from '../../insights.js'
+import { getLogger } from '../../diagnostics.js'
 
 /**
  * What `escalate` hands to whatever opens the ticket.
@@ -289,7 +290,7 @@ export function escalate(options: EscalateOptions): Action {
         } catch (error) {
           // The ticket exists and the customer has been told. Failing the
           // whole action over the flag would lose both.
-          console.warn(`[recourse] could not mark the conversation as taken over: ${String(error)}`)
+          getLogger().warn(`could not mark the conversation as taken over: ${String(error)}`)
         }
       }
 
