@@ -13,11 +13,7 @@ import type { Ticket } from '../src/helpdesk/types.js'
  * behaviour of each of these is at an edge no caller reaches on a good day.
  */
 
-const sources: SourceRef[] = [
-  { id: 'a', title: 'Refunds' },
-  { id: 'b', title: 'Shipping' },
-  { id: 'c', title: 'Returns' },
-]
+const sources: SourceRef[] = [{ title: 'Refunds' }, { title: 'Shipping' }, { title: 'Returns' }]
 
 describe('narrowing sources to what the answer cited', () => {
   it('keeps only the ones actually referenced', () => {
@@ -56,20 +52,20 @@ describe('narrowing sources to what the answer cited', () => {
 
 describe('the sensitivity dial', () => {
   it('reads an explicit threshold over the named one', () => {
-    expect(thresholdFor({ name: 'injection', threshold: 0.42, sensitivity: 'high' })).toBe(0.42)
+    expect(thresholdFor({ name: 'injection', action: 'refuse', threshold: 0.42, sensitivity: 'high' })).toBe(0.42)
   })
 
   it('falls to medium when nothing is said, rather than to the strictest', () => {
-    const unset = thresholdFor({ name: 'injection' })
-    expect(unset).toBe(thresholdFor({ name: 'injection', sensitivity: 'medium' }))
+    const unset = thresholdFor({ name: 'injection', action: 'refuse' })
+    expect(unset).toBe(thresholdFor({ name: 'injection', action: 'refuse', sensitivity: 'medium' }))
   })
 
   // A higher sensitivity has to mean a lower bar, or the dial is backwards and
   // turning it up would quietly refuse less.
   it('lowers the bar as sensitivity rises', () => {
-    const low = thresholdFor({ name: 'x', sensitivity: 'low' })
-    const medium = thresholdFor({ name: 'x', sensitivity: 'medium' })
-    const high = thresholdFor({ name: 'x', sensitivity: 'high' })
+    const low = thresholdFor({ name: 'x', action: 'refuse', sensitivity: 'low' })
+    const medium = thresholdFor({ name: 'x', action: 'refuse', sensitivity: 'medium' })
+    const high = thresholdFor({ name: 'x', action: 'refuse', sensitivity: 'high' })
     expect(low).toBeGreaterThan(medium)
     expect(medium).toBeGreaterThan(high)
   })
@@ -87,11 +83,11 @@ describe('help desk triggers', () => {
       name: 'Billing',
       on: ['created' as const],
       when: { contains: ['charged'] },
-      then: { assignTeam: 'billing' },
+      then: { setTeamId: 'billing' },
     }
 
     expect(evaluateTriggers(ticket, [trigger], 'created')).toEqual([
-      { name: 'Billing', action: { assignTeam: 'billing' } },
+      { name: 'Billing', action: { setTeamId: 'billing' } },
     ])
     expect(evaluateTriggers(ticket, [trigger], 'updated')).toEqual([])
   })

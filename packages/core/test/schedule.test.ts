@@ -200,7 +200,7 @@ describe('through the help desk', () => {
     },
   ]
 
-  function open(at: string) {
+  function open() {
     return createHelpdesk({
       store: memoryStore(),
       teams,
@@ -215,7 +215,7 @@ describe('through the help desk', () => {
 
   it('gives a night ticket to the night shift', async () => {
     vi.setSystemTime(new Date('2026-01-14T03:00:00Z'))
-    const ticket = await open('night')
+    const ticket = await open()
 
     expect(ticket.assigneeId).toBe('kim@example.com')
     vi.useRealTimers()
@@ -223,7 +223,7 @@ describe('through the help desk', () => {
 
   it('gives a midday ticket to the day shift', async () => {
     vi.setSystemTime(new Date('2026-01-14T12:00:00Z'))
-    const ticket = await open('day')
+    const ticket = await open()
 
     expect(ticket.assigneeId).toBe('sam@example.com')
     vi.useRealTimers()
@@ -231,7 +231,7 @@ describe('through the help desk', () => {
 
   it('leaves a Sunday ticket unassigned rather than waking somebody', async () => {
     vi.setSystemTime(new Date('2026-01-18T14:00:00Z'))
-    const ticket = await open('sunday')
+    const ticket = await open()
 
     // Unassigned is visible in the queue. Assigned to somebody asleep is not.
     expect(ticket.assigneeId).toBeUndefined()

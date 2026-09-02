@@ -13,7 +13,10 @@ function saying(text: string) {
       prompts.push(options.prompt)
       return {
         finishReason: { unified: 'stop' as const, raw: 'stop' },
-        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        usage: {
+          inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 1, text: 1, reasoning: 0 },
+        },
         content: [{ type: 'text' as const, text }],
         warnings: [],
       }
@@ -208,8 +211,11 @@ describe('the crisis second stage', () => {
     return new MockLanguageModelV4({
       doGenerate: async () => ({
         content: [{ type: 'text' as const, text: label }],
-        finishReason: 'stop' as const,
-        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        finishReason: { unified: 'stop', raw: 'stop' } as const,
+        usage: {
+          inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 1, text: 1, reasoning: 0 },
+        },
         warnings: [],
       }),
     })

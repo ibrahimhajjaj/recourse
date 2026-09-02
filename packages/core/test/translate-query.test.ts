@@ -9,7 +9,7 @@ function translator(reply = 'how long does delivery take to Los Angeles', seen: 
       seen.push(JSON.stringify(options.prompt))
 
       return {
-        finishReason: 'stop' as const,
+        finishReason: { unified: 'stop', raw: 'stop' } as const,
         usage: {
           inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
           outputTokens: { total: 8, text: 8, reasoning: 0 },

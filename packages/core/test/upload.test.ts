@@ -83,7 +83,7 @@ describe('upload route', () => {
     const handle = uploadRoute({
       blobs: memoryBlobs(),
       secret: SECRET,
-      rateLimit: { check: async () => ({ ok: false, remaining: 0, resetAt: 0 }) },
+      rateLimit: { check: async () => ({ ok: false, retryAfter: 1 }) },
     })
 
     expect((await handle(post('x', { 'x-file-type': 'text/plain' }))).status).toBe(429)

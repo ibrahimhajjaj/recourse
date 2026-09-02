@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detect, importFrom, routeFor, snippetFor } from '../src/cli/scaffold.js'
+import { detect, importFrom, routeFor, snippetFor, type Detected } from '../src/cli/scaffold.js'
 
 describe('working out what somebody has', () => {
   it('finds a Next.js app from its dependency', () => {
@@ -78,11 +78,13 @@ describe('the file it writes', () => {
   })
 
   it('imports every generated route from a path that matches where it lands', () => {
-    for (const found of [
+    const projects: Detected[] = [
       { manifest: { dependencies: { next: '^15' } }, files: ['app'] },
       { manifest: {}, files: ['wrangler.toml'] },
       { manifest: { dependencies: {} }, files: ['package.json'] },
-    ]) {
+    ]
+
+    for (const found of projects) {
       const project = detect(found)
       expect(routeFor(project, 'recourse/knowledge.json')).toContain(
         importFrom(project.route, 'recourse/knowledge.json'),

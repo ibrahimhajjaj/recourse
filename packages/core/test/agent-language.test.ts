@@ -18,7 +18,6 @@ async function index(embedModel?: string): Promise<KnowledgeIndex> {
         { id: 'ship', title: 'Shipping', text: 'Delivery to the United States takes four to seven working days.' },
       ]),
     ],
-    embed: false,
   })
 
   // The index records what it was embedded with, and that is what the choice
@@ -34,7 +33,7 @@ function watcher(asked: string[]) {
     doGenerate: async (options) => {
       asked.push(JSON.stringify(options.prompt))
 
-      return { finishReason: 'stop' as const, usage, content: [{ type: 'text' as const, text: 'delivery time' }], warnings: [] }
+      return { finishReason: { unified: 'stop', raw: 'stop' } as const, usage, content: [{ type: 'text' as const, text: 'delivery time' }], warnings: [] }
     },
     doStream: async () => ({
       stream: simulateReadableStream({

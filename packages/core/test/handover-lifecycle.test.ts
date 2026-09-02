@@ -132,7 +132,6 @@ describe('what the agent says while it waits', () => {
     const store = memoryStore()
     const index = await buildIndex({
       sources: [textSource([{ id: 'd', title: 'D', text: 'Delivery takes four days.' }])],
-      embed: false,
     })
     const agent = createAgent({ index, model, embedder: false, classifier: false, store, takeover: true })
 

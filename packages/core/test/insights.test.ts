@@ -14,7 +14,7 @@ function labeller(reply: string, seen: string[] = []) {
     doGenerate: async (options) => {
       seen.push(JSON.stringify(options.prompt))
 
-      return { finishReason: 'stop' as const, usage, content: [{ type: 'text' as const, text: reply }], warnings: [] }
+      return { finishReason: { unified: 'stop', raw: 'stop' } as const, usage, content: [{ type: 'text' as const, text: reply }], warnings: [] }
     },
   })
 }

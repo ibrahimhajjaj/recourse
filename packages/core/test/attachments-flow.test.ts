@@ -41,7 +41,10 @@ function recordingModel(text = 'I can see the damage, we will replace it [1].') 
             {
               type: 'finish' as const,
               finishReason: { unified: 'stop', raw: 'stop' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,

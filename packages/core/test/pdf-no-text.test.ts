@@ -16,7 +16,7 @@ describe('a PDF with no text layer', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
-      const text = await parsePdf(scanned(), { name: 'scan.pdf' })
+      const text = await parsePdf(scanned())
 
       // Nothing to return is the honest answer. The failure this guards against
       // is returning it without a word, which leaves somebody with an empty

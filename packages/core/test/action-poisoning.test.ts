@@ -44,7 +44,10 @@ function agentThatLooksUp() {
               {
                 type: 'finish' as const,
                 finishReason: { unified: 'stop', raw: 'stop' } as const,
-                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                usage: {
+                  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                  outputTokens: { total: 1, text: 1, reasoning: 0 },
+                },
               },
             ],
             chunkDelayInMs: 0,
@@ -59,7 +62,10 @@ function agentThatLooksUp() {
             {
               type: 'finish' as const,
               finishReason: { unified: 'tool-calls', raw: 'tool-calls' } as const,
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
             },
           ],
           chunkDelayInMs: 0,
@@ -82,7 +88,7 @@ describe('an instruction planted in what an action returns', () => {
         {
           name: 'look_up_order',
           whenToUse: 'Look an order up.',
-          collect: [{ name: 'order', description: 'the order number' }],
+          collect: [{ name: 'order', type: 'string', description: 'the order number' }],
           // The shop's API, answering honestly, with what a customer typed.
           execute: async () => ({ status: 'shipped', deliveryNote: PLANTED }),
         },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { actionsToTools } from '../src/actions/define.js'
-import type { Action, ActionContext, StreamFrame } from '../src/types.js'
+import type { Action, ActionContext } from '../src/actions/types.js'
+import type { StreamFrame } from '../src/types.js'
 
 function run(action: Action, input: Record<string, unknown> = {}) {
   const frames: StreamFrame[] = []
@@ -13,7 +14,7 @@ function run(action: Action, input: Record<string, unknown> = {}) {
 const slow = (execute: Action['execute'], extra: Partial<Action> = {}): Action => ({
   name: 'look_up_order',
   whenToUse: 'Look an order up.',
-  collect: [{ name: 'order', description: 'the order number' }],
+  collect: [{ name: 'order', type: 'string', description: 'the order number' }],
   execute,
   ...extra,
 })
