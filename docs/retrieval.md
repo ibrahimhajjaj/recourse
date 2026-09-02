@@ -60,6 +60,40 @@ indexes as nothing and says so in the logs rather than leaving you with an empty
 index and an agent you think is broken. Reading one needs OCR, which is a
 decision for whoever owns the documents rather than a default.
 
+## Seeing what a crawl would read, before it reads it
+
+The usual problem with a knowledge base is not a page that failed. It is a page
+that succeeded and should not have: a login screen, a privacy policy, ten years
+of press releases. Those show up later as an agent answering questions nobody
+asked, by which point the crawl has been paid for.
+
+```bash
+recourse plan --url https://shop.example --exclude /legacy,/press
+```
+
+It reads the sitemap and stops. No page is fetched and nothing is charged. The
+output is what would be read, what was left out, and **which rule left it out**,
+because "why is my page missing" is the question somebody actually has:
+
+```
+  https://shop.example/wp-login.php
+    matches the built-in exclude "/wp-login.php"
+```
+
+Look at the list, add what you did not want to `--exclude`, run it again, then
+ingest. `planCrawl` is the same thing as a function, for building it into an
+admin screen.
+
+A site with no sitemap and no llms.txt says so and stops, rather than returning
+an empty list. Pages there are found by following links, and following links
+means fetching them, which is the one thing this exists to avoid.
+
+The built-in exclusions are deliberately few. Matching is a substring test, so a
+longer list costs real pages: `/login` would drop a help page about login
+problems, and a question nobody can answer is worse than a page nobody needed.
+Everything beyond the universal cases is a decision about your site, which is
+what this command is for.
+
 ## Rebuilding without paying for the whole site again
 
 Pass the index you are replacing and a rebuild does the work twice over only

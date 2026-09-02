@@ -1,4 +1,4 @@
-export { websiteSource, type WebsiteSourceOptions } from './website.js'
+export { websiteSource, planCrawl, type WebsiteSourceOptions, type CrawlPlan, type PlannedPage } from './website.js'
 export { filesSource, type FilesSourceOptions } from './files.js'
 export { textSource } from './text.js'
 export { qnaSource, type QnaPair, type QnaSourceOptions } from './qna.js'

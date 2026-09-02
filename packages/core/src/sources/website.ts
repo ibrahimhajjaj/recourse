@@ -19,7 +19,24 @@ export interface WebsiteSourceOptions {
 }
 
 const ASSET = /\.(png|jpe?g|gif|svg|webp|ico|css|js|mjs|json|xml|zip|gz|mp4|webm|woff2?|ttf|eot)(\?|$)/i
-const DEFAULT_EXCLUDE = ['/cdn-cgi/', '/wp-admin/', '/wp-json/', '/tag/', '/author/', '/feed']
+/**
+ * Paths that are never documentation, whatever site they are on.
+ *
+ * Kept short deliberately. Matching is a substring test, so a broader list
+ * costs real pages: `/login` would drop a help page about login problems, and a
+ * question nobody can answer is a worse outcome than a page nobody needed. The
+ * rest is a decision about a particular site, which is what `planCrawl` and
+ * `exclude` are for.
+ */
+const DEFAULT_EXCLUDE = [
+  '/cdn-cgi/',
+  '/wp-admin/',
+  '/wp-json/',
+  '/wp-login.php',
+  '/tag/',
+  '/author/',
+  '/feed',
+]
 
 /**
  * Turns a website into documents. Discovery runs cheapest-first: a sitemap is
@@ -271,4 +288,112 @@ async function getText(url: string, signal?: AbortSignal): Promise<string | null
   } catch {
     return null
   }
+}
+
+/** A page a crawl would read, and where it was found. */
+export interface PlannedPage {
+  url: string
+  /** When the site says it last changed, when it says. */
+  lastmod?: string
+}
+
+export interface CrawlPlan {
+  /** How the pages were found, which is what a surprising result usually is. */
+  discovered: 'sitemap' | 'llms.txt' | 'links'
+  /** The pages that would be read, in order, already capped at `maxPages`. */
+  pages: PlannedPage[]
+  /** Found and then filtered out, with the rule that did it. */
+  skipped: Array<{ url: string; because: string }>
+  /** Found, allowed, and over the `maxPages` ceiling. */
+  overflow: number
+}
+
+/**
+ * What a crawl would read, without reading it.
+ *
+ * A knowledge base is only as good as what went into it, and the usual problem
+ * is not a page that failed but a page that succeeded and should not have: a
+ * login screen, a privacy policy, a decade of press releases. Those are only
+ * visible afterwards, as an agent answering questions nobody asked, and by then
+ * the crawl has been paid for.
+ *
+ * This does the discovery and the filtering and stops. It reads the sitemap,
+ * which is one request, and nothing else: no page is fetched, so nothing is
+ * charged for. Run it, look at the list, add what you did not want to
+ * `exclude`, and run it again.
+ */
+export async function planCrawl(
+  options: WebsiteSourceOptions,
+  ctx: SourceContext = {},
+): Promise<CrawlPlan> {
+  const origin = new URL(options.url).origin
+  const maxPages = options.maxPages ?? 50
+
+  const listed = await discoverFromSitemap(origin, ctx.signal)
+  let discovered: CrawlPlan['discovered'] = 'sitemap'
+  let urls = listed.map((entry) => entry.url)
+
+  if (urls.length === 0) {
+    urls = await discoverFromLlmsTxt(origin, ctx.signal)
+    discovered = 'llms.txt'
+  }
+
+  // Following links means fetching pages to find their links, which is the one
+  // thing this promises not to do. Said plainly rather than silently returning
+  // an empty plan, which would read as "this site has no pages".
+  if (urls.length === 0) {
+    return { discovered: 'links', pages: [], skipped: [], overflow: 0 }
+  }
+
+  const changedAt = new Map(
+    listed.filter((entry) => entry.lastmod).map((entry) => [entry.url, entry.lastmod as string]),
+  )
+
+  const allowed = filterUrls(urls, origin, options)
+  const kept = new Set(allowed)
+
+  const skipped: CrawlPlan['skipped'] = []
+  for (const url of urls) {
+    if (kept.has(url)) continue
+    skipped.push({ url, because: whyExcluded(url, origin, options) })
+  }
+
+  const pages = allowed.slice(0, maxPages).map((url) => {
+    const lastmod = changedAt.get(url)
+    return lastmod ? { url, lastmod } : { url }
+  })
+
+  return { discovered, pages, skipped, overflow: Math.max(0, allowed.length - maxPages) }
+}
+
+/**
+ * Which rule dropped a URL.
+ *
+ * The list on its own answers "what got in". This answers "why not that one",
+ * which is the question somebody actually has when a page they expected is
+ * missing and they are about to conclude the crawler is broken.
+ */
+function whyExcluded(url: string, origin: string, options: WebsiteSourceOptions): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url, origin)
+  } catch {
+    return 'not a usable address'
+  }
+
+  if (parsed.origin !== origin) return `on ${parsed.origin}, not ${origin}`
+
+  for (const pattern of options.exclude ?? []) {
+    if (parsed.pathname.includes(pattern)) return `matches your exclude ${JSON.stringify(pattern)}`
+  }
+
+  for (const pattern of DEFAULT_EXCLUDE) {
+    if (parsed.pathname.includes(pattern)) return `matches the built-in exclude ${JSON.stringify(pattern)}`
+  }
+
+  if (options.include && !options.include.some((pattern) => parsed.pathname.includes(pattern))) {
+    return 'matches none of your include patterns'
+  }
+
+  return 'filtered out'
 }

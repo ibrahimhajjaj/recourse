@@ -21,6 +21,7 @@ Usage
   recourse init                      Set it up here: learn, wire the endpoint, print
                                      the widget snippet
   recourse model                     Choose how it answers, or change it later
+  recourse plan --url <site>          List what a crawl would read, without reading it
   recourse ingest --url <site>        Learn a website and write the knowledge index
   recourse ingest --path <dir>        Learn a folder of markdown instead
   recourse ask "<question>"           Ask the index a question from the terminal
@@ -71,6 +72,8 @@ async function main(): Promise<number> {
       })
     case 'ingest':
       return runIngest(flags)
+    case 'plan':
+      return runPlan(flags)
     case 'ask':
       return runAsk(positionals.join(' '), flags)
     case 'stats':
@@ -81,6 +84,62 @@ async function main(): Promise<number> {
       process.stderr.write(`unknown command: ${command}\n${HELP}\n`)
       return 1
   }
+}
+
+/**
+ * Shows what an ingest would read, before it reads it.
+ *
+ * The usual problem with a knowledge base is not a page that failed but one
+ * that succeeded and should not have: a login screen, a privacy policy, ten
+ * years of press releases. Those only show up later, as an agent answering
+ * questions nobody asked, and the crawl has already been paid for.
+ *
+ * Reads the sitemap and stops. No page is fetched and nothing is charged.
+ */
+async function runPlan(flags: Record<string, string | boolean>): Promise<number> {
+  const url = typeof flags.url === 'string' ? flags.url : undefined
+
+  if (!url) {
+    process.stderr.write('plan needs --url <site>\n')
+    return 1
+  }
+
+  const { planCrawl } = await import('../sources/website.js')
+
+  const plan = await planCrawl({
+    url,
+    ...(typeof flags.max === 'string' ? { maxPages: Number(flags.max) } : {}),
+    ...(typeof flags.exclude === 'string' ? { exclude: flags.exclude.split(',') } : {}),
+    ...(typeof flags.include === 'string' ? { include: flags.include.split(',') } : {}),
+  })
+
+  if (plan.discovered === 'links') {
+    process.stderr.write(
+      `${url} has no sitemap and no llms.txt, so pages are found by following links.\n` +
+        'That means fetching them, which is the one thing this is for avoiding. Run ingest instead.\n',
+    )
+    return 1
+  }
+
+  process.stdout.write(`${plan.pages.length} pages, found in the ${plan.discovered}\n\n`)
+  for (const page of plan.pages) {
+    process.stdout.write(`  ${page.url}${page.lastmod ? `  (changed ${page.lastmod})` : ''}\n`)
+  }
+
+  if (plan.skipped.length > 0) {
+    process.stdout.write(`\n${plan.skipped.length} left out\n\n`)
+    for (const entry of plan.skipped) {
+      process.stdout.write(`  ${entry.url}\n    ${entry.because}\n`)
+    }
+  }
+
+  if (plan.overflow > 0) {
+    process.stdout.write(`\n${plan.overflow} more would be cut by the page limit. Raise it with --max.\n`)
+  }
+
+  process.stdout.write('\nAnything here you do not want answered from, add with --exclude and run it again.\n')
+
+  return 0
 }
 
 async function runIngest(flags: Record<string, string | boolean>): Promise<number> {
