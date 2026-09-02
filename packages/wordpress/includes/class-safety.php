@@ -758,7 +758,7 @@ class Safety {
 	private static function ungrounded_contacts( $text, $matches ) {
 		$grounded = '';
 		foreach ( $matches as $match ) {
-			$grounded .= ' ' . ( isset( $match['text'] ) ? $match['text'] : '' );
+			$grounded .= ' ' . Prompt::passage( $match );
 		}
 		$grounded = strtolower( $grounded );
 
