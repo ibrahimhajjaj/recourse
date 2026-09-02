@@ -59,11 +59,32 @@ class ParityTest extends TestCase {
 	}
 
 	/**
+	 * Parity is only claimed where the two can actually agree.
+	 *
+	 * Composing accents needs intl, which is not on every shared host, and the
+	 * plugin is written to work without it: it builds and queries its own index
+	 * either way, so it stays self-consistent. What it cannot do without intl is
+	 * produce the same terms as the TypeScript tokeniser, so asserting that here
+	 * would be asserting something the code does not promise.
+	 *
+	 * Skipped rather than quietly passing, because a run with no intl is a run
+	 * that checked less than it looks like it did. CI installs it.
+	 *
+	 * @return void
+	 */
+	private function requires_composition() {
+		if ( ! class_exists( '\\Normalizer' ) ) {
+			$this->markTestSkipped( 'parity with the TypeScript tokeniser needs ext-intl for Unicode composition' );
+		}
+	}
+
+	/**
 	 * Every word stems to what the TypeScript stems it to.
 	 *
 	 * @return void
 	 */
 	public function test_tokenizer_agrees_word_for_word() {
+		$this->requires_composition();
 		foreach ( $this->fixture()['tokens'] as $word => $expected ) {
 			$this->assertSame(
 				$expected,
@@ -79,6 +100,7 @@ class ParityTest extends TestCase {
 	 * @return void
 	 */
 	public function test_tokenizer_agrees_on_whole_sentences() {
+		$this->requires_composition();
 		foreach ( $this->fixture()['sentences'] as $sentence => $expected ) {
 			$this->assertSame(
 				$expected,
