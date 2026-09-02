@@ -23,7 +23,28 @@ import { agentFor, type ChatHandlerOptions } from './handler.js'
 import { corsHeaders } from './cors.js'
 import { callerKey, createRateLimiter, type RateLimiter } from './ratelimit.js'
 
-export interface OpenAiHandlerOptions extends ChatHandlerOptions {
+/**
+ * The widget endpoint's options, minus the ones this protocol has nowhere to
+ * put.
+ *
+ * Spelled as an omission rather than inherited whole, because the alternative
+ * is a setting that compiles, serves, and does nothing. `identity: { required:
+ * true }` accepted here would read as "refuse anyone unverified" while every
+ * caller stays anonymous, which is worse than not offering it.
+ *
+ * - `identity`: the protocol carries no signed visitor id, so there is nothing
+ *   to verify and no field to carry it in.
+ * - `storage`: a stored file is reached through the upload route, which issues
+ *   the signed key this endpoint never sees.
+ * - `attachments`: only the text parts of a message are read, so no file
+ *   arrives for a policy to judge.
+ * - `analytics`: the country comes from a consent decision made in a browser,
+ *   and there is no browser here.
+ * - `onConversation`: it fires per browser turn on the widget endpoint. Use
+ *   `store` for a record of what was asked; that one is honoured.
+ */
+export interface OpenAiHandlerOptions
+  extends Omit<ChatHandlerOptions, 'identity' | 'storage' | 'attachments' | 'analytics' | 'onConversation'> {
   /**
    * What this agent is called when a client lists what it can talk to.
    *

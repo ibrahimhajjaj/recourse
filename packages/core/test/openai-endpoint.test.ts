@@ -252,4 +252,20 @@ describe('what a caller is allowed to send', () => {
     expect(sent).not.toContain('x'.repeat(21))
     expect(sent).toContain('x'.repeat(20))
   })
+
+  it('does not accept the options it cannot honour', async () => {
+    // Every caller on this URL is anonymous, so an identity setting here would
+    // read as a promise the endpoint cannot keep.
+    const handle = createOpenAiHandler({
+      index: await index(),
+      model: mockModel(),
+      // @ts-expect-error the protocol carries no signed visitor id
+      identity: { secret: 'unused', required: true },
+    })
+
+    const response = await handle(post({ messages: [{ role: 'user', content: 'refund?' }] }))
+
+    // `required: true` refuses nobody here, which is exactly why the type says no.
+    expect(response.status).toBe(200)
+  })
 })
