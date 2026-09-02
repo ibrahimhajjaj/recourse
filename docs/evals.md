@@ -35,6 +35,46 @@ page is named in the logs rather than quietly dropped.
 Assume this is the failure mode of any RAG support agent you are evaluating,
 including ones you did not build.
 
+## Whether it helped, once real people are using it
+
+Everything above measures the agent against cases we wrote. None of it measures
+whether a customer was actually helped, and the metric the whole category
+reports for that counts the wrong thing.
+
+Deflection is the share of conversations that never reached a person. A customer
+who gave up is deflected. So is one who was told something confidently wrong,
+acted on it, and came back on Thursday. A dashboard built on it goes up while
+trust goes down, which is why support leads distrust it and vendors quote it.
+
+```ts
+import { outcomes } from '@recourse-ai/core'
+
+const report = await outcomes({ store, withinDays: 7 })
+```
+
+It reads recent conversations and splits them: handed to a person, the agent
+said it could not answer, or it looked answered. Then it takes the last group
+and asks the only question that matters, which is whether the same person came
+back inside a week. What is left is the honest success count.
+
+```
+conversations 412   escalated 38   unanswered 51
+looksAnswered 323   cameBack 74    durable 249
+```
+
+`looksAnswered` is roughly what a deflection rate would report. `durable` is what
+actually happened. The gap is where the quiet failures live, and reading that
+gap over time is worth more than either number on its own.
+
+It is approximate and says so. Two conversations from one person inside a week
+are treated as them coming back, which is right far more often than it is wrong
+but is not the same as knowing it was about the same thing. And `anonymous`
+counts the conversations with nobody attached to them: those cannot be linked to
+what comes next, so `cameBack` is a floor and never a total. A big number there
+means this is measuring less than it appears to.
+
+---
+
 ## Things the harness talked us out of
 
 A suite earns its keep as much by refusing a change as by catching a bug.
