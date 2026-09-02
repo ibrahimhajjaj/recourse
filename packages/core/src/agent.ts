@@ -1333,3 +1333,13 @@ function newId(prefix: string): string {
 
 /** The shape `createAgent` returns, for anything that takes one. */
 export type Agent = ReturnType<typeof createAgent>
+
+/**
+ * The types `AgentOptions` is made of, from the same entry point as the agent.
+ *
+ * Somebody importing `createAgent` from here and typing the index they pass it
+ * has no reason to guess that the type lives somewhere else. The worker example
+ * imported `KnowledgeIndex` from this entry and had been wrong since it was
+ * written, which nothing noticed because no example was ever typechecked.
+ */
+export type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame }
