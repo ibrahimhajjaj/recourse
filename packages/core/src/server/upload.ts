@@ -29,7 +29,7 @@ import {
 import { blobKey, type Blobs } from '../storage/blobs.js'
 import { signReference, verifyReference } from '../storage/references.js'
 import { corsHeaders, type CorsOptions } from './cors.js'
-import type { RateLimiter } from './ratelimit.js'
+import { callerKey, type RateLimiter } from './ratelimit.js'
 
 export interface UploadRouteOptions {
   blobs: Blobs
@@ -93,10 +93,11 @@ function check(request: Request, options: UploadRouteOptions): Checked | { error
   return { name, mimeType, declared }
 }
 
-async function limited(request: Request, options: UploadRouteOptions): Promise<boolean> {
+// One place decides who a caller is. A route that parses proxy headers itself
+// is a route that drifts away from the rule the rest of the server applies.
+async function limited(request: Request, options: Pick<UploadRouteOptions, 'rateLimit'>): Promise<boolean> {
   if (!options.rateLimit) return false
-  const caller = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  const gate = await options.rateLimit.check(caller)
+  const gate = await options.rateLimit.check(callerKey(request))
   return !gate.ok
 }
 
@@ -205,13 +206,14 @@ export function uploadUrlRoute(options: UploadUrlRouteOptions) {
  * Workers R2 binding, for instance. The reference is verified exactly as it is
  * on the chat path: a key alone opens nothing.
  */
-export function downloadRoute(options: Omit<UploadRouteOptions, 'policy' | 'rateLimit'> & {
-  rateLimit?: Pick<RateLimiter, 'check'>
-}) {
+export function downloadRoute(options: Omit<UploadRouteOptions, 'policy'>) {
   return async function handle(request: Request): Promise<Response> {
     const cors = corsHeaders(request, options.cors)
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
     if (request.method !== 'GET') return json({ error: 'method not allowed' }, 405, cors)
+    // Before the signature is checked, because a valid reference is not a
+    // budget: one leaked link fetched in a loop is egress you are billed for.
+    if (await limited(request, options)) return json({ error: 'too many requests' }, 429, cors)
 
     const url = new URL(request.url)
     const key = url.searchParams.get('key') ?? ''
