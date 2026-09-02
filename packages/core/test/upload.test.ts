@@ -98,6 +98,38 @@ describe('upload route', () => {
 })
 
 describe('download route', () => {
+  it('honours a rate limiter', async () => {
+    const blobs = memoryBlobs()
+    await blobs.put('attachments/x.txt', new TextEncoder().encode('the contents'), {
+      mimeType: 'text/plain',
+      filename: 'x.txt',
+    })
+    const token = await signReference(SECRET, 'attachments/x.txt')
+
+    let reads = 0
+    const counted: Blobs = {
+      ...blobs,
+      get: async (key) => {
+        reads++
+        return blobs.get(key)
+      },
+    }
+
+    const handle = downloadRoute({
+      blobs: counted,
+      secret: SECRET,
+      rateLimit: { check: async () => ({ ok: false, retryAfter: 1 }) },
+    })
+    const response = await handle(
+      new Request(`https://example.test/file?key=attachments/x.txt&token=${token}`),
+    )
+
+    expect(response.status).toBe(429)
+    // Refused before the bucket was touched, which is the point: the egress is
+    // what the limiter is protecting.
+    expect(reads).toBe(0)
+  })
+
   it('serves an object to a caller holding its token', async () => {
     const blobs = memoryBlobs()
     await blobs.put('attachments/x.txt', new TextEncoder().encode('the contents'), {
