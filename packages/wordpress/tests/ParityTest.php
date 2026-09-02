@@ -23,6 +23,7 @@ use Recourse\Chunker;
 use Recourse\Index;
 use Recourse\Relevance;
 use Recourse\Retriever;
+use Recourse\Safety;
 use Recourse\Tokenizer;
 use PHPUnit\Framework\TestCase;
 
@@ -139,6 +140,147 @@ class ParityTest extends TestCase {
 				$case['mentions'],
 				Relevance::mentions( $case['about'], $case['conversation'] ),
 				sprintf( 'is "%s" about "%s"', $case['conversation'], $case['about'] )
+			);
+		}
+	}
+
+	/**
+	 * Compares two lists of signals, in an order neither port decides.
+	 *
+	 * Signals come out in whatever order the rules happen to run, which is an
+	 * implementation detail on both sides, so they are sorted the way the
+	 * generator sorts them before anything is compared: by category, then by
+	 * score.
+	 *
+	 * `reason` is not compared and must not be. Those strings go through
+	 * `__()` here and are written for somebody reading a transcript, so a test
+	 * that insisted on them would fail the first time either side is
+	 * translated or reworded.
+	 *
+	 * @param array<int, array<string, mixed>> $expected What the TypeScript found.
+	 * @param array<int, array<string, mixed>> $actual   What this port found.
+	 * @param string                           $subject  The text both looked at.
+	 * @return void
+	 */
+	private function assert_signals_match( $expected, $actual, $subject ) {
+		$found = array_map(
+			function ( $signal ) {
+				return array(
+					'category' => $signal['category'],
+					'score'    => $signal['score'],
+				);
+			},
+			$actual
+		);
+
+		usort(
+			$found,
+			function ( $left, $right ) {
+				$order = strcmp( $left['category'], $right['category'] );
+
+				return 0 === $order ? $left['score'] <=> $right['score'] : $order;
+			}
+		);
+
+		$this->assertCount(
+			count( $expected ),
+			$found,
+			sprintf( 'how many signals "%s" raises', $subject )
+		);
+
+		foreach ( $expected as $position => $signal ) {
+			$this->assertSame(
+				$signal['category'],
+				$found[ $position ]['category'],
+				sprintf( 'category of signal %d for "%s"', $position, $subject )
+			);
+			$this->assertEqualsWithDelta(
+				$signal['score'],
+				$found[ $position ]['score'],
+				1e-9,
+				sprintf( 'score of signal %d for "%s"', $position, $subject )
+			);
+		}
+	}
+
+	/**
+	 * The safety rules find the same things in the same message.
+	 *
+	 * A detector is a regular expression, and a regular expression ported by
+	 * eye is one that fires on something else. The policy table goes first,
+	 * because a threshold is what turns a score into a refusal: two ports that
+	 * agree on every signal and disagree on one threshold still behave
+	 * differently in front of a customer.
+	 *
+	 * The rewritten message is asserted as well as the signals, since the
+	 * input rules exist to take a card number out before it goes anywhere.
+	 *
+	 * @return void
+	 */
+	public function test_safety_input_agrees() {
+		$categories = Safety::categories();
+
+		foreach ( $this->fixture()['safety']['policy'] as $name => $policy ) {
+			$this->assertArrayHasKey( $name, $categories, sprintf( 'a policy for "%s"', $name ) );
+			$this->assertSame(
+				$policy['action'],
+				$categories[ $name ]['action'],
+				sprintf( 'what "%s" does', $name )
+			);
+			$this->assertSame(
+				$policy['sensitivity'],
+				$categories[ $name ]['sensitivity'],
+				sprintf( 'how readily "%s" fires', $name )
+			);
+		}
+
+		$thresholds = Safety::thresholds();
+
+		foreach ( $this->fixture()['safety']['thresholds'] as $name => $expected ) {
+			$this->assertArrayHasKey( $name, $thresholds, sprintf( 'a "%s" threshold', $name ) );
+			$this->assertEqualsWithDelta(
+				$expected,
+				$thresholds[ $name ],
+				1e-9,
+				sprintf( 'the "%s" threshold', $name )
+			);
+		}
+
+		foreach ( $this->fixture()['safety']['input'] as $case ) {
+			$checked = Safety::check_input( $case['message'] );
+
+			$this->assertSame(
+				$case['text'],
+				$checked['text'],
+				sprintf( 'what is left of "%s"', $case['message'] )
+			);
+
+			$this->assert_signals_match( $case['signals'], $checked['signals'], $case['message'] );
+		}
+	}
+
+	/**
+	 * And the same of a drafted answer, against the passages behind it.
+	 *
+	 * Output checking is the half that catches an attack that already worked,
+	 * so a port that finds nothing here looks exactly like one with nothing to
+	 * find until something records what there was.
+	 *
+	 * @return void
+	 */
+	public function test_safety_output_agrees() {
+		foreach ( $this->fixture()['safety']['output'] as $case ) {
+			$matches = array_map(
+				function ( $source ) {
+					return array( 'text' => $source );
+				},
+				$case['sources']
+			);
+
+			$this->assert_signals_match(
+				$case['signals'],
+				Safety::check_output( $case['answer'], $matches ),
+				$case['answer']
 			);
 		}
 	}
