@@ -18,9 +18,9 @@ const HELP = `
 recourse: a support agent trained on your own content
 
 Usage
-  recourse init                      Set it up here: learn, wire the endpoint, print
-                                     the widget snippet
-  recourse model                     Choose how it answers, or change it later
+  recourse init                       Set it up here: learn, wire the endpoint, print
+                                      the widget snippet
+  recourse model                      Choose how it answers, or change it later
   recourse plan --url <site>          List what a crawl would read, without reading it
   recourse ingest --url <site>        Learn a website and write the knowledge index
   recourse ingest --path <dir>        Learn a folder of markdown instead
