@@ -16,6 +16,7 @@ import {
   type Decision,
   type Signal,
 } from './types.js'
+import { getLogger } from '../diagnostics.js'
 
 /**
  * Which action wins when two categories fire at once.
@@ -67,8 +68,8 @@ export function createClassifier(policy: ClassifierPolicy = {}): Classifier {
         // A classifier that is down must not take the conversation down with
         // it. Failing open is the right default for a support agent: the
         // system prompt and the rules above are still standing.
-        console.warn(
-          `[recourse] classifier failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`,
+        getLogger().warn(
+          `classifier failed, continuing without it: ${error instanceof Error ? error.message : String(error)}`,
         )
       }
     }

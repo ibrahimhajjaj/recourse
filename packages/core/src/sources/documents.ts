@@ -7,6 +7,8 @@
  * instruction instead of a stack trace.
  */
 
+import { getLogger } from '../diagnostics.js'
+
 export type DocumentParser = (data: Uint8Array) => Promise<string>
 
 export interface ParserRegistry {
@@ -83,8 +85,8 @@ export const parsePdf: DocumentParser = async (data) => {
   // indexes what it can, so only the total absence is worth saying anything
   // about; a warning on every mixed document would be noise nobody reads.
   if (pdf.numPages > 0 && pages.length === 0) {
-    console.warn(
-      '[recourse] a PDF produced no text at all. It is almost certainly scanned images rather ' +
+    getLogger().warn(
+      'a PDF produced no text at all. It is almost certainly scanned images rather ' +
         'than text, and nothing from it has been indexed. Reading it needs OCR.',
     )
   }

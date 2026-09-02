@@ -1,6 +1,7 @@
 import { ticketBody, type EscalationRequest } from '../actions/builtin/escalate.js'
 import type { ActionContext } from '../actions/types.js'
 import { fetchWithRetry } from '../util/http.js'
+import { getLogger } from '../diagnostics.js'
 
 /**
  * Ready-made destinations for `escalate`.
@@ -50,7 +51,7 @@ async function send(url: string, init: RequestInit, desk: string): Promise<any> 
     // stack: this message becomes tool output, which the model is told to
     // relay, and an Odoo fault carries a traceback with the database name and
     // the paths on the server in it.
-    console.error(`[recourse] ${desk} ticket failed: ${response.status} ${text.slice(0, 400)}`)
+    getLogger().error(`${desk} ticket failed: ${response.status} ${text.slice(0, 400)}`)
     throw new Error(`${desk} ticket failed: ${response.status}`)
   }
 

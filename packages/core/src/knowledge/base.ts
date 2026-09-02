@@ -4,6 +4,7 @@ import { buildIndex } from './build.js'
 import { newSourceId, validateSource, type SourceRecord, type SourcesSummary, type SourceType } from './records.js'
 import { scrape } from '../sources/firecrawl.js'
 import { textSource } from '../sources/text.js'
+import { getLogger } from '../diagnostics.js'
 
 export interface KnowledgeBaseOptions {
   store: Store
@@ -215,7 +216,7 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions) {
       const timer = setInterval(() => {
         if (!dirty && !options_.force) return
         void this.train().catch((error: unknown) => {
-          console.error('[recourse] scheduled retrain failed', error)
+          getLogger().error('scheduled retrain failed', error)
         })
       }, intervalMs)
 

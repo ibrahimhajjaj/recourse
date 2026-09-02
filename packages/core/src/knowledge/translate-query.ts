@@ -16,6 +16,7 @@
  */
 
 import type { LanguageModel } from 'ai'
+import { getLogger } from '../diagnostics.js'
 
 export interface TranslateQueryOptions {
   /** The language the indexed content is written in, as a name the model knows. */
@@ -109,7 +110,7 @@ export async function translateQuery(question: string, options: TranslateQueryOp
 
     return translated || question
   } catch (error) {
-    console.error('[recourse] could not translate the question for search:', error)
+    getLogger().error('could not translate the question for search:', error)
 
     return question
   }

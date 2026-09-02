@@ -1,4 +1,5 @@
 import { fetchWithRetry } from '../util/http.js'
+import { getLogger } from '../diagnostics.js'
 
 /**
  * Outbound webhooks.
@@ -160,13 +161,13 @@ export function createWebhooks(options: WebhookOptions) {
           subscribed.map((endpoint) =>
             deliver(endpoint, delivery).catch((error: unknown) => {
               options.onError?.(error, { url: endpoint.url, event })
-              console.error(`[recourse] webhook to ${endpoint.url} failed`, error)
+              getLogger().error(`webhook to ${endpoint.url} failed`, error)
             }),
           ),
         )
       })().catch((error: unknown) => {
         options.onError?.(error, { url: 'endpoints', event })
-        console.error('[recourse] could not read the webhook endpoints', error)
+        getLogger().error('could not read the webhook endpoints', error)
       })
 
       if (options.waitUntil) options.waitUntil(work)
