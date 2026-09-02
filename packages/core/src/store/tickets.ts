@@ -1,7 +1,7 @@
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import { RESOLVED_CATEGORIES } from '../helpdesk/types.js'
 import type { ListOptions, Page } from './types.js'
-import { paginate } from './memory.js'
+import { paginate } from './paginate.js'
 
 /**
  * The ticket half of a store, kept here so the memory and file implementations
