@@ -45,6 +45,15 @@ describe('the admin page', () => {
     }
   })
 
+  it('has an outcomes view behind its nav entry', () => {
+    // The pairing itself is covered above. What this pins is the fetch path:
+    // the report is computed nowhere else on the page, so a view reading
+    // `/stats` instead would render plausible numbers answering the wrong
+    // question.
+    expect(ADMIN_PAGE).toContain('data-view="outcomes"')
+    expect(browserScript()).toContain("api('/outcomes')")
+  })
+
   it('sends the credential from one place, so no call can forget it', () => {
     const script = browserScript()
 
@@ -121,6 +130,23 @@ function answerFor(path: string, method: string): { status: number; body: unknow
     return {
       status: 200,
       body: { data: { conversations: 3, messages: 9, unanswered: 1, leads: 0, thumbsUp: 2, thumbsDown: 1 } },
+    }
+  }
+  if (path.includes('/outcomes')) {
+    return {
+      status: 200,
+      body: {
+        data: {
+          conversations: 4,
+          looksAnswered: 3,
+          escalated: 1,
+          unanswered: 0,
+          cameBack: 1,
+          durable: 2,
+          anonymous: 1,
+          rated: { byAgent: { positive: 2, negative: 1 }, withPerson: { positive: 1, negative: 0 } },
+        },
+      },
     }
   }
   if (path.includes('/conversations')) return { status: 200, body: { data: [] } }
