@@ -80,6 +80,15 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
       return { conversation, messages: messages.get(id) ?? [] }
     },
 
+    async getConversations(ids) {
+      const found = []
+      for (const id of ids) {
+        const conversation = conversations.get(id)
+        if (conversation) found.push({ conversation, messages: messages.get(id) ?? [] })
+      }
+      return found
+    },
+
     async listConversations(options = {}) {
       const filtered = [...conversations.values()]
         .filter((conversation) => matches(conversation, options, messages.get(conversation.id) ?? []))

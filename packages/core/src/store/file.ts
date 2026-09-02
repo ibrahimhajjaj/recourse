@@ -207,6 +207,16 @@ export function fileStore(options: FileStoreOptions): Store {
       return { conversation, messages: messages.get(id) ?? [] }
     },
 
+    async getConversations(ids) {
+      await load()
+      const found = []
+      for (const id of ids) {
+        const conversation = conversations.get(id)
+        if (conversation) found.push({ conversation, messages: messages.get(id) ?? [] })
+      }
+      return found
+    },
+
     async listConversations(listOptions = {}) {
       await load()
       const filtered = [...conversations.values()]

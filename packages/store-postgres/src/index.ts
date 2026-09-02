@@ -174,6 +174,34 @@ export function postgresStore(options: PostgresStoreOptions): Store {
       return { conversation: toConversation(conversation), messages: messages.map(toMessage) }
     },
 
+    async getConversations(ids) {
+      if (ids.length === 0) return []
+
+      const rows = await query<ConversationRow>(
+        `SELECT * FROM conversations WHERE id = ANY($1::text[])`,
+        [ids],
+      )
+      if (rows.length === 0) return []
+
+      const present = rows.map((row) => row.id)
+      const messages = await query<MessageRow & { conversation_id: string }>(
+        `SELECT * FROM messages WHERE conversation_id = ANY($1::text[]) ORDER BY conversation_id, seq ASC`,
+        [present],
+      )
+
+      const byConversation = new Map<string, StoredMessage[]>()
+      for (const row of messages) {
+        const held = byConversation.get(row.conversation_id)
+        if (held) held.push(toMessage(row))
+        else byConversation.set(row.conversation_id, [toMessage(row)])
+      }
+
+      return rows.map((row) => ({
+        conversation: toConversation(row),
+        messages: byConversation.get(row.id) ?? [],
+      }))
+    },
+
     async listConversations(options = {}) {
       const where: string[] = []
       const values: unknown[] = []

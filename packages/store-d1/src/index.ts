@@ -154,6 +154,48 @@ export function d1Store(options: D1StoreOptions): Store {
       return { conversation: toConversation(row), messages: messages.map(toMessage) }
     },
 
+    async getConversations(ids) {
+      if (ids.length === 0) return []
+
+      const found: Array<{ conversation: Conversation; messages: StoredMessage[] }> = []
+
+      // Chunked because a statement can only bind so many parameters, and D1
+      // is stricter about that than SQLite itself. Fifty is well inside every
+      // limit and still turns a page of conversations into a handful of
+      // queries rather than one per row, which is the budget that runs out
+      // first on a Worker.
+      for (let from = 0; from < ids.length; from += 50) {
+        const slice = ids.slice(from, from + 50)
+        const holes = slice.map(() => '?').join(',')
+
+        const rows = await all<ConversationRow>(
+          `SELECT * FROM conversations WHERE id IN (${holes})`,
+          slice,
+        )
+        if (rows.length === 0) continue
+
+        const present = rows.map((row) => row.id)
+        const messages = await all<MessageRow & { conversation_id: string }>(
+          `SELECT * FROM messages WHERE conversation_id IN (${present.map(() => '?').join(',')})
+           ORDER BY conversation_id, seq ASC`,
+          present,
+        )
+
+        const byConversation = new Map<string, StoredMessage[]>()
+        for (const row of messages) {
+          const held = byConversation.get(row.conversation_id)
+          if (held) held.push(toMessage(row))
+          else byConversation.set(row.conversation_id, [toMessage(row)])
+        }
+
+        for (const row of rows) {
+          found.push({ conversation: toConversation(row), messages: byConversation.get(row.id) ?? [] })
+        }
+      }
+
+      return found
+    },
+
     async listConversations(options = {}) {
       const where: string[] = []
       const values: unknown[] = []
