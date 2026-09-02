@@ -24,6 +24,44 @@ JSON as floats and about 700 bytes quantised, which is the difference between an
 index you commit to git and one that needs a database.
 
 
+## When the customer's words are not the page's words
+
+Somebody asks how to get their money back. The page says "refund", and never
+once says "money back". Nothing matches, and the agent tells them it cannot find
+a policy that is sitting right there in the index.
+
+Embeddings solve this properly, and where you have an embedder none of the below
+does much. It is for the path with no credentials at all, which is the one most
+people start on.
+
+A short set of English support words is applied to the question before the
+keyword search: refund and money back, delivery and shipping and postage,
+broken and faulty, invoice and receipt. Adding your own is where the value is,
+because the vocabulary a library cannot know is mostly yours:
+
+```ts
+import { createRetriever } from '@recourse-ai/core'
+
+createRetriever({ index, synonyms: [['trainers', 'sneakers'], ['jumper', 'sweater']] })
+```
+
+`synonyms: false` turns the built-in set off, for content where those words mean
+something else.
+
+It applies to the question, never to the pages. Expanding at ingest would bake
+today's guesses into the index and make them impossible to correct without a
+rebuild. It also applies to the keyword half only: an embedding of "postage
+delivery shipping" is not the embedding of what anybody asked.
+
+Words are added, never substituted, and only whole ones. The customer's own
+wording is usually right, and a page matching what was actually asked matches
+more terms than one matching only a synonym, so ranking sorts it out. Matching
+whole words is what stops "bill" firing inside "billing address".
+
+Measured on the retrieval suite, which is deterministic and runs in CI: this
+took it from 20 of 22 to 22 of 22, and the two it fixed were the only two
+failures left.
+
 ## What a folder can be made of
 
 `filesSource` reads a directory into the index. Markdown and text need nothing.

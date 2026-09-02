@@ -185,11 +185,24 @@ describe('retriever', () => {
     expect(matches[0]?.chunk.docId).toBe('refunds')
   })
 
-  it('documents the keyword-only blind spot: pure paraphrase needs vectors', async () => {
-    // "money back" shares no term with "refund", so BM25 cannot connect them.
-    // This is the honest limit of the zero-credential path and the reason
-    // embeddings exist as a one-flag upgrade rather than a nice-to-have.
+  it('bridges the common paraphrases without an embedder', async () => {
+    // "money back" shares no term with "refund", so BM25 alone cannot connect
+    // them and this used to come back empty: the policy sat in the index while
+    // the agent said it could not find one.
     const matches = await createRetriever({ index: await index() }).retrieve('can I get my money back')
+
+    expect(matches.length).toBeGreaterThan(0)
+    expect(matches[0]?.chunk.docId).toBe('refunds')
+  })
+
+  it('is still a keyword index, and says so', async () => {
+    // The honest limit of the zero-credential path, and the reason embeddings
+    // remain a one-flag upgrade rather than a nice-to-have: a paraphrase nobody
+    // wrote a synonym for shares nothing with the page and finds nothing.
+    const matches = await createRetriever({ index: await index() }).retrieve(
+      'what happens if the courier leaves it with a neighbour',
+    )
+
     expect(matches).toHaveLength(0)
   })
 

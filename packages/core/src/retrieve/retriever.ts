@@ -2,11 +2,27 @@ import type { Embedder, KnowledgeIndex, Match, RetrieveOptions, Retriever } from
 import { queryTermCount, searchKeyword } from '../knowledge/bm25.js'
 import { indexVectorStore, type VectorStore } from './vector-store.js'
 import { fuse, type RankedList } from './fuse.js'
+import { expandQuery, type SynonymGroups } from './synonyms.js'
 
 export interface RetrieverOptions {
   index: KnowledgeIndex
   /** Enables the vector half of the hybrid. Must match the ingest-time embedder. */
   embedder?: Embedder
+  /**
+   * Extra words that mean the same thing, for the keyword half.
+   *
+   * Each group is a set of interchangeable phrases: any one of them found in a
+   * question brings in the rest. Use it for the vocabulary no library could
+   * know, which is mostly your own:
+   *
+   * ```ts
+   * synonyms: [['trainers', 'sneakers'], ['jumper', 'sweater'], ['LUM', 'order number']]
+   * ```
+   *
+   * A short English set for support vocabulary is applied already. Pass `false`
+   * to turn that off, for content where those words mean something else.
+   */
+  synonyms?: SynonymGroups | false
   topK?: number
   /**
    * Stops one long page from filling the entire context window with near
@@ -120,11 +136,18 @@ export function createRetriever(options: RetrieverOptions): Retriever {
       const candidates = limit * CANDIDATE_MULTIPLIER
       const lists: RankedList<string>[] = []
 
-      const keyword = searchKeyword(index.keyword, query, candidates)
+      // The keyword half only. Vectors already match a paraphrase, and adding
+      // words to what gets embedded would blur the question rather than sharpen
+      // it: an embedding of "postage delivery shipping" is not the embedding of
+      // what anybody asked.
+      const keyword = searchKeyword(index.keyword, expandQuery(query, options.synonyms), candidates)
       // Relative, because BM25 scores mean nothing in absolute terms: they
       // depend on corpus size and term rarity, so only the gap to the best hit
       // in this same query is comparable.
       const keywordBest = keyword[0]?.score ?? 0
+      // Counted on what was actually asked, not on the expansion. The rule is
+      // about how specific the question was, and synonyms would make a three
+      // word question look like a nine word one and demand more of every page.
       const required = queryTermCount(query) >= coverageFrom ? 2 : 1
       lists.push({
         label: 'keyword',

@@ -1,25 +1,25 @@
 // Deterministic. No model, no credential, no network. This is the suite that
 // belongs in CI on every push: it catches a stemmer or threshold change
 // silently undoing the last one.
-{"id":"ret-delivery-time","question":"how long does delivery take?","mustRetrieve":["shipping"]}
-{"id":"ret-delivery-ireland","question":"how long to Ireland?","mustRetrieve":["shipping"]}
-{"id":"ret-delivery-cost","question":"how much is postage?","mustRetrieve":["shipping"],"known":"Needs vectors. The shipping page says 'delivery' and never 'postage'; only the returns page uses the word.","note":"Vocabulary gap between how a customer asks and how the page is written."}
-{"id":"ret-tracking","question":"my tracking says delivered but nothing came","mustRetrieve":["shipping"]}
-{"id":"ret-refund","question":"can I get a refund?","mustRetrieve":["returns"]}
-{"id":"ret-refund-paraphrase","question":"how do I get my money back?","mustRetrieve":["returns"],"known":"Needs vectors. No keyword index can connect 'money back' to a page that only says 'refund'.","note":"Paraphrase recall. The corpus never says 'money back'."}
-{"id":"ret-damaged","question":"my bag arrived split open","mustRetrieve":["returns"]}
-{"id":"ret-engraved","question":"can I return an engraved gift set?","mustRetrieve":["returns"]}
-{"id":"ret-pause","question":"how do I pause my subscription?","mustRetrieve":["subscriptions"]}
-{"id":"ret-pausing-stem","question":"pausing deliveries for a month","mustRetrieve":["subscriptions"],"note":"Stemmer case: pause/pausing must match."}
-{"id":"ret-cancel","question":"I want to cancel","mustRetrieve":["subscriptions"]}
-{"id":"ret-sub-discount","question":"is there a discount for subscribing?","mustRetrieve":["subscriptions"]}
-{"id":"ret-grind-french","question":"what grind for a french press?","mustRetrieve":["coffee"]}
-{"id":"ret-ethiopia","question":"what does the Ethiopia Guji taste like?","mustRetrieve":["coffee"]}
-{"id":"ret-freshness","question":"how long do the beans stay fresh?","mustRetrieve":["coffee"]}
-{"id":"ret-signin","question":"I cannot sign in","mustRetrieve":["account"]}
-{"id":"ret-delete","question":"delete my account and my data","mustRetrieve":["account"]}
-{"id":"ret-address","question":"I need to change my delivery address","mustRetrieve":["account"],"note":"Must not be pulled to shipping by the word delivery alone."}
-{"id":"ret-wholesale","question":"do you do wholesale for a cafe?","mustRetrieve":["wholesale"]}
-{"id":"ret-wholesale-minimum","question":"what is the minimum order for trade pricing?","mustRetrieve":["wholesale"]}
-{"id":"ret-nothing","question":"do you sell bicycles?","mustNotRetrieve":["shipping","returns","subscriptions","coffee","account","wholesale"],"note":"A question the corpus cannot answer must retrieve nothing, not the nearest thing."}
-{"id":"ret-nothing-weather","question":"what is the weather in Cairo today?","mustNotRetrieve":["shipping","returns","subscriptions","coffee","account","wholesale"]}
+{"id": "ret-delivery-time", "question": "how long does delivery take?", "mustRetrieve": ["shipping"]}
+{"id": "ret-delivery-ireland", "question": "how long to Ireland?", "mustRetrieve": ["shipping"]}
+{"id": "ret-delivery-cost", "question": "how much is postage?", "mustRetrieve": ["shipping"], "note": "Vocabulary gap: the shipping page says delivery, and only the returns page says postage."}
+{"id": "ret-tracking", "question": "my tracking says delivered but nothing came", "mustRetrieve": ["shipping"]}
+{"id": "ret-refund", "question": "can I get a refund?", "mustRetrieve": ["returns"]}
+{"id": "ret-refund-paraphrase", "question": "how do I get my money back?", "mustRetrieve": ["returns"], "note": "Paraphrase recall: the corpus says refund and never money back."}
+{"id": "ret-damaged", "question": "my bag arrived split open", "mustRetrieve": ["returns"]}
+{"id": "ret-engraved", "question": "can I return an engraved gift set?", "mustRetrieve": ["returns"]}
+{"id": "ret-pause", "question": "how do I pause my subscription?", "mustRetrieve": ["subscriptions"]}
+{"id": "ret-pausing-stem", "question": "pausing deliveries for a month", "mustRetrieve": ["subscriptions"], "note": "Stemmer case: pause/pausing must match."}
+{"id": "ret-cancel", "question": "I want to cancel", "mustRetrieve": ["subscriptions"]}
+{"id": "ret-sub-discount", "question": "is there a discount for subscribing?", "mustRetrieve": ["subscriptions"]}
+{"id": "ret-grind-french", "question": "what grind for a french press?", "mustRetrieve": ["coffee"]}
+{"id": "ret-ethiopia", "question": "what does the Ethiopia Guji taste like?", "mustRetrieve": ["coffee"]}
+{"id": "ret-freshness", "question": "how long do the beans stay fresh?", "mustRetrieve": ["coffee"]}
+{"id": "ret-signin", "question": "I cannot sign in", "mustRetrieve": ["account"]}
+{"id": "ret-delete", "question": "delete my account and my data", "mustRetrieve": ["account"]}
+{"id": "ret-address", "question": "I need to change my delivery address", "mustRetrieve": ["account"], "note": "Must not be pulled to shipping by the word delivery alone."}
+{"id": "ret-wholesale", "question": "do you do wholesale for a cafe?", "mustRetrieve": ["wholesale"]}
+{"id": "ret-wholesale-minimum", "question": "what is the minimum order for trade pricing?", "mustRetrieve": ["wholesale"]}
+{"id": "ret-nothing", "question": "do you sell bicycles?", "mustNotRetrieve": ["shipping", "returns", "subscriptions", "coffee", "account", "wholesale"], "note": "A question the corpus cannot answer must retrieve nothing, not the nearest thing."}
+{"id": "ret-nothing-weather", "question": "what is the weather in Cairo today?", "mustNotRetrieve": ["shipping", "returns", "subscriptions", "coffee", "account", "wholesale"]}
