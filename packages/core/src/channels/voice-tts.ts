@@ -11,6 +11,9 @@
  * sidesteps url length limits on a long reply.
  */
 
+import { redact } from '../actions/shrink.js'
+import { getLogger } from '../diagnostics.js'
+
 export interface SpeechClip {
   audio: ArrayBuffer
   contentType: string
@@ -117,8 +120,14 @@ export function elevenLabsVoice(options: ElevenLabsVoiceOptions): Voice {
       )
 
       if (!response.ok) {
-        // The body can carry the key's permissions; keep it in the log only.
-        console.error('[recourse] elevenlabs tts failed', response.status, await response.text().catch(() => ''))
+        // The body explains the failure, so it is kept, but it goes through the
+        // same redaction an action result does: a provider that echoes a signed
+        // callback URL back would otherwise put a live token in the log.
+        getLogger().error(
+          `elevenlabs tts failed: ${redact(await response.text().catch(() => '')).slice(0, 400)}`,
+          undefined,
+          { status: response.status },
+        )
         throw new Error(`speech synthesis failed (${response.status})`)
       }
 
@@ -164,7 +173,11 @@ export function openAiCompatibleVoice(options: OpenAiVoiceOptions = {}): Voice {
       })
 
       if (!response.ok) {
-        console.error('[recourse] tts failed', response.status, await response.text().catch(() => ''))
+        getLogger().error(
+          `tts failed: ${redact(await response.text().catch(() => '')).slice(0, 400)}`,
+          undefined,
+          { status: response.status },
+        )
         throw new Error(`speech synthesis failed (${response.status})`)
       }
 

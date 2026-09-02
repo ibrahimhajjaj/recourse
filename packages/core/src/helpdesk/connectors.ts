@@ -1,5 +1,6 @@
 import { ticketBody, type EscalationRequest } from '../actions/builtin/escalate.js'
 import type { ActionContext } from '../actions/types.js'
+import { redact } from '../actions/shrink.js'
 import { fetchWithRetry } from '../util/http.js'
 import { getLogger } from '../diagnostics.js'
 
@@ -51,7 +52,10 @@ async function send(url: string, init: RequestInit, desk: string): Promise<any> 
     // stack: this message becomes tool output, which the model is told to
     // relay, and an Odoo fault carries a traceback with the database name and
     // the paths on the server in it.
-    getLogger().error(`${desk} ticket failed: ${response.status} ${text.slice(0, 400)}`)
+    // Redacted and capped, not withheld. The body is the only thing that
+    // explains a 422, so an operator needs it, but a provider that echoes a
+    // callback URL back at us would otherwise put a live token in the log.
+    getLogger().error(`${desk} ticket failed: ${response.status} ${redact(text).slice(0, 400)}`)
     throw new Error(`${desk} ticket failed: ${response.status}`)
   }
 
