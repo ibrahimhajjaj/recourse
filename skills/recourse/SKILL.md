@@ -50,15 +50,16 @@ export const POST = createChatHandler({
 })
 ```
 
-The widget file is in the package. Copy it where the site serves static files,
-and re-copy it when the package updates:
-
-```bash
-cp node_modules/@recourse-ai/widget/dist/recourse.min.js public/recourse.js
-```
+The widget is one script tag, served from a CDN rather than installed. It is
+the one piece that has to reach a browser, and a copied line into a template is
+the shortest path there:
 
 ```html
-<script src="/recourse.js" data-endpoint="/api/chat" defer></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/@recourse-ai/widget/dist/recourse.min.js"
+  data-endpoint="/api/chat"
+  data-title="Ask us anything"
+></script>
 ```
 
 Then always:
