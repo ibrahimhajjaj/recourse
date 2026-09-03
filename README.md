@@ -234,6 +234,7 @@ the thing you came for.
 | Accept a PDF or a photo of a broken part | [docs/files.md](docs/files.md) |
 | Run it on WordPress, with no build step at all | [docs/wordpress.md](docs/wordpress.md) |
 | Use it from a tool that already speaks OpenAI | [docs/openai-endpoint.md](docs/openai-endpoint.md) |
+| See how conversations actually ended, not just how many | [docs/automation.md](docs/automation.md) |
 | Embed the chat window | [packages/widget/README.md](packages/widget/README.md) |
 
 Two more worth knowing about. Every credential each channel needs, and the step
@@ -242,6 +243,9 @@ each platform's own documentation leaves out, is in
 proved against a live platform and what has not is in
 [`CHANNELS-VERIFIED.md`](CHANNELS-VERIFIED.md), kept separate so the difference
 is never blurred into a claim.
+
+Upgrading from an earlier version: [`CHANGELOG.md`](CHANGELOG.md) leads with the
+things an existing deployment has to change, and says what to do about each.
 
 ## Where a hosted product wins
 
