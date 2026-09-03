@@ -5,7 +5,12 @@ rate limiter caps how often one caller may ask, which stops a script and does
 not stop a bill: a thousand callers each politely under their own limit still
 add up, and so does one loop in one conversation running all night.
 
-Everything here is off by default and none of it needs another service.
+The spend cap and the fallback model are off until you set them. The loop
+guards below are not: an action repeats twice before it is refused, gives up
+after three failures, a turn stops after six model round trips, and an action's
+result is trimmed before it is sent back. Those are on with finite defaults,
+because a bill that runs away does it inside a single turn and there is nothing
+useful about waiting to be asked. None of it needs another service.
 
 ## A ceiling on what you spend
 

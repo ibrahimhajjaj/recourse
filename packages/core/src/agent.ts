@@ -718,10 +718,10 @@ export function createAgent(options: AgentOptions) {
       question,
     })
 
-    // Gating the stream is opt-in, because it costs sentence-at-a-time delivery
-    // instead of word-by-word. Looking at the finished answer costs nothing and
-    // is how a business finds out its agent invented a price, so that happens
-    // whenever a classifier exists.
+    // On unless a deployment turns it off, and it costs sentence-at-a-time
+    // delivery instead of word-by-word. That is the right default: this is how
+    // a business finds out its agent invented a price, and a price already on
+    // the customer's screen cannot be taken back.
     const checksOutput = classifier?.checksOutput === true
     // Releasing a sentence at a time only pays off for a reader watching it
     // arrive. `answer()` collects every frame and returns one string, so there

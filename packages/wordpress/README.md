@@ -20,7 +20,7 @@ every chunk, every posting, every ranking:
 
 ```
 $ composer test
-OK (94 tests, 752 assertions)
+OK (94 tests, 724 assertions)
 ```
 
 Regenerate the fixture after touching either side:

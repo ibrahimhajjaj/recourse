@@ -136,9 +136,9 @@ registered through the API before anyone can type it, and until it is the bot
 appears to do nothing at all. A global registration can take an hour to appear
 in clients; a per-guild one is instant.
 
-Receiving is not ticked yet. The endpoint is verified and the command is
-registered; what is left is a person typing `/ask` in a server the bot has been
-invited to.
+Receiving is a slash command rather than ordinary chat, which is what a Discord
+interactions webhook gets: `/ask` in a server the bot has been invited to. That
+happened, and the defect below is what it turned up.
 
 ### The seventh defect: a footnote marker with no footnote
 
