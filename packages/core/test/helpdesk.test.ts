@@ -468,3 +468,87 @@ describe('AI draft replies', () => {
     expect(await desk.draftReply(999)).toBeNull()
   })
 })
+
+describe('getting an agent reply back to the customer', () => {
+  /**
+   * The half of a handover that used to be missing. A ticket recorded the
+   * reply and marked the ball as the customer's, and on a channel the desk does
+   * not own, nothing ever reached them.
+   */
+  function delivering() {
+    const sent: { channel: string; conversationId: string; content: string }[] = []
+    const desk = helpdesk({
+      deliver: ({ channel, conversationId, content }) => {
+        sent.push({ channel, conversationId, content })
+      },
+    })
+
+    return { desk, sent }
+  }
+
+  async function whatsappTicket(desk: ReturnType<typeof helpdesk>) {
+    return desk.openTicket({
+      subject: 'Refund for order 4471',
+      description: 'Wants the postage back too.',
+      customer: { name: 'Ana', email: 'ana@example.com' },
+      channel: 'whatsapp',
+      conversationId: 'whatsapp:44700900000',
+    })
+  }
+
+  it('sends an agent reply out on the channel the customer used', async () => {
+    const { desk, sent } = delivering()
+    const ticket = await whatsappTicket(desk)
+
+    await desk.reply(ticket.ticketNumber, 'Refunded, including the postage.', {
+      type: 'agent',
+      id: 'ben@shop.example',
+    })
+
+    expect(sent).toEqual([
+      {
+        channel: 'whatsapp',
+        conversationId: 'whatsapp:44700900000',
+        content: 'Refunded, including the postage.',
+      },
+    ])
+  })
+
+  it('keeps an internal note off the customer', async () => {
+    // The whole point of a note is that the customer does not see it.
+    const { desk, sent } = delivering()
+    const ticket = await whatsappTicket(desk)
+
+    await desk.note(ticket.ticketNumber, 'Ana has asked twice, watch this one.', {
+      type: 'agent',
+      id: 'ben@shop.example',
+    })
+
+    expect(sent).toEqual([])
+  })
+
+  it('does not send the customer their own message back', async () => {
+    const { desk, sent } = delivering()
+    const ticket = await whatsappTicket(desk)
+
+    await desk.reply(ticket.ticketNumber, 'Any news?', { type: 'customer', id: 'ana@example.com' })
+
+    expect(sent).toEqual([])
+  })
+
+  it('keeps the reply when delivery fails, and says so', async () => {
+    // The ticket is the record. A provider outage must not lose what was
+    // written, or an agent retypes it and the customer hears it twice.
+    const desk = helpdesk({
+      deliver: () => {
+        throw new Error('whatsapp is down')
+      },
+    })
+    const ticket = await whatsappTicket(desk)
+
+    await desk.reply(ticket.ticketNumber, 'Refunded.', { type: 'agent', id: 'ben@shop.example' })
+
+    const thread = await desk.listMessages(ticket.ticketNumber)
+    expect(thread.items.map((message) => message.content)).toContain('Refunded.')
+  })
+})

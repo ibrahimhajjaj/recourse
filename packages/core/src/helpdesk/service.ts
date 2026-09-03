@@ -1,4 +1,5 @@
 import type { Store } from '../store/types.js'
+import { getLogger } from '../diagnostics.js'
 import type { Webhooks } from '../webhooks/index.js'
 import type { Agent } from '../agent.js'
 import { defaultViews, evaluateTriggers, type SavedView, type Trigger } from './triggers.js'
@@ -60,6 +61,28 @@ export interface HelpdeskOptions {
    * list. An unassigned ticket is visible in the queue; a ticket assigned to a
    * sleeping person is not.
    */
+  /**
+   * Sends an agent's reply back to the customer on the channel they used.
+   *
+   * Without it a handover is only half of one. The ticket records what the
+   * agent wrote and marks the ball as the customer's, and on a channel the desk
+   * does not itself own, the customer never sees a word of it. They are sitting
+   * in WhatsApp having been told a colleague is coming.
+   *
+   * Not called for internal notes, and not for the customer's own messages:
+   * those are already where they came from.
+   *
+   * A desk that owns the channel needs none of this. Answering inside Intercom's
+   * messenger, or through Sunshine, puts the reply in front of the customer
+   * already, and wiring this as well sends it twice.
+   */
+  deliver?: (reply: {
+    ticket: Ticket
+    channel: Channel
+    conversationId: string
+    content: string
+    sender: TicketMessageSender
+  }) => void | Promise<void>
   schedule?: Schedule
 }
 
@@ -309,6 +332,37 @@ export function createHelpdesk(options: HelpdeskOptions) {
     }
   }
 
+  /**
+   * Carries an agent's reply out to the channel the customer is on.
+   *
+   * A failure here must not lose the reply, which is already saved. The ticket
+   * is the record and delivery is a best effort on top of it, so this logs
+   * rather than throws: an operator needs to know it did not arrive, so they
+   * can chase it by hand instead of assuming it landed.
+   */
+  async function handOver(
+    ticket: Ticket,
+    content: string,
+    sender: TicketMessageSender,
+  ): Promise<void> {
+    if (!options.deliver || !ticket.conversationId) return
+
+    try {
+      await options.deliver({
+        ticket,
+        channel: ticket.channel,
+        conversationId: ticket.conversationId,
+        content,
+        sender,
+      })
+    } catch (error) {
+      getLogger().error(
+        `ticket ${ticket.ticketNumber}: the reply is saved but did not reach the customer on ${ticket.channel}`,
+        error,
+      )
+    }
+  }
+
   async function post(
     ticketNumber: number,
     type: TicketMessage['type'],
@@ -331,6 +385,7 @@ export function createHelpdesk(options: HelpdeskOptions) {
     // changes nothing about whose move it is.
     if (type === 'reply' && sender.type === 'agent') {
       await update(ticketNumber, { statusCategory: 'on_customer' })
+      await handOver(ticket, content, sender)
     } else if (type === 'reply' && sender.type === 'customer') {
       await update(ticketNumber, { statusCategory: 'on_you' })
     }
