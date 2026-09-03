@@ -39,6 +39,9 @@ function readConfig(): WidgetOptions | null {
     // one a deployment may be obliged to show rather than merely want to.
     ...(data.footnote ? { strings: { footnote: data.footnote } } : {}),
     greeting: data.greeting,
+    // `data-greeting-art="/empty.png"` centres the greeting under a picture on
+    // an empty panel. A path on your own site: nothing is fetched elsewhere.
+    greetingArt: data.greetingArt,
     accent: data.accent,
     suggestions: data.suggestions?.split('|').map((item) => item.trim()).filter(Boolean),
     position: data.position === 'bottom-left' ? 'bottom-left' : 'bottom-right',

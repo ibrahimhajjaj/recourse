@@ -88,6 +88,16 @@ you what to install; everything else is unaffected.
   today; see `docs/models.md`.
 - Optional `getConversations` and `patchMeta` on `Store`, both with fallbacks,
   so a store you wrote yourself keeps working.
+- `greetingArt` on the widget, and `data-greeting-art` on the script tag. The
+  panel opens larger than anything in it, and a lone greeting in the top corner
+  reads as a page that has not loaded; given a picture, the greeting is centred
+  under it until the first question arrives.
+- The mic and the call say what they are doing in words, under the composer,
+  rather than only turning the button red. Colour on its own reaches neither a
+  screen reader nor everybody looking at it. The mic also swaps its glyph for a
+  stop square while it runs, a call being placed is amber rather than the same
+  red as one in progress, a live call shows how long it has run, and a call that
+  never connected leaves a mark on the button after the error box has gone.
 
 ### Fixed for the WordPress plugin
 
