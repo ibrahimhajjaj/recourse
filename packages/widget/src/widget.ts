@@ -710,7 +710,14 @@ export function createWidget(options: WidgetOptions) {
         row.querySelectorAll('button').forEach((other) => {
           if (other !== button) other.removeAttribute('aria-pressed')
         })
-        void sendFeedback(messageIndex, value)
+
+        // Pressed on the way out, and un-pressed if it did not land. A
+        // deployment with no store answers 501 to every thumb, and leaving the
+        // button pressed tells the visitor their opinion was recorded when
+        // nothing recorded it. Quiet is right here; a lie is not.
+        void sendFeedback(messageIndex, value).then((recorded) => {
+          if (!recorded) button.removeAttribute('aria-pressed')
+        })
       })
       row.appendChild(button)
     }
@@ -720,17 +727,21 @@ export function createWidget(options: WidgetOptions) {
     wrapper.appendChild(row)
   }
 
-  async function sendFeedback(messageIndex: number, value: 'positive' | 'negative') {
+  /** Whether the thumb actually reached a store. Never throws. */
+  async function sendFeedback(messageIndex: number, value: 'positive' | 'negative'): Promise<boolean> {
     try {
-      await fetch(options.endpoint, {
+      const response = await fetch(options.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           feedback: { conversationId: state.conversationId, messageIndex, value },
         }),
       })
+
+      return response.ok
     } catch {
       // Feedback is a nicety; failing to record it must not surface an error.
+      return false
     }
   }
 
