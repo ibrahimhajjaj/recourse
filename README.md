@@ -184,8 +184,10 @@ typing.
 
 **Hands over to the desk you already run.** Zendesk, Freshdesk, Intercom, Help
 Scout, Zoho Desk, HubSpot, Gorgias, Salesforce, Odoo. Whoever picks it up gets
-the last twenty messages, a summary, the customer's mood, and what the agent
-already tried and whether any of it worked.
+the last twenty messages and what the agent already tried and whether any of it
+worked, plus a summary and the customer's mood once the conversation insights
+are wired up, which is a scheduler you supply and
+[docs/stores.md](docs/stores.md) shows.
 
 **Answers the phone.** Twilio carries the call, through Conversation Relay or a
 plain call-and-response loop. Or ElevenLabs carries it, owning the number and

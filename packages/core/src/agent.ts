@@ -25,7 +25,17 @@ import type { ClassifierPolicy, Decision, Signal } from './safety/types.js'
 import type { Budget, Usage } from './budget.js'
 import type { ShrinkOptions } from './actions/shrink.js'
 import { describeFailure, logFailure, getLogger, type Logger } from './diagnostics.js'
-import { PAUSED_MESSAGE, WAITING_MESSAGE, hasPerson, isEndCommand, isPaused, resumeAgent, type TakeoverOptions } from './takeover.js'
+import {
+  PAUSED_MESSAGE,
+  UNANSWERED_MESSAGE,
+  WAITING_MESSAGE,
+  hasPerson,
+  isEndCommand,
+  isPaused,
+  resumeAgent,
+  waitedTooLong,
+  type TakeoverOptions,
+} from './takeover.js'
 import {
   buildInstructions,
   contextualQuery,
@@ -588,6 +598,23 @@ export function createAgent(options: AgentOptions) {
       }
     }
 
+    // Said before the answer when the wait ran out, so the customer hears why
+    // the agent is suddenly talking again rather than a person.
+    let unanswered = ''
+
+    // The wait ran out and nobody came. `isPaused` above has already stopped
+    // holding the turn back, so without this the agent simply starts talking
+    // again: the customer is never told the person they were promised is not
+    // coming, the paused flag stays set in the store forever, and the reason
+    // the handover ended cannot be counted afterwards. Anything reading the
+    // raw flag rather than re-deriving it against the clock, burst coalescing
+    // among them, still believes a person owns this conversation and drops
+    // what the customer says next.
+    if (takeover && store && (await waitedTooLong(store, conversationId, takeover.waitForPersonMs))) {
+      await resumeAgent(store, conversationId, 'nobody-came').catch(() => {})
+      unanswered = takeover.unansweredMessage ?? UNANSWERED_MESSAGE
+    }
+
     // The cap is read before the model rather than after it, because the turn
     // that crosses the line is precisely the one nobody wanted to pay for.
     const allowance = options.budget ? await options.budget.check() : { ok: true as const }
@@ -757,6 +784,13 @@ export function createAgent(options: AgentOptions) {
     // Answered rather than returned early, so the rest of the turn happens the
     // way it always does. An early return skipped the transcript write and the
     // webhook, and emitted a second `done` on top of the one below.
+    // Its own sentence ahead of the answer rather than welded onto the front of
+    // it. The customer was told a colleague was coming; being answered by the
+    // agent instead needs saying, or it reads as the promise being ignored.
+    if (unanswered) {
+      yield { type: 'delta', text: `${unanswered}\n\n` }
+    }
+
     const withoutModel = !options.model && !gatewayReachable()
 
     if (withoutModel) {

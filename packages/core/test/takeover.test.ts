@@ -183,3 +183,115 @@ describe('an agent in a conversation a person owns', () => {
     expect(calls()).toBe(1)
   })
 })
+
+describe('when the wait for a person runs out', () => {
+  /**
+   * The half that was built and never wired. `waitedTooLong`,
+   * `UNANSWERED_MESSAGE` and `unansweredMessage` all existed, were exported and
+   * were documented, and nothing called any of them. The agent simply started
+   * answering again: the customer was never told the colleague was not coming,
+   * the paused flag stayed set in the store, and no handover could be counted
+   * as having timed out.
+   */
+  async function timedOut() {
+    const store = memoryStore()
+    const { model } = counting()
+    const agent = createAgent({
+      index: await index(),
+      model,
+      store,
+      takeover: { waitForPersonMs: 1 },
+    })
+
+    await store.appendMessage('c_late', {
+      id: 'm1',
+      role: 'user',
+      content: 'refunds?',
+      createdAt: new Date().toISOString(),
+    })
+    await pauseAgent(store, 'c_late')
+    // The clock runs from the handover, so a stale timestamp is the wait
+    // having already elapsed.
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    return { store, agent }
+  }
+
+  it('tells the customer nobody came, before answering', async () => {
+    const { agent } = await timedOut()
+
+    const result = await agent.answer('refunds?', [], { conversationId: 'c_late' })
+
+    expect(result.text).toContain('Nobody is available to pick this up right now')
+    // And still answers. The point is to stop the silence, not to refuse.
+    expect(result.text).toContain('30 days')
+  })
+
+  it('lets a deployment write that sentence itself', async () => {
+    const store = memoryStore()
+    const { model } = counting()
+    const agent = createAgent({
+      index: await index(),
+      model,
+      store,
+      takeover: { waitForPersonMs: 1, unansweredMessage: 'No one is about, but I can try.' },
+    })
+
+    await store.appendMessage('c_own', {
+      id: 'm1',
+      role: 'user',
+      content: 'refunds?',
+      createdAt: new Date().toISOString(),
+    })
+    await pauseAgent(store, 'c_own')
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    const result = await agent.answer('refunds?', [], { conversationId: 'c_own' })
+    expect(result.text).toContain('No one is about, but I can try.')
+  })
+
+  it('clears the paused flag, so nothing downstream still thinks a person has it', async () => {
+    // Burst coalescing reads the raw flag rather than re-deriving it against
+    // the clock. Left set, it drops the customer's next message entirely.
+    const { store, agent } = await timedOut()
+
+    await agent.answer('refunds?', [], { conversationId: 'c_late' })
+
+    expect(await isPaused(store, 'c_late')).toBe(false)
+    const thread = await store.getConversation('c_late')
+    expect(thread?.conversation.meta?.aiPaused).not.toBe(true)
+  })
+
+  it('records that it ended because nobody came', async () => {
+    // The question a support lead asks on day thirty is what fraction of
+    // escalations timed out. A boolean cannot answer it.
+    const { store, agent } = await timedOut()
+
+    await agent.answer('refunds?', [], { conversationId: 'c_late' })
+
+    const thread = await store.getConversation('c_late')
+    expect(thread?.conversation.meta?.aiHandoverEndedBecause).toBe('nobody-came')
+  })
+
+  it('says nothing extra when a person is still within the wait', async () => {
+    const store = memoryStore()
+    const { model } = counting()
+    const agent = createAgent({
+      index: await index(),
+      model,
+      store,
+      takeover: { waitForPersonMs: 60_000 },
+    })
+
+    await store.appendMessage('c_waiting', {
+      id: 'm1',
+      role: 'user',
+      content: 'refunds?',
+      createdAt: new Date().toISOString(),
+    })
+    await pauseAgent(store, 'c_waiting')
+
+    const result = await agent.answer('refunds?', [], { conversationId: 'c_waiting' })
+    expect(result.text).not.toContain('Nobody is available')
+  })
+})
