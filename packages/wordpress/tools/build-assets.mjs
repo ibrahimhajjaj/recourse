@@ -47,16 +47,27 @@ if (existsSync(source) && newestSource(source) > statSync(join(built, 'recourse.
 
 mkdirSync(assets, { recursive: true })
 
+/** The widget builds, which this script owns and overwrites every run. */
+const GENERATED = ['recourse.js', 'recourse.min.js']
+
+/** Authored by hand and left alone, whatever their extension. */
+const AUTHORED = ['admin.css', 'admin.js']
+
 // Remove any bundle already here before copying the current one in. Copying
 // over a fixed set of names leaves anything under a previous name untouched,
 // and the plugin zip then ships both: a reviewer sees two copies of the widget
-// under two names, one matching no code in the plugin. Only the generated
-// bundles go; admin.css is authored and stays.
+// under two names, one matching no code in the plugin.
+//
+// Matched against the authored list rather than by extension. Deleting every
+// `.js` took the admin script with it, and the failure was quiet: the file
+// vanished from the working tree, the zip shipped without it, and the settings
+// screen enqueued a URL that was not there.
 for (const stale of readdirSync(assets)) {
+  if (AUTHORED.includes(stale)) continue
   if (stale.endsWith('.js')) rmSync(join(assets, stale))
 }
 
-for (const file of ['recourse.js', 'recourse.min.js']) {
+for (const file of GENERATED) {
   copyFileSync(join(built, file), join(assets, file))
   console.log(`  ${file}  ${(statSync(join(assets, file)).size / 1024).toFixed(1)} KB`)
 }
