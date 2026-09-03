@@ -11,6 +11,7 @@ function mount(options: Parameters<typeof createWidget>[0]) {
 
 const dial = (root: ShadowRoot) => root.querySelector('button.call') as HTMLButtonElement | null
 const notices = (root: ShadowRoot) => [...root.querySelectorAll('.notice')].map((n) => n.textContent)
+const line = (root: ShadowRoot) => root.querySelector('.status') as HTMLElement | null
 /** Lets the dial chain finish: a fetch, a json parse, a load, then a session. */
 const settle = async () => {
   for (let tick = 0; tick < 12; tick++) await Promise.resolve()
@@ -129,6 +130,63 @@ describe('what the thread shows during a call', () => {
     expect(dial(root)?.dataset.state).toBe('live')
     expect(dial(root)?.getAttribute('aria-label')).toBe(DEFAULT_STRINGS.endCall)
     restore()
+  })
+
+  it('says under the composer that it is placing the call, and for how long it has run', async () => {
+    // The button turning colour is the only other signal, and colour on its own
+    // reaches neither a screen reader nor everybody looking at it.
+    const { root, runtime, restore } = calling()
+
+    expect(line(root)?.hidden).toBe(true)
+
+    dial(root)?.click()
+    await settle()
+
+    expect(line(root)?.hidden).toBe(false)
+    expect(line(root)?.dataset.kind).toBe('connecting')
+    expect(line(root)?.textContent).toContain(DEFAULT_STRINGS.calling)
+
+    runtime.handlers.connect?.()
+
+    expect(line(root)?.dataset.kind).toBe('live')
+    expect(line(root)?.textContent).toContain('0:00')
+
+    dial(root)?.click()
+    await settle()
+
+    expect(line(root)?.hidden).toBe(true)
+    restore()
+  })
+
+  it('announces the line rather than only colouring the button', () => {
+    const { root } = mount({ endpoint: '/api/chat', call: '/api/voice/token' })
+
+    expect(line(root)?.getAttribute('role')).toBe('status')
+    expect(line(root)?.getAttribute('aria-live')).toBe('polite')
+  })
+
+  it('leaves a mark on the button when a call never connected', async () => {
+    // The error box above is cleared by the next thing that happens. That it
+    // failed is the one fact somebody needs before pressing again.
+    const original = globalThis.fetch
+    globalThis.fetch = (async () => new Response('no', { status: 503 })) as unknown as typeof globalThis.fetch
+
+    const { root } = mount({
+      endpoint: '/api/chat',
+      call: { endpoint: '/api/voice/token', load: async () => ({ startSession: async () => ({ endSession() {} }) }) },
+    } as Parameters<typeof createWidget>[0])
+    const button = dial(root) as HTMLButtonElement
+
+    button.click()
+    await settle()
+
+    expect(button.dataset.state).toBe('failed')
+    expect(button.querySelector('.failed')).not.toBeNull()
+    expect(button.getAttribute('aria-label')).toBe(DEFAULT_STRINGS.callAgain)
+    // The line is for something that is happening. A failure is not.
+    expect(line(root)?.hidden).toBe(true)
+
+    globalThis.fetch = original
   })
 })
 

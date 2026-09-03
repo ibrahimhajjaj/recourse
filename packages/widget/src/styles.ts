@@ -15,6 +15,12 @@ export const styles = `
   --rc-bubble: #f3f4f6;
   --rc-shadow: 0 12px 40px rgba(15, 23, 42, 0.16);
   --rc-radius: 16px;
+  /* Recording and connecting are the two states the widget signals with colour
+     alone on the button, so each one needs a value that clears contrast on the
+     ground it sits on. A single red does not: it goes muddy on dark. */
+  --rc-alert: #d92d20;
+  --rc-alert-ink: #b42318;
+  --rc-wait: #b54708;
   all: initial;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
@@ -30,6 +36,9 @@ export const styles = `
   --rc-line: #1f2937;
   --rc-bubble: #1f2937;
   --rc-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --rc-alert: #f0554f;
+  --rc-alert-ink: #f0554f;
+  --rc-wait: #f5a524;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -262,24 +271,78 @@ export const styles = `
 .composer button.call svg { width: 17px; height: 17px; }
 .composer button.mic[data-recording="true"] {
   color: #fff;
-  background: #d33;
+  background: var(--rc-alert);
   animation: hd-pulse 1.4s ease-in-out infinite;
+}
+/* A microphone drawn on a live button still reads as "start". The square is
+   what every recorder in the world uses for stop, so it is what the button
+   shows once it is running. */
+.composer button.mic .stop {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: currentColor;
 }
 @keyframes hd-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(221, 51, 51, 0.55); }
-  50% { box-shadow: 0 0 0 6px rgba(221, 51, 51, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--rc-halo); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
 }
+.composer button.mic[data-recording="true"] { --rc-halo: rgba(217, 45, 32, 0.5); }
+:host([data-theme="dark"]) .composer button.mic[data-recording="true"] { --rc-halo: rgba(240, 85, 79, 0.55); }
 /* Connecting is a wait with no progress to show, so the pulse is the only
    signal that the press was heard. Live is steady, because a call that is up
-   does not need to keep announcing itself. */
+   does not need to keep announcing itself. Amber rather than the recording red,
+   because "placing a call" and "on a call" are different things to be told. */
 .composer button.call[data-state="connecting"] {
-  color: var(--rc-text);
+  color: var(--rc-wait);
+  border: 1.5px solid var(--rc-wait);
+  --rc-halo: rgba(181, 71, 8, 0.4);
   animation: hd-pulse 1.4s ease-in-out infinite;
 }
+:host([data-theme="dark"]) .composer button.call[data-state="connecting"] { --rc-halo: rgba(245, 165, 36, 0.45); }
+.composer button.call[data-state="connecting"]:hover { background: transparent; color: var(--rc-wait); }
 .composer button.call[data-state="live"] {
   color: #fff;
-  background: #d33;
+  background: var(--rc-alert);
 }
+.composer button.call[data-state="live"]:hover { background: var(--rc-alert); color: #fff; }
+/* A call that failed leaves a mark on the button, because the error box above
+   is dismissed by the next thing that happens and the failure is not. */
+.composer button.call { position: relative; }
+.composer button.call .failed {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rc-alert);
+  border: 2px solid var(--rc-panel);
+}
+/* One line under the composer for whichever of the two is running. Announced,
+   not just coloured, so it reaches a screen reader as it changes. */
+/* An author display rule beats the browser's own rule for the hidden
+   attribute, so without this the line is on whether anything is running or
+   not. */
+.status[hidden] { display: none; }
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 12px 0;
+  font-size: 12px;
+  color: var(--rc-alert-ink);
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.status[data-kind="connecting"] { color: var(--rc-wait); }
+.status[data-kind="connecting"] .dot { border-radius: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .composer button.mic[data-recording="true"],
   .composer button.call[data-state="connecting"] { animation: none; }
