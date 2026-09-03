@@ -1,5 +1,6 @@
 # Generated at build time from docs/ and public/recourse.js. Committing them
 # would let the demo drift from the repository it claims to be documenting.
+src/assets.ts
 src/knowledge.json
 src/widget.js
 

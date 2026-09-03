@@ -16,6 +16,7 @@
 import { createChatHandler } from '@recourse-ai/core/server'
 import { models, repairNumericContent } from '@recourse-ai/core/models'
 import type { KnowledgeIndex } from '@recourse-ai/core/agent'
+import { ASSETS } from './assets.js'
 import knowledge from './knowledge.json'
 import { PAGE } from './page.js'
 import { WIDGET } from './widget.js'
@@ -48,6 +49,30 @@ export default {
           'Cache-Control': 'public, max-age=3600',
         },
       })
+    }
+
+    // Separate responses rather than data URIs in the page: an image inlined
+    // into the markup is a third larger, is re-sent on every visit, and holds
+    // up first paint by its own weight.
+    if (url.pathname.startsWith('/assets/')) {
+      // `hasOwn`, so that `/assets/constructor` is a 404 rather than a 500 on
+      // whatever it finds up the prototype chain.
+      const name = url.pathname.slice('/assets/'.length)
+      if (!Object.hasOwn(ASSETS, name)) return new Response('Not found', { status: 404 })
+      const asset = ASSETS[name]!
+
+      const headers = {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=86400',
+        ETag: asset.etag,
+      }
+      // The name does not carry a hash, so a year-long cache would strand a
+      // visitor on an old image. The tag makes the daily revalidation free.
+      if (request.headers.get('If-None-Match') === asset.etag) {
+        return new Response(null, { status: 304, headers })
+      }
+
+      return new Response(decode(asset.base64), { headers })
     }
 
     if (url.pathname !== '/api/chat') return new Response('Not found', { status: 404 })
@@ -94,4 +119,22 @@ export default {
 
     return chat(request)
   },
+}
+
+/**
+ * Decoded on first request and kept, because a Worker isolate serves many
+ * requests and the same four images answer all of them.
+ */
+const decoded = new Map<string, Uint8Array>()
+
+function decode(base64: string): Uint8Array {
+  const already = decoded.get(base64)
+  if (already) return already
+
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+
+  decoded.set(base64, bytes)
+  return bytes
 }
