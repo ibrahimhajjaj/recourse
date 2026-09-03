@@ -234,6 +234,9 @@ export function createWidget(options: WidgetOptions) {
   mic.appendChild(icon(ICONS.mic, false))
 
   let dictation: Dictation | null = null
+  /** Set while a call owns the status line, so dictation does not clear it. */
+  let callStatusOwned = false
+  let callTimer: number | undefined
 
   if (uploads) picker.accept = uploads.accept.join(',')
   if (dictationSettings) {
@@ -242,6 +245,18 @@ export function createWidget(options: WidgetOptions) {
       onStateChange: (recording) => {
         mic.dataset.recording = String(recording)
         mic.setAttribute('aria-label', recording ? strings.stopDictating : strings.dictate)
+        mic.setAttribute('aria-pressed', String(recording))
+        // A microphone on a running button still reads as "start", so the glyph
+        // becomes the stop square every recorder uses.
+        mic.replaceChildren(
+          recording
+            ? Object.assign(document.createElement('span'), { className: 'stop' })
+            : icon(ICONS.mic, false),
+        )
+        // A call owns the line while it is up; dictation during one would take
+        // the timer away and put it back.
+        if (recording) setStatus('listening', strings.listening)
+        else if (!callStatusOwned) setStatus(null)
         if (!recording) input.dataset.interim = ''
       },
       onInterim: (text) => {
@@ -321,12 +336,37 @@ export function createWidget(options: WidgetOptions) {
     callButton.addEventListener('click', () => void call?.toggle())
   }
 
-  /** The button, and a line in the thread for the two moments that matter. */
+  /** The button, the line under the composer, and the thread. */
   function paintCallState(next: CallState) {
     callButton.dataset.state = next
-    const live = next === 'live' || next === 'connecting'
-    callButton.setAttribute('aria-label', live ? strings.endCall : strings.call)
-    callButton.replaceChildren(icon(live ? ICONS.hangUp : ICONS.phone, false))
+    const running = next === 'live' || next === 'connecting'
+
+    // A call that never connected is worth remembering on the button: the error
+    // box above is cleared by the next thing that happens, and "it failed" is
+    // the one fact somebody needs before pressing again.
+    const failed = next === 'failed'
+    callButton.setAttribute(
+      'aria-label',
+      running ? strings.endCall : failed ? strings.callAgain : strings.call,
+    )
+    callButton.replaceChildren(icon(running ? ICONS.hangUp : ICONS.phone, false))
+    if (failed) callButton.appendChild(Object.assign(document.createElement('span'), { className: 'failed' }))
+
+    clearInterval(callTimer)
+    if (next === 'live') {
+      // Counted from here rather than from the press: what a visitor wants to
+      // know is how long they have been talking, not how long they waited.
+      const startedAt = Date.now()
+      const paint = () => setStatus('live', fill(strings.onCall, { time: elapsed(startedAt) }))
+      paint()
+      callTimer = setInterval(paint, 1000) as unknown as number
+    } else if (next === 'connecting') {
+      setStatus('connecting', strings.calling)
+    } else if (!dictation?.recording) {
+      setStatus(null)
+    }
+
+    callStatusOwned = running
 
     if (next === 'live') paintNotice(strings.callStarted)
     if (next === 'ended') paintNotice(strings.callEnded)
@@ -350,7 +390,35 @@ export function createWidget(options: WidgetOptions) {
   footnote.className = 'footnote'
   if (strings.footnote) footnote.textContent = strings.footnote
 
-  panel.append(header, log, suggestions, errorBox, tray, composer, ...(strings.footnote ? [footnote] : []))
+  /**
+   * One line under the composer for whichever of the mic and the call is
+   * running.
+   *
+   * Both used to be signalled by the button turning red and nothing else, which
+   * says nothing to a screen reader and not much to anyone who does not see the
+   * difference. `aria-live` announces the change; the text says how to stop it.
+   */
+  const status = document.createElement('p')
+  status.className = 'status'
+  status.setAttribute('role', 'status')
+  status.setAttribute('aria-live', 'polite')
+  status.hidden = true
+  status.append(Object.assign(document.createElement('span'), { className: 'dot' }))
+  const statusText = document.createElement('span')
+  status.appendChild(statusText)
+
+  function setStatus(kind: 'listening' | 'connecting' | 'live' | null, text = '') {
+    status.hidden = kind === null
+    if (kind === null) {
+      statusText.textContent = ''
+      status.removeAttribute('data-kind')
+      return
+    }
+    status.dataset.kind = kind
+    statusText.textContent = text
+  }
+
+  panel.append(header, log, suggestions, errorBox, tray, composer, status, ...(strings.footnote ? [footnote] : []))
   if (uploads) panel.appendChild(picker)
   if (!inline) root.append(launcher, panel)
   else root.append(panel)
@@ -1272,6 +1340,12 @@ function applyTheme(host: HTMLElement, theme: 'light' | 'dark' | 'auto') {
   const sync = () => host.setAttribute('data-theme', query.matches ? 'dark' : 'light')
   sync()
   query.addEventListener('change', sync)
+}
+
+/** `m:ss` since a moment, for the line that says how long a call has run. */
+function elapsed(since: number): string {
+  const seconds = Math.max(0, Math.floor((Date.now() - since) / 1000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 function icon(path: string, filled: boolean): SVGElement {

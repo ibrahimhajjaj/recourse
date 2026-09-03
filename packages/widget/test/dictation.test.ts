@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDictation, dictationSupported, speechRecognition } from '../src/dictation.js'
+import { DEFAULT_STRINGS } from '../src/strings.js'
 
 /**
  * A stand-in for the browser's recognition object, so the state machine can be
@@ -306,6 +307,47 @@ describe('the mic in the widget', () => {
     instance.say('where is my order', true)
     expect(input.value).toContain('where is my order')
 
+    restore()
+  })
+
+  it('swaps the microphone for a stop control while it runs', async () => {
+    // A microphone drawn on a live button still reads as "start".
+    const { root, restore } = await mount(true)
+    const mic = root.querySelector('button.mic') as HTMLButtonElement
+
+    expect(mic.querySelector('svg')).not.toBeNull()
+    expect(mic.querySelector('.stop')).toBeNull()
+
+    mic.click()
+
+    expect(mic.querySelector('.stop')).not.toBeNull()
+    expect(mic.querySelector('svg')).toBeNull()
+    expect(mic.getAttribute('aria-pressed')).toBe('true')
+
+    mic.click()
+
+    expect(mic.querySelector('svg')).not.toBeNull()
+    expect(mic.getAttribute('aria-pressed')).toBe('false')
+    restore()
+  })
+
+  it('says in words that it is listening, not only in red', async () => {
+    // Colour on its own reaches neither a screen reader nor everybody looking.
+    const { root, restore } = await mount(true)
+    const mic = root.querySelector('button.mic') as HTMLButtonElement
+    const line = root.querySelector('.status') as HTMLElement
+
+    expect(line.hidden).toBe(true)
+
+    mic.click()
+
+    expect(line.hidden).toBe(false)
+    expect(line.textContent).toContain(DEFAULT_STRINGS.listening)
+    expect(line.getAttribute('aria-live')).toBe('polite')
+
+    mic.click()
+
+    expect(line.hidden).toBe(true)
     restore()
   })
 

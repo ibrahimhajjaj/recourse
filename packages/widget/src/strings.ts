@@ -31,10 +31,22 @@ export interface WidgetStrings {
   /** Dictation. */
   dictate: string
   stopDictating: string
+  /**
+   * Under the composer while the mic is on.
+   *
+   * A red button is the only other signal that recording started, and colour
+   * on its own is not a signal for everyone.
+   */
+  listening: string
   /** Calling. */
   call: string
   endCall: string
+  /** Under the composer while the call is being placed. */
   calling: string
+  /** Under the composer once it is up. `{time}` is replaced with `m:ss`. */
+  onCall: string
+  /** The button's label after a call that never connected. */
+  callAgain: string
   callStarted: string
   callEnded: string
   /**
@@ -83,9 +95,14 @@ export const DEFAULT_STRINGS: WidgetStrings = {
   removeFile: 'Remove {name}',
   dictate: 'Dictate your question',
   stopDictating: 'Stop dictating',
+  listening: 'Listening, press again to stop',
   call: 'Talk to us',
   endCall: 'End the call',
-  calling: 'Connecting',
+  // Says how long it may take, because a spinner with no estimate is the
+  // moment people press the button a second time.
+  calling: 'Connecting, this can take a few seconds',
+  onCall: 'On a call \u00b7 {time}',
+  callAgain: 'Call again, the last call failed',
   callStarted: 'Call started',
   callEnded: 'Call ended',
   working: 'Checking {name}',
