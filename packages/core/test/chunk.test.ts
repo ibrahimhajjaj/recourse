@@ -110,3 +110,32 @@ describe('index build and serialisation', () => {
     expect(() => parseIndex(JSON.stringify({ version: 1 }))).toThrow(/recourse ingest/)
   })
 })
+
+describe('a heading that is the whole point of the section', () => {
+  it('keeps a heading nothing nests under, so its words stay findable', () => {
+    // How a real contact page writes a phone number. The section has no body,
+    // and the heading beside it is a sibling rather than a child, so nothing
+    // else carries those words. Dropped, the number is in no chunk at all.
+    const chunks = markdownChunker().split({
+      id: 'contact',
+      title: 'Contact',
+      text: '# Call 0800 123 456\n\n# Opening hours\n\nWeekdays only.\n',
+    })
+
+    expect(chunks.map((chunk) => chunk.section)).toContain('Call 0800 123 456')
+    expect(chunks.find((chunk) => chunk.section === 'Call 0800 123 456')?.text).toContain('0800 123 456')
+  })
+
+  it('does not duplicate a heading that a nested one already carries', () => {
+    // The parent is already in the child's trail, so emitting it again would
+    // be a second copy of the same words competing in the same search.
+    const chunks = markdownChunker().split({
+      id: 'nested',
+      title: 'Shipping',
+      text: '# Shipping\n\n## Delivery times\n\nTwo days.\n',
+    })
+
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0]?.section).toBe('Shipping > Delivery times')
+  })
+})

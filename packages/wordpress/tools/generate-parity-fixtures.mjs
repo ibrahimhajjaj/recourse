@@ -83,6 +83,23 @@ const SENTENCES = [
  */
 const DOCUMENTS = [
   {
+    id: 'contact',
+    title: 'Contact',
+    url: 'https://shop.example/contact',
+    text: [
+      // A heading with no body and nothing nested under it. This is how a real
+      // contact page writes a phone number, and it is the shape that used to
+      // vanish: the section was dropped for having no body, and no other
+      // section carried the heading, so the number was in no chunk at all.
+      '# Call 0800 123 456',
+      '',
+      '# Opening hours',
+      '',
+      'Weekdays only, nine to five.',
+      '',
+    ].join('\n'),
+  },
+  {
     id: 'shipping',
     title: 'Shipping',
     url: 'https://shop.example/shipping',
