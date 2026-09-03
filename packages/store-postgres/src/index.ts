@@ -24,6 +24,7 @@ import type {
   Ticket,
   TicketMessage,
 } from '@recourse-ai/core'
+import { pageSize } from '@recourse-ai/core/store'
 import { SCHEMA } from './schema.js'
 
 export interface PostgresStoreOptions {
@@ -1078,7 +1079,11 @@ function toPage<T>(items: T[], hasMore: boolean, limit: number, idOf: (item: T) 
 }
 
 function capLimit(limit: number | undefined): number {
-  return Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT)
+  // The floor matters as much as the ceiling. A negative number reaching a
+  // `LIMIT` clause means "no limit" in SQLite and is an error in Postgres,
+  // while the in-memory stores read it as "all but the last row": three
+  // answers to one mistake. `pageSize` is where that is decided for all four.
+  return pageSize(limit, DEFAULT_LIMIT, MAX_LIMIT)
 }
 
 function iso(value: Date | string): string {
