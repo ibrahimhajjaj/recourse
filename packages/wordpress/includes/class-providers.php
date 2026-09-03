@@ -74,12 +74,6 @@ class Providers {
 				'model'    => 'openai/gpt-oss-120b',
 				'note'     => __( 'Fast, which a chat widget notices.', 'recourse' ),
 			),
-			'meta'       => array(
-				'label'    => 'Meta',
-				'base_url' => 'https://api.meta.ai/v1',
-				'model'    => 'muse-spark-1.1',
-				'note'     => __( 'Keys from dev.meta.ai. Thinks before answering, so replies are considered but slower.', 'recourse' ),
-			),
 			'openrouter' => array(
 				'label'    => 'OpenRouter',
 				'base_url' => 'https://openrouter.ai/api/v1',
@@ -103,12 +97,6 @@ class Providers {
 				'base_url' => 'https://dashscope.aliyuncs.com/compatible-mode/v1',
 				'model'    => 'qwen-plus',
 				'note'     => __( 'Use the compatible-mode URL, not the native one. A key is tied to the region it was made in, so a key from another region answers 401 here however valid it is.', 'recourse' ),
-			),
-			'zhipu'      => array(
-				'label'    => 'Z.ai (GLM)',
-				'base_url' => 'https://api.z.ai/api/paas/v4',
-				'model'    => 'glm-4.7',
-				'note'     => __( 'Chinese provider. `glm-4.7-flash` is their free tier if cost matters more than quality.', 'recourse' ),
 			),
 			'ollama'     => array(
 				'label'    => 'Ollama, on this server',
