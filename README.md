@@ -4,11 +4,21 @@ A customer support agent that learns your own content, answers with citations,
 and does the things a support agent has to do: capture a lead, look up an order,
 open a ticket, hand over to a person.
 
-Two things separate it from the hosted tools. You write the procedures it
+Not a chat box on a website. The same agent answers on WhatsApp, Slack,
+Telegram, Discord, Messenger, Microsoft Teams, SMS and email, inside Intercom's
+own messenger, and through Zendesk's Sunshine, which brings LINE, WeChat and
+Viber with it. It answers the phone. It will talk to somebody in their browser
+and let them interrupt. When a person should take the thread it goes to whichever
+of nine desks you already run, with a summary, the customer's mood, and what the
+agent already tried.
+
+Three things separate it from the hosted tools. You write the procedures it
 follows, step by step, so it does what your business actually does rather than
-what somebody else's settings page allows. And it installs on WordPress as a
-plugin, running the same engine as the package, so the site your help pages are
-already on can run the agent that answers from them.
+what somebody else's settings page allows. Whoever spots a wrong answer writes
+what it should have said, and that applies to the next message, with no deploy,
+no rebuild and no engineer. And there is a second complete implementation in
+PHP, so a WordPress site with no build step installs a plugin and gets the same
+answers, held to the Node version by tests that compare the two line for line.
 
 Self-hosted and MIT. There is nothing to sign up for to get it working.
 
@@ -165,12 +175,25 @@ threads, triggers, saved views, and AI-drafted replies a person approves before
 they send.
 
 **Reaches customers where they are.** Web widget, WhatsApp, Messenger,
-Instagram, Slack, Telegram, Discord, Microsoft Teams, SMS and email, all with
-real webhook signature verification.
+Instagram, Slack, Telegram, Discord, Microsoft Teams, SMS and email, each
+checking the platform's own signature. Inside Intercom's messenger too, so the
+thread stays where your team already works. And through Zendesk's Sunshine,
+which brings LINE, WeChat and Viber with it. Discord is a slash command rather
+than free chat, because a Discord interactions webhook never sees ordinary
+typing.
 
-**Answers the phone.** Inbound calls over Twilio, with four ways to run the
-turn: Conversation Relay, a plain call-and-response loop, your own speech provider, or
-ElevenLabs driving the whole conversation.
+**Hands over to the desk you already run.** Zendesk, Freshdesk, Intercom, Help
+Scout, Zoho Desk, HubSpot, Gorgias, Salesforce, Odoo. Whoever picks it up gets
+the last twenty messages, a summary, the customer's mood, and what the agent
+already tried and whether any of it worked.
+
+**Answers the phone.** Twilio carries the call, through Conversation Relay or a
+plain call-and-response loop. Or ElevenLabs carries it, owning the number and
+the turn-taking while this answers the questions their agent asks mid-sentence,
+fenced by a system prompt written from here. Or nobody carries it and the call
+happens in the browser with no phone in it. The ElevenLabs path has taken a real
+call. The Twilio pair are built to their API and tested against recorded shapes,
+and nobody has pointed a live number at them yet.
 
 **Plugs into your editor.** The management API also speaks Model Context
 Protocol, so Claude Desktop, Cursor or anything else that speaks it can read
@@ -234,6 +257,7 @@ the thing you came for.
 | Accept a PDF or a photo of a broken part | [docs/files.md](docs/files.md) |
 | Run it on WordPress, with no build step at all | [docs/wordpress.md](docs/wordpress.md) |
 | Use it from a tool that already speaks OpenAI | [docs/openai-endpoint.md](docs/openai-endpoint.md) |
+| See how conversations actually ended, not just how many | [docs/automation.md](docs/automation.md) |
 | Embed the chat window | [packages/widget/README.md](packages/widget/README.md) |
 
 Two more worth knowing about. Every credential each channel needs, and the step
@@ -242,6 +266,9 @@ each platform's own documentation leaves out, is in
 proved against a live platform and what has not is in
 [`CHANNELS-VERIFIED.md`](CHANNELS-VERIFIED.md), kept separate so the difference
 is never blurred into a claim.
+
+Upgrading from an earlier version: [`CHANGELOG.md`](CHANGELOG.md) leads with the
+things an existing deployment has to change, and says what to do about each.
 
 ## Where a hosted product wins
 
