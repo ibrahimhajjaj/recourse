@@ -113,6 +113,16 @@ you what to install; everything else is unaffected.
 - The passage screen read a key the retriever never set, so it had never
   refused a page. The same key made every email and link in an answer look
   invented.
+- The `recourse/answer` ability is annotated read-only and was not. It passed no
+  topic to the gate that decides which actions the model is offered, an empty
+  topic narrows nothing, so every action a site had registered was handed over,
+  including one that opens a ticket and therefore writes a post. An anonymous
+  caller could reach it. It now runs with no actions at all.
+- The settings screen's script is enqueued rather than printed into the page, so
+  it can be cached, deferred and replaced like any other asset.
+- The model provider list is trimmed to those whose terms of service and privacy
+  policy are named in the readme. Any other OpenAI-compatible endpoint still
+  works by entering its address.
 
 ## 0.1.1
 
