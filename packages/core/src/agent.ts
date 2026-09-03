@@ -831,7 +831,7 @@ export function createAgent(options: AgentOptions) {
         },
       })
 
-      for await (const part of result.fullStream) {
+      for await (const part of result.stream) {
         // Sent on its own channel and nowhere else: not added to the answer,
         // not screened as output, not stored. A model thinking out loud is
         // talking about its instructions, and the answer is what it decided.
