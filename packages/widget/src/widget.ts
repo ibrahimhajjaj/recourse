@@ -624,6 +624,9 @@ export function createWidget(options: WidgetOptions) {
   }
 
   function paintMessage(message: ChatMessage): { bubble: HTMLElement; wrapper: HTMLElement } {
+    // The empty state is for an empty panel. The moment there is anything to
+    // read, the space belongs to that.
+    log.querySelector('.empty')?.remove()
     const wrapper = document.createElement('div')
     wrapper.className = 'msg'
     wrapper.dataset.role = message.role
@@ -666,11 +669,34 @@ export function createWidget(options: WidgetOptions) {
 
   function repaint() {
     log.replaceChildren()
-    if (options.greeting) {
-      paintMessage({ role: 'assistant', content: options.greeting })
-    }
+    // With a picture, the greeting is the middle of an empty panel rather than
+    // a bubble in the corner of one. Only while it is empty: once there is a
+    // conversation, the space belongs to the conversation.
+    if (options.greetingArt && state.messages.length === 0) paintEmptyState()
+    else if (options.greeting) paintMessage({ role: 'assistant', content: options.greeting })
     for (const message of state.messages) paintMessage(message)
     paintSuggestions()
+  }
+
+  function paintEmptyState() {
+    const empty = document.createElement('div')
+    empty.className = 'empty'
+
+    const art = document.createElement('img')
+    art.src = options.greetingArt as string
+    // Decorative. The greeting under it already says everything the picture
+    // does, and a screen reader reading both says it twice.
+    art.alt = ''
+    art.decoding = 'async'
+    empty.appendChild(art)
+
+    if (options.greeting) {
+      const line = document.createElement('p')
+      line.textContent = options.greeting
+      empty.appendChild(line)
+    }
+
+    log.appendChild(empty)
   }
 
   /**

@@ -463,3 +463,44 @@ describe('a saved transcript written by something else', () => {
     sessionStorage.clear()
   })
 })
+
+describe('an empty panel', () => {
+  it('puts the greeting in a bubble when there is no picture', () => {
+    const { root } = mount({ endpoint: '/api/chat', greeting: 'Ask us anything about your order.' })
+
+    expect(root.querySelector('.empty')).toBeNull()
+    expect(root.querySelector('.msg .bubble')?.textContent).toContain('Ask us anything')
+  })
+
+  it('centres it under the picture when there is one', () => {
+    // The panel opens larger than anything in it. One sentence in the top
+    // corner reads as a page that has not finished loading.
+    const { root } = mount({
+      endpoint: '/api/chat',
+      greeting: 'Ask us anything about your order.',
+      greetingArt: '/empty.png',
+    })
+
+    const empty = root.querySelector('.empty')
+    expect(empty).not.toBeNull()
+    expect(empty?.querySelector('img')?.getAttribute('src')).toBe('/empty.png')
+    // Decorative: the greeting under it says the same thing in words.
+    expect(empty?.querySelector('img')?.getAttribute('alt')).toBe('')
+    expect(empty?.querySelector('p')?.textContent).toContain('Ask us anything')
+  })
+
+  it('gives the space back once there is a conversation', async () => {
+    const { widget, root } = mount({
+      endpoint: '/api/chat',
+      greeting: 'Ask us anything about your order.',
+      greetingArt: '/empty.png',
+    })
+
+    const original = globalThis.fetch
+    globalThis.fetch = (async () => new Response('', { status: 500 })) as unknown as typeof globalThis.fetch
+    await widget.ask('where is my order')
+
+    expect(root.querySelector('.empty')).toBeNull()
+    globalThis.fetch = original
+  })
+})

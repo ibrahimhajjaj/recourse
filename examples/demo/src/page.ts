@@ -164,6 +164,7 @@ export const PAGE = `<!doctype html>
   data-title="recourse"
   data-subtitle="Answering from its own documentation"
   data-greeting="Ask about anything in the documentation. Every answer says which page it came from."
+  data-greeting-art="/assets/empty-state.png"
   data-suggestions="How do I fix a wrong answer without deploying?|Does it work without an API key?|How do I put it on WordPress?"
   data-invite="Ask it anything from the docs."
   data-invite-delay="2600"

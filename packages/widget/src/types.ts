@@ -10,6 +10,17 @@ export interface WidgetOptions {
   subtitle?: string
   /** Shown as the agent's opening message. */
   greeting?: string
+  /**
+   * A picture to put above the greeting, on an empty panel.
+   *
+   * The panel opens larger than anything in it, and a lone sentence in the top
+   * corner reads as a page that has not loaded. Given this, the greeting is
+   * centred under the image instead, and both go when the first question does.
+   *
+   * A URL your own site serves. Nothing is fetched from anywhere else, and a
+   * transparent PNG is the only kind that works in both colour schemes.
+   */
+  greetingArt?: string
   /** Clickable starter questions. */
   suggestions?: string[]
   /** Accent colour. Anything CSS accepts. */

@@ -347,6 +347,37 @@ export const styles = `
   .composer button.mic[data-recording="true"],
   .composer button.call[data-state="connecting"] { animation: none; }
 }
+/* The empty panel, when the host gave it a picture. Centred in the log rather
+   than pinned to the top, because the point is to fill the space. */
+.empty {
+  margin: auto 0;
+  padding: 24px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.empty img {
+  width: 150px;
+  height: auto;
+  /* A short window is the case this has to survive: the picture gives up its
+     height before the greeting does, and disappears rather than squashing. */
+  max-height: min(150px, 26vh);
+  min-height: 72px;
+  object-fit: contain;
+}
+@media (max-height: 620px) {
+  .empty img { display: none; }
+}
+.empty p {
+  margin: 0;
+  text-align: center;
+  max-width: 28ch;
+  color: var(--rc-ink);
+}
+/* Drawn in near black, so on a dark panel it is inverted rather than shipped
+   a second time. */
+:host([data-theme="dark"]) .empty img { filter: invert(1) brightness(1.35); }
 .tray {
   display: flex;
   flex-wrap: wrap;
