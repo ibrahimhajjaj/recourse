@@ -56,14 +56,19 @@ class Model {
 	 * @param array<string, string>             $config       Keys: base_url, api_key, model.
 	 * @param array<string, mixed>              $context      Passed to action callbacks.
 	 * @param string                            $about        What the turn is about, for `relevant_when`.
+	 * @param bool                              $may_act      Whether the model may call actions at all.
 	 * @return array{ok: bool, text: string, error: string, used: array<int, string>}
 	 */
-	public static function answer( $instructions, $messages, $config, $context = array(), $about = '' ) {
+	public static function answer( $instructions, $messages, $config, $context = array(), $about = '', $may_act = true ) {
 		// Held back before anything is built, so the prompt describes exactly
 		// the tools the model is given. An action named in the prompt but
 		// absent from the request is one the model reaches for and cannot
 		// find, which it reports to the customer as a failure.
-		$actions = Relevance::offered( Actions::all(), $about );
+		//
+		// `$may_act` is false for a caller that promises to only read. An empty
+		// `$about` means "no topic to narrow by", which offers every action, so
+		// a read-only caller has to say so rather than leave it blank.
+		$actions = $may_act ? Relevance::offered( Actions::all(), $about ) : array();
 		$tools   = Actions::to_tools( $actions );
 
 		// Nothing configured here, but the site has WordPress's own AI client

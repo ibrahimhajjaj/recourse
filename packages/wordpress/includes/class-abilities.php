@@ -112,9 +112,13 @@ class Abilities {
 					),
 				),
 				'execute_callback'    => array( __CLASS__, 'answer' ),
-				// Anything the site already publishes. The retrieval path
-				// refuses drafts and private posts before this is reached.
-				'permission_callback' => '__return_true',
+				// Open, because everything it can reach is content the site
+				// already publishes: retrieval refuses drafts and private posts
+				// before this is reached, and it runs no actions, so there is
+				// nothing here a visitor could not read from the site itself.
+				// Filterable so a site that would rather not spend a model call
+				// on an anonymous caller can say so.
+				'permission_callback' => array( __CLASS__, 'may_answer' ),
 				'meta'                => array(
 					'annotations' => array(
 						'readonly'    => true,
@@ -143,7 +147,8 @@ class Abilities {
 					'required'   => array( 'query' ),
 				),
 				'execute_callback'    => array( __CLASS__, 'search' ),
-				'permission_callback' => '__return_true',
+				// Published content, no model, no credential, nothing spent.
+				'permission_callback' => array( __CLASS__, 'may_search' ),
 				'meta'                => array(
 					'annotations' => array(
 						'readonly'    => true,
@@ -154,6 +159,38 @@ class Abilities {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Who may ask the answer ability a question.
+	 *
+	 * True by default: it reads published content and nothing else. It does
+	 * cost a model call, so a site paying per token may want to require a
+	 * logged-in user, which this filter is for.
+	 *
+	 * @return bool
+	 */
+	public static function may_answer() {
+		/**
+		 * Filters whether the current caller may use the answer ability.
+		 *
+		 * @param bool $allowed Whether to allow it.
+		 */
+		return (bool) apply_filters( 'recourse_may_answer', true );
+	}
+
+	/**
+	 * Who may search. Published content, and free.
+	 *
+	 * @return bool
+	 */
+	public static function may_search() {
+		/**
+		 * Filters whether the current caller may use the search ability.
+		 *
+		 * @param bool $allowed Whether to allow it.
+		 */
+		return (bool) apply_filters( 'recourse_may_search', true );
 	}
 
 	/**
@@ -178,15 +215,24 @@ class Abilities {
 		$matches  = Retriever::retrieve( $index, $question );
 		$settings = Settings::all();
 
+		// No actions, which is what the `readonly` and `destructive` annotations
+		// above promise. They were not true before: this passes no topic, an
+		// empty topic narrows nothing, and the model was handed every action a
+		// site had registered, including ones that open a ticket and so write a
+		// post. Reading published content is the whole of what this ability is
+		// for, and the chat endpoint is where a conversation that acts belongs.
 		$result = Model::answer(
-			Prompt::instructions( $matches, apply_filters( 'recourse_persona', $settings['persona'] ), ! empty( Actions::all() ) ),
+			Prompt::instructions( $matches, apply_filters( 'recourse_persona', $settings['persona'] ), false ),
 			array(
 				array(
 					'role'    => 'user',
 					'content' => $question,
 				),
 			),
-			$settings['model']
+			$settings['model'],
+			array(),
+			'',
+			false
 		);
 
 		if ( ! $result['ok'] ) {
