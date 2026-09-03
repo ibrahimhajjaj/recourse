@@ -116,6 +116,23 @@ class Admin {
 			array(),
 			RECOURSE_VERSION
 		);
+
+		wp_enqueue_script(
+			'recourse-admin',
+			RECOURSE_URL . 'assets/admin.js',
+			array(),
+			RECOURSE_VERSION,
+			true
+		);
+
+		// The provider table the picker fills the boxes from. Printed before
+		// the file that reads it, so the script has it on first run rather than
+		// waiting for a second request.
+		wp_add_inline_script(
+			'recourse-admin',
+			'window.recourseProviders = ' . Providers::as_json() . ';',
+			'before'
+		);
 	}
 
 	/**
@@ -472,44 +489,6 @@ class Admin {
 				<?php submit_button(); ?>
 			</form>
 
-			<script>
-			( function () {
-				// Filling two text boxes from a picker. Deliberately plain: the
-				// settings screen loads no build step and no framework, and this
-				// is the only script on it.
-				var providers = <?php echo Providers::as_json(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Already JSON, encoded with the hex flags so it cannot close this tag. Escaping it again would corrupt it. ?>;
-				var picker = document.getElementById( 'recourse_provider' );
-				var url = document.getElementById( 'recourse_model_base_url' );
-				var model = document.getElementById( 'recourse_model_model' );
-				var note = document.getElementById( 'recourse_provider_note' );
-				var original = note ? note.textContent : '';
-
-				if ( ! picker || ! url || ! model ) {
-					return;
-				}
-
-				picker.addEventListener( 'change', function () {
-					var chosen = providers[ picker.value ];
-
-					// "Other" is a real answer, not an empty one. Somebody who
-					// picks it has an endpoint of their own and their boxes are
-					// left exactly as they were.
-					if ( ! chosen ) {
-						if ( note ) {
-							note.textContent = original;
-						}
-						return;
-					}
-
-					url.value = chosen.base_url;
-					model.value = chosen.model;
-
-					if ( note ) {
-						note.textContent = chosen.note;
-					}
-				} );
-			}() );
-			</script>
 
 			<hr>
 
