@@ -261,6 +261,29 @@ export function storeConformance(options: ConformanceOptions): void {
     // ---- reading it back ----
 
     if (can.pagination) {
+      it('ends the listing when the cursor points at a row that is gone', async () => {
+        const store = await make()
+        for (const id of ['p1', 'p2', 'p3']) await store.appendMessage(id, message(), { channel: 'web' })
+
+        // A caller loops until the cursor runs out. If a cursor whose row has
+        // been evicted or deleted starts the listing again, it never runs out
+        // and the loop reads the first page for ever.
+        const page = await store.listConversations({ limit: 2, cursor: 'gone_for_good' })
+
+        expect(page.items).toHaveLength(0)
+        expect(page.cursor).toBeUndefined()
+      })
+
+      it('brings a limit outside its range back inside it', async () => {
+        const store = await make()
+        for (const id of ['q1', 'q2', 'q3']) await store.appendMessage(id, message(), { channel: 'web' })
+
+        // -1 used to reach `slice(0, -1)`, which is every row but the last.
+        const page = await store.listConversations({ limit: -1 })
+
+        expect(page.items).toHaveLength(1)
+      })
+
       it('paginates with a stable cursor', async () => {
         const store = await make()
         for (let i = 0; i < 5; i++) {
