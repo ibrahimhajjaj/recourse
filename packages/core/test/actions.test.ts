@@ -535,3 +535,49 @@ describe('the agent running actions', () => {
     expect(agent).toBeDefined()
   })
 })
+
+describe('data a deployment forgot to collect a handler for', () => {
+  /**
+   * `collect_lead` always writes to the store, and says why in its own source:
+   * a lead nobody saved is worse than no lead. `collectData` did not, and
+   * `onData` is optional, so the details were gathered in conversation and then
+   * dropped.
+   */
+  it('is still saved when no onData handler was given', async () => {
+    const store = memoryStore()
+    const action = collectData({
+      name: 'shipping_address',
+      whenToUse: 'when the customer gives a delivery address',
+      fields: [
+        { name: 'street', type: 'string', description: 'Street' },
+        { name: 'postcode', type: 'string', description: 'Postcode' },
+      ],
+    })
+
+    await action.execute?.(
+      { street: '12 Mill Lane', postcode: 'M1 4AB' },
+      { conversationId: 'c_1', store, emit: () => {} } as never,
+    )
+
+    const leads = await store.listLeads()
+    expect(leads.items).toHaveLength(1)
+    expect(leads.items[0]?.values).toMatchObject({ street: '12 Mill Lane', postcode: 'M1 4AB' })
+  })
+
+  it('records which action captured it, so a postcode is not read back as a sales lead', async () => {
+    const store = memoryStore()
+    const action = collectData({
+      name: 'shipping_address',
+      whenToUse: 'when the customer gives a delivery address',
+      fields: [{ name: 'postcode', type: 'string', description: 'Postcode' }],
+    })
+
+    await action.execute?.(
+      { postcode: 'M1 4AB' },
+      { conversationId: 'c_2', store, emit: () => {} } as never,
+    )
+
+    const leads = await store.listLeads()
+    expect(leads.items[0]?.values).toMatchObject({ capturedBy: 'shipping_address' })
+  })
+})

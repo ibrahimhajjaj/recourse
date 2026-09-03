@@ -79,6 +79,21 @@ export function collectData(options: CollectDataOptions): Action {
     procedureOnly: options.procedureOnly,
     async execute(input: ActionInput, ctx) {
       const values = clean(input)
+
+      // Written to the store the same way a lead is, for the same reason:
+      // `onData` is optional, and without this a deployment that leaves it out
+      // gathers the details in conversation and then drops them. The only
+      // trace was an unindexed blob on one message.
+      //
+      // Tagged with the action's own name so several of these stay apart, and
+      // so a shipping address is not read back later as a sales lead.
+      await ctx.store?.saveLead({
+        id: `d_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+        conversationId: ctx.conversationId,
+        createdAt: new Date().toISOString(),
+        values: { ...values, capturedBy: options.name },
+      })
+
       await options.onData?.(values, ctx)
       ctx.emit({ type: 'captured', kind: 'data', name: options.name, values })
       return { saved: true, message: options.confirmation ?? 'Details recorded. Confirm briefly.' }
