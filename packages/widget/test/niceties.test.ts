@@ -385,3 +385,56 @@ describe('the disclosure line', () => {
     expect(root.querySelector('.footnote')?.textContent).toContain('<img')
   })
 })
+
+describe('a thumb the server could not record', () => {
+  it('does not stay pressed, because that claims something untrue', async () => {
+    // A deployment with no store answers 501 to every thumb. Leaving the button
+    // pressed tells the visitor their opinion was recorded when nothing
+    // recorded it, and a screen reader announces it as pressed.
+    const posts: unknown[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(String(init.body)) as { feedback?: unknown }
+        if (body.feedback) {
+          posts.push(body.feedback)
+          return new Response('{"error":"no store configured to record feedback"}', { status: 501 })
+        }
+        return new Response('data: {"type":"delta","text":"ok"}\n\ndata: {"type":"done"}\n\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })
+      }),
+    )
+
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    createWidget({ endpoint: '/api/chat', target, open: true, persist: false, feedback: true })
+    const root = target.querySelector('div')?.shadowRoot as ShadowRoot
+
+    const input = root.querySelector('textarea') as HTMLTextAreaElement
+    input.value = 'anything'
+    ;(root.querySelector('form.composer') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { cancelable: true }),
+    )
+
+    // Wait for the answer to finish, since the row only appears once it has.
+    const deadline = Date.now() + 2000
+    while (Date.now() < deadline && !root.querySelector('.feedback button')) {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+
+    const thumb = root.querySelector('.feedback button') as HTMLButtonElement
+    expect(thumb, 'the feedback row should appear once the answer is done').not.toBeNull()
+    thumb.click()
+
+    const until = Date.now() + 2000
+    while (Date.now() < until && posts.length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(posts).toHaveLength(1)
+    expect(thumb.getAttribute('aria-pressed')).toBeNull()
+  })
+})
