@@ -9,6 +9,8 @@
  * The chat panel starts closed and invites itself after a few seconds. Open on
  * arrival would cover the one thing on the page that makes the case.
  */
+import { WIDGET_TAG } from './widget.js'
+
 export const PAGE = `<!doctype html>
 <html lang="en">
 <head>
@@ -157,7 +159,7 @@ export const PAGE = `<!doctype html>
 </div>
 
 <script
-  src="/recourse.js"
+  src="/recourse.js?v=${WIDGET_TAG}"
   data-endpoint="/api/chat"
   data-title="recourse"
   data-subtitle="Answering from its own documentation"
