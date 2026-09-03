@@ -32,7 +32,8 @@ npm install @recourse-ai/core
 npx @recourse-ai/core ingest --url https://their-site.com
 ```
 
-Writes `recourse/knowledge.json`, relative to the working directory. No key
+Writes `knowledge.json` into a `recourse` directory it creates alongside
+whatever you run it from. No key
 required: the crawler is keyless and the index falls back to keyword-only when
 there is no embedding credential.
 
