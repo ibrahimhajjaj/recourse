@@ -1292,7 +1292,23 @@ function icon(path: string, filled: boolean): SVGElement {
 function restore(endpoint: string): ChatMessage[] {
   try {
     const raw = sessionStorage.getItem(storageKey(endpoint))
-    return raw ? (JSON.parse(raw) as ChatMessage[]) : []
+    if (!raw) return []
+
+    // Checked, not cast. Whatever is under this key was written by some other
+    // build of this file, and a widget that throws while reading it never
+    // mounts at all: the visitor gets no chat for the rest of the session, and
+    // clearing it is not something they know how to do. Anything that is not
+    // recognisably a message is dropped rather than trusted.
+    const stored: unknown = JSON.parse(raw)
+    if (!Array.isArray(stored)) return []
+
+    return stored.filter((entry): entry is ChatMessage => {
+      if (typeof entry !== 'object' || entry === null) return false
+      const message = entry as Partial<ChatMessage>
+      return (
+        (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string'
+      )
+    })
   } catch {
     // Private mode and blocked storage both throw. Neither is worth failing over.
     return []
