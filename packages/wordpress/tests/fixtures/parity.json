@@ -469,6 +469,12 @@
   ],
   "documents": [
     {
+      "id": "contact",
+      "title": "Contact",
+      "url": "https://shop.example/contact",
+      "text": "# Call 0800 123 456\n\n# Opening hours\n\nWeekdays only, nine to five.\n"
+    },
+    {
       "id": "shipping",
       "title": "Shipping",
       "url": "https://shop.example/shipping",
@@ -482,6 +488,22 @@
     }
   ],
   "chunks": [
+    {
+      "id": "contact#0",
+      "docId": "contact",
+      "title": "Contact",
+      "section": "Call 0800 123 456",
+      "text": "Call 0800 123 456",
+      "url": "https://shop.example/contact"
+    },
+    {
+      "id": "contact#1",
+      "docId": "contact",
+      "title": "Contact",
+      "section": "Opening hours",
+      "text": "Weekdays only, nine to five.",
+      "url": "https://shop.example/contact"
+    },
     {
       "id": "shipping#0",
       "docId": "shipping",
@@ -565,283 +587,327 @@
   "keyword": {
     "postings": {
       "14": [
-        2,
+        4,
         1,
-        5,
+        7,
         1
       ],
       "30": [
-        3,
+        5,
+        1
+      ],
+      "123": [
+        0,
+        2
+      ],
+      "456": [
+        0,
+        2
+      ],
+      "contact": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "cal": [
+        0,
+        2
+      ],
+      "080": [
+        0,
+        2
+      ],
+      "open": [
+        1,
+        1
+      ],
+      "hour": [
+        1,
+        1
+      ],
+      "weekday": [
+        1,
+        1
+      ],
+      "nine": [
+        1,
+        1
+      ],
+      "five": [
+        1,
         1
       ],
       "ship": [
-        0,
-        3,
-        1,
-        2,
-        2,
         2,
         3,
+        3,
+        2,
+        4,
+        2,
+        5,
         2
       ],
       "worldwid": [
-        0,
+        2,
         1
       ],
       "roastery": [
-        0,
+        2,
         1
       ],
       "bristol": [
-        0,
+        2,
         1
       ],
       "delivery": [
-        1,
-        1,
-        2,
-        1,
         3,
+        1,
+        4,
+        1,
+        5,
         1
       ],
       "time": [
+        3,
         1,
-        1,
-        2,
+        4,
         1
       ],
       "unit": [
+        3,
         1,
-        1,
-        2,
+        4,
         1
       ],
       "kingdom": [
-        1,
+        3,
         1
       ],
       "order": [
-        1,
+        3,
         1
       ],
       "arriv": [
-        1,
+        3,
         1
       ],
       "work": [
-        1,
+        3,
         2,
-        2,
+        4,
         1
       ],
       "day": [
-        1,
+        3,
         2,
-        2,
+        4,
         1,
-        5,
+        7,
         1
       ],
       "ireland": [
-        1,
+        3,
         1
       ],
       "eu": [
-        1,
+        3,
         1
       ],
       "outsid": [
-        2,
+        4,
         1
       ],
       "europ": [
-        2,
+        4,
         1
       ],
       "stat": [
-        2,
+        4,
         1
       ],
       "everywher": [
-        2,
+        4,
         1
       ],
       "else": [
-        2,
+        4,
         1
       ],
       "cost": [
-        3,
+        5,
         1
       ],
       "fre": [
-        3,
-        1,
         5,
+        1,
+        7,
         1
       ],
       "return": [
-        4,
-        1,
-        5,
-        2,
         6,
-        2,
+        1,
         7,
         2,
         8,
         2,
         9,
+        2,
+        10,
+        2,
+        11,
         2
       ],
       "home": [
-        4,
+        6,
         1
       ],
       "shop": [
-        4,
+        6,
         2,
-        9,
+        11,
         1
       ],
       "damag": [
-        5,
+        7,
         1
       ],
       "item": [
-        5,
+        7,
         1
       ],
       "replac": [
-        5,
+        7,
         1
       ],
       "charg": [
-        5,
+        7,
         1
       ],
       "send": [
-        5,
+        7,
         1
       ],
       "photo": [
-        5,
+        7,
         1
       ],
       "within": [
-        5,
+        7,
         1
       ],
       "refund": [
-        6,
+        8,
         1
       ],
       "short": [
-        6,
+        8,
         1
       ],
       "long": [
-        7,
-        2,
-        8,
-        1,
         9,
+        2,
+        10,
+        1,
+        11,
         1
       ],
       "paragraph": [
-        7,
+        9,
         1
       ],
       "split": [
-        7,
+        9,
         1
       ],
       "hard": [
-        7,
+        9,
         1
       ],
       "better": [
-        7,
+        9,
         1
       ],
       "seam": [
-        7,
+        9,
         1
       ],
       "insid": [
-        7,
+        9,
         1
       ],
       "coff": [
-        7,
-        26,
-        8,
-        28,
         9,
+        26,
+        10,
+        28,
+        11,
         6
       ],
       "bean": [
-        7,
-        26,
-        8,
-        28,
         9,
+        26,
+        10,
+        28,
+        11,
         6
       ],
       "roast": [
-        7,
-        26,
-        8,
-        28,
         9,
+        26,
+        10,
+        28,
+        11,
         6
       ],
       "smal": [
-        7,
-        26,
-        8,
-        27,
         9,
+        26,
+        10,
+        27,
+        11,
         6
       ],
       "batch": [
-        7,
-        25,
-        8,
-        28,
         9,
+        25,
+        10,
+        28,
+        11,
         7
       ],
       "sm": [
-        8,
+        10,
         1
       ],
       "head": [
-        9,
+        11,
         1
       ],
       "curl": [
-        9,
+        11,
         1
       ],
       "http": [
-        9,
+        11,
         1
       ],
       "exampl": [
-        9,
+        11,
         1
       ],
       "api": [
-        9,
+        11,
         1
       ],
       "fenc": [
-        9,
+        11,
         1
       ]
     },
     "lengths": [
+      9,
+      6,
       6,
       14,
       13,
@@ -853,91 +919,91 @@
       143,
       41
     ],
-    "avgLength": 38.2,
+    "avgLength": 33.083333333333336,
     "k1": 1.2,
     "b": 0.75
   },
   "search": {
     "how long does delivery take": [
       {
+        "ord": 5,
+        "score": 1.972910298025567,
+        "matched": 1
+      },
+      {
+        "ord": 4,
+        "score": 1.745717581299394,
+        "matched": 1
+      },
+      {
         "ord": 3,
-        "score": 1.74785540961904,
+        "score": 1.7174637975768798,
         "matched": 1
       },
       {
-        "ord": 2,
-        "score": 1.5683982864019612,
-        "matched": 1
-      },
-      {
-        "ord": 1,
-        "score": 1.545726290613947,
+        "ord": 11,
+        "score": 1.1951857254385774,
         "matched": 1
       },
       {
         "ord": 9,
-        "score": 1.1117943490483404,
+        "score": 0.949396174562442,
         "matched": 1
       },
       {
-        "ord": 7,
-        "score": 0.9038027690986509,
-        "matched": 1
-      },
-      {
-        "ord": 8,
-        "score": 0.539565591240325,
+        "ord": 10,
+        "score": 0.5562065479849804,
         "matched": 1
       }
     ],
     "refund policy": [
       {
-        "ord": 6,
-        "score": 3.1438946872055,
+        "ord": 8,
+        "score": 3.3722394839714567,
         "matched": 1
       }
     ],
     "is delivery free": [
       {
-        "ord": 3,
-        "score": 4.009280139355166,
+        "ord": 5,
+        "score": 4.45171636376497,
         "matched": 2
       },
       {
-        "ord": 5,
-        "score": 2.0594450152046164,
+        "ord": 7,
+        "score": 2.2300425020721995,
         "matched": 1
       },
       {
-        "ord": 2,
-        "score": 1.5683982864019612,
+        "ord": 4,
+        "score": 1.745717581299394,
         "matched": 1
       },
       {
-        "ord": 1,
-        "score": 1.545726290613947,
+        "ord": 3,
+        "score": 1.7174637975768798,
         "matched": 1
       }
     ],
     "do you ship to the united states": [
       {
-        "ord": 2,
-        "score": 6.267082574026393,
+        "ord": 4,
+        "score": 6.8253325852765805,
         "matched": 3
       },
       {
-        "ord": 1,
-        "score": 3.4953543786055503,
+        "ord": 3,
+        "score": 3.8990313742722282,
         "matched": 2
       },
       {
-        "ord": 0,
-        "score": 1.7142047991989273,
+        "ord": 2,
+        "score": 2.021744644255964,
         "matched": 1
       },
       {
-        "ord": 3,
-        "score": 1.610904016746665,
+        "ord": 5,
+        "score": 1.8950108814040463,
         "matched": 1
       }
     ],
@@ -945,23 +1011,23 @@
     "bicycles": [],
     "shipping shipping shipping": [
       {
-        "ord": 0,
-        "score": 1.7142047991989273,
+        "ord": 2,
+        "score": 2.021744644255964,
+        "matched": 1
+      },
+      {
+        "ord": 5,
+        "score": 1.8950108814040463,
+        "matched": 1
+      },
+      {
+        "ord": 4,
+        "score": 1.7590233895823608,
         "matched": 1
       },
       {
         "ord": 3,
-        "score": 1.610904016746665,
-        "matched": 1
-      },
-      {
-        "ord": 2,
-        "score": 1.508968547627501,
-        "matched": 1
-      },
-      {
-        "ord": 1,
-        "score": 1.4954500159445947,
+        "score": 1.741173673705738,
         "matched": 1
       }
     ],

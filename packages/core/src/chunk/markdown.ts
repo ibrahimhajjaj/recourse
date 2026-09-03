@@ -116,9 +116,30 @@ function toSections(text: string): Section[] {
   let body: string[] = []
   let inFence = false
 
-  const flush = () => {
+  let depth = 0
+  /** Whether the current heading has already reached a section. */
+  let carried = false
+
+  /**
+   * Ends the current section.
+   *
+   * `next` is the depth of the heading about to start, or 0 at the end of the
+   * document. A heading with no body of its own is normally fine, because a
+   * heading nested under it carries it in the trail. When nothing nests under
+   * it, that heading is the only place its words appear, and dropping the
+   * section drops them: a contact page whose number is the heading becomes a
+   * page with no number in it. So an orphaned heading becomes its own section.
+   */
+  const flush = (next: number) => {
     const joined = body.join('\n').trim()
-    if (joined.length > 0) sections.push({ heading, body: joined })
+
+    if (joined.length > 0) {
+      sections.push({ heading, body: joined })
+      carried = true
+    } else if (heading && !carried && next <= depth) {
+      sections.push({ heading, body: trail[depth - 1] ?? heading })
+    }
+
     body = []
   }
 
@@ -127,10 +148,12 @@ function toSections(text: string): Section[] {
 
     const match = inFence ? null : /^(#{1,6})\s+(.*)$/.exec(line)
     if (match) {
-      flush()
-      const depth = (match[1] as string).length
-      trail.length = depth - 1
-      trail[depth - 1] = cleanHeading(match[2] as string)
+      const at = (match[1] as string).length
+      flush(at)
+      if (at <= depth) carried = false
+      depth = at
+      trail.length = at - 1
+      trail[at - 1] = cleanHeading(match[2] as string)
       heading = trail.filter(Boolean).join(' > ')
       continue
     }
@@ -138,7 +161,7 @@ function toSections(text: string): Section[] {
     body.push(line)
   }
 
-  flush()
+  flush(0)
   return sections
 }
 

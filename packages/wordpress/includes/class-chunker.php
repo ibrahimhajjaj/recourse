@@ -158,6 +158,9 @@ class Chunker {
 		$heading  = '';
 		$body     = array();
 		$in_fence = false;
+		$depth    = 0;
+		// Whether the current heading has already reached a section.
+		$carried = false;
 
 		foreach ( $lines as $line ) {
 			if ( 1 === preg_match( '/^\s*(```|~~~)/u', $line ) ) {
@@ -168,16 +171,34 @@ class Chunker {
 			$is_head = ! $in_fence && 1 === preg_match( '/^(#{1,6})\s+(.*)$/u', $line, $matches );
 
 			if ( $is_head ) {
+				$at     = strlen( $matches[1] );
 				$joined = trim( implode( "\n", $body ) );
+
 				if ( '' !== $joined ) {
 					$sections[] = array(
 						'heading' => $heading,
 						'body'    => $joined,
 					);
+					$carried    = true;
+				} elseif ( '' !== $heading && ! $carried && $at <= $depth ) {
+					// A heading with no body is normally carried by a heading
+					// nested under it. When nothing nests under it, this is the
+					// only place its words appear, and dropping the section
+					// drops them: a contact page whose number is the heading
+					// becomes a page with no number in it.
+					$sections[] = array(
+						'heading' => $heading,
+						'body'    => isset( $trail[ $depth - 1 ] ) ? $trail[ $depth - 1 ] : $heading,
+					);
 				}
+
 				$body = array();
 
-				$depth = strlen( $matches[1] );
+				if ( $at <= $depth ) {
+					$carried = false;
+				}
+
+				$depth = $at;
 
 				// Everything deeper than this heading is no longer in scope.
 				$trail = array_slice( $trail, 0, $depth - 1 );
@@ -198,6 +219,11 @@ class Chunker {
 			$sections[] = array(
 				'heading' => $heading,
 				'body'    => $joined,
+			);
+		} elseif ( '' !== $heading && ! $carried ) {
+			$sections[] = array(
+				'heading' => $heading,
+				'body'    => isset( $trail[ $depth - 1 ] ) ? $trail[ $depth - 1 ] : $heading,
 			);
 		}
 
