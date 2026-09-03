@@ -438,3 +438,28 @@ describe('a thumb the server could not record', () => {
     expect(thumb.getAttribute('aria-pressed')).toBeNull()
   })
 })
+
+describe('a saved transcript written by something else', () => {
+  it('mounts anyway, keeping only what is recognisably a message', () => {
+    // Whatever sits under this key was written by some other build of this
+    // file. Reading it without checking crashed the widget before it mounted,
+    // and the visitor got no chat for the rest of the session with no way to
+    // clear it.
+    const endpoint = 'https://example.com/api/chat'
+    sessionStorage.setItem(
+      `recourse:transcript:${endpoint}`,
+      JSON.stringify([1, 2, { role: 'user', content: 'a real one' }, { role: 'nope' }, null]),
+    )
+
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+
+    expect(() => createWidget({ endpoint, target, open: true })).not.toThrow()
+
+    const root = target.querySelector('div')?.shadowRoot as ShadowRoot
+    const bubbles = [...root.querySelectorAll('.bubble')].map((b) => b.textContent)
+
+    expect(bubbles).toEqual(['a real one'])
+    sessionStorage.clear()
+  })
+})
