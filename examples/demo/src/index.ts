@@ -19,7 +19,7 @@ import type { KnowledgeIndex } from '@recourse-ai/core/agent'
 import { ASSETS } from './assets.js'
 import knowledge from './knowledge.json'
 import { PAGE } from './page.js'
-import { WIDGET } from './widget.js'
+import { WIDGET, WIDGET_TAG } from './widget.js'
 
 interface Env {
   CLOUDFLARE_ACCOUNT_ID: string
@@ -43,10 +43,14 @@ export default {
     // Served from here rather than a CDN so the demo has no second origin to
     // fail, and so what a visitor runs is the bundle in this repository.
     if (url.pathname === '/recourse.js') {
+      // The page asks for a specific build, so that one can be cached for as
+      // long as a browser likes. A request with no version is somebody's own
+      // embed rather than this page, and gets an hour.
+      const pinned = url.searchParams.get('v') === WIDGET_TAG
       return new Response(WIDGET, {
         headers: {
           'Content-Type': 'text/javascript; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
+          'Cache-Control': pinned ? 'public, max-age=31536000, immutable' : 'public, max-age=3600',
         },
       })
     }
