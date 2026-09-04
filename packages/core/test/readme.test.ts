@@ -91,3 +91,54 @@ describe('the store capabilities', () => {
     expect(missing, `capabilities a store may decline that docs/stores.md never lists: ${missing}`).toEqual([])
   })
 })
+
+/**
+ * Counts written into prose go stale the first time somebody adds one, and
+ * nothing anywhere reports it. The evals suite already guards its own case
+ * counts for exactly this reason; these are the other two the docs state.
+ */
+describe('counts the documentation states', () => {
+  const WORDS: Record<string, number> = {
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+  }
+
+  it('says how many inline components ship', () => {
+    const ui = readFileSync(join(root, '../widget/src/ui.ts'), 'utf8')
+    const listed = /RENDERERS: Record<string, UiRenderer> = \{([^}]*)\}/.exec(ui)?.[1] ?? ''
+    const kinds = listed.split(',').map((name) => name.trim()).filter(Boolean)
+
+    expect(kinds.length).toBeGreaterThan(0)
+
+    const actions = readFileSync(join(root, '../../docs/actions.md'), 'utf8')
+    const claim = /^(\w+) kinds ship: (.+?), plus forms/ms.exec(actions)
+
+    expect(claim, 'docs/actions.md no longer says how many kinds ship').not.toBeNull()
+    expect(WORDS[(claim?.[1] ?? '').toLowerCase()], `docs/actions.md says "${claim?.[1]} kinds"`).toBe(kinds.length)
+
+    for (const kind of kinds) {
+      expect(claim?.[2], `docs/actions.md never names the "${kind}" component`).toContain(`\`${kind}\``)
+    }
+  })
+
+  it('says how many knowledge sources ship', () => {
+    const index = readFileSync(join(root, 'src/sources/index.ts'), 'utf8')
+    const sources = [...index.matchAll(/export \{[^}]*?\b(\w+Source)\b/gs)].map((match) => match[1] as string)
+    const unique = new Set(sources)
+
+    expect(unique.size).toBeGreaterThan(0)
+
+    const retrieval = readFileSync(join(root, '../../docs/retrieval.md'), 'utf8')
+    const claim = /A website and a folder are two of (\w+)\./.exec(retrieval)
+
+    expect(claim, 'docs/retrieval.md no longer says how many sources there are').not.toBeNull()
+    expect(WORDS[(claim?.[1] ?? '').toLowerCase()], `docs/retrieval.md says "two of ${claim?.[1]}"`).toBe(unique.size)
+  })
+})
