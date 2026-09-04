@@ -453,6 +453,38 @@ export function storeConformance(options: ConformanceOptions): void {
     }
 
     if (can.pagination) {
+      it('keeps walking a source list while a crawl changes what matches', async () => {
+        // The worst version of this, because `updatedAt` is moved by the very
+        // operation you would be paging alongside. A source that finishes
+        // re-crawling between two pages used to take the rest of the list with
+        // it: the cursor named a row that no longer matched, so it could not
+        // be found among the matching ones and the walk ended there.
+        const store = await make()
+
+        for (const [id, at] of [
+          ['s1', '2026-01-01T00:00:00.000Z'],
+          ['s2', '2026-01-02T00:00:00.000Z'],
+        ] as const) {
+          await store.createSource({
+            id,
+            type: 'text',
+            name: id,
+            status: 'active',
+            createdAt: at,
+            updatedAt: at,
+            content: 'hello',
+          })
+        }
+
+        const first = await store.listSources({ limit: 1, status: 'active' })
+        expect(first.items[0]?.id).toBe('s2')
+
+        await store.updateSource('s2', { status: 'pending_deletion' })
+
+        const next = await store.listSources({ limit: 5, status: 'active', cursor: first.cursor as string })
+        expect(next.items.map((one) => one.id)).toEqual(['s1'])
+      })
+
       it('hands over both conversations touched in the same millisecond', async () => {
         // Without a second thing to order by, two rows with the same timestamp
         // can come back in either order, so paging one at a time hands one of

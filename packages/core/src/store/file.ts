@@ -5,7 +5,7 @@ import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
 import { computeStats, pageConversations } from './memory.js'
-import { paginate } from './paginate.js'
+import { byNewest, pageAfter, paginate } from './paginate.js'
 
 export interface FileStoreOptions {
   /** Directory for the append-only logs. Created if missing. */
@@ -265,14 +265,12 @@ export function fileStore(options: FileStoreOptions): Store {
 
     async listLeads(listOptions = {}) {
       await load()
-      const filtered = leads
-        .filter((lead) => {
-          if (listOptions.since && lead.createdAt < listOptions.since) return false
-          if (listOptions.until && lead.createdAt > listOptions.until) return false
-          return true
-        })
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      return paginate(filtered, listOptions, (lead) => lead.id)
+      const matching = leads.filter((lead) => {
+        if (listOptions.since && lead.createdAt < listOptions.since) return false
+        if (listOptions.until && lead.createdAt > listOptions.until) return false
+        return true
+      })
+      return pageAfter(leads, matching, listOptions, (lead) => lead.id, byNewest((one) => one.createdAt))
     },
 
     async stats(listOptions = {}) {
@@ -376,10 +374,9 @@ export function fileStore(options: FileStoreOptions): Store {
 
     async listSources(listOptions = {}) {
       await load()
-      const filtered = [...sources.values()]
-        .filter((source) => !listOptions.status || source.status === listOptions.status)
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      return paginate(filtered, listOptions, (source) => source.id)
+      const all = [...sources.values()]
+      const matching = all.filter((source) => !listOptions.status || source.status === listOptions.status)
+      return pageAfter(all, matching, listOptions, (source) => source.id, byNewest((one) => one.updatedAt))
     },
 
     async updateSource(id, patch) {

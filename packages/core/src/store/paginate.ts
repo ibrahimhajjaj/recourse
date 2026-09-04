@@ -44,3 +44,57 @@ export function pageSize(limit: number | undefined, fallback = 50, most = 200): 
   const asked = Math.trunc(limit ?? fallback)
   return Math.min(Math.max(Number.isFinite(asked) ? asked : fallback, 1), most)
 }
+
+/**
+ * Cursor pagination where the row the cursor names may no longer match.
+ *
+ * The difference from `paginate` is the whole point of it: the anchor is
+ * looked up among **every** row rather than only the matching ones. A listing
+ * is read while the thing it lists is being written to, so a row you have
+ * already been handed can stop matching between one page and the next. A
+ * source finishes re-crawling and its status changes, a ticket somebody closes
+ * while you page the open ones, a conversation that a new message pushes past
+ * your `until`. Looked for among the matching rows it is simply not there, and
+ * the walk ends silently with the rest of the list undelivered.
+ *
+ * A row that is genuinely gone still ends the listing, because starting again
+ * looks like a first page to a caller looping until the cursor runs out, so it
+ * never runs out.
+ *
+ * `order` has to be the same comparison the SQL stores use, tie-break
+ * included: two rows with the same timestamp and no second thing to order by
+ * can come back either way round, and paging one at a time then hands one of
+ * them over twice and the other never.
+ */
+export function pageAfter<T>(
+  all: T[],
+  matching: T[],
+  options: ListOptions,
+  idOf: (item: T) => string,
+  order: (a: T, b: T) => number,
+): Page<T> {
+  const sorted = [...matching].sort(order)
+  const limit = pageSize(options.limit)
+  let start = 0
+
+  if (options.cursor) {
+    const anchor = all.find((item) => idOf(item) === options.cursor)
+    if (!anchor) return { items: [] }
+
+    const found = sorted.findIndex((item) => order(anchor, item) < 0)
+    start = found === -1 ? sorted.length : found
+  }
+
+  const slice = sorted.slice(start, start + limit)
+  const last = slice[slice.length - 1]
+
+  return {
+    items: slice,
+    ...(start + slice.length < sorted.length && last ? { cursor: idOf(last) } : {}),
+  }
+}
+
+/** Newest first, with the id breaking a tie the same way round. */
+export function byNewest<T extends { id: string }>(at: (item: T) => string): (a: T, b: T) => number {
+  return (a, b) => at(b).localeCompare(at(a)) || b.id.localeCompare(a.id)
+}

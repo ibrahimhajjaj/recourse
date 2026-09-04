@@ -10,7 +10,7 @@ import type {
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
-import { paginate, pageSize } from './paginate.js'
+import { byNewest, pageAfter, paginate } from './paginate.js'
 
 // Re-exported here because the package's entry points name this module as
 // pagination's home, and moving a public name is a change to the surface
@@ -124,10 +124,8 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
     },
 
     async listLeads(options = {}) {
-      const filtered = leads
-        .filter((lead) => withinRange(lead.createdAt, options))
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      return paginate(filtered, options, (lead) => lead.id)
+      const matching = leads.filter((lead) => withinRange(lead.createdAt, options))
+      return pageAfter(leads, matching, options, (lead) => lead.id, byNewest((one) => one.createdAt))
     },
 
     async stats(options = {}) {
@@ -209,10 +207,9 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
     },
 
     async listSources(options = {}) {
-      const filtered = [...sources.values()]
-        .filter((source) => !options.status || source.status === options.status)
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      return paginate(filtered, options, (source) => source.id)
+      const all = [...sources.values()]
+      const matching = all.filter((source) => !options.status || source.status === options.status)
+      return pageAfter(all, matching, options, (source) => source.id, byNewest((one) => one.updatedAt))
     },
 
     async updateSource(id, patch) {
@@ -298,31 +295,8 @@ export function pageConversations(
   options: ListOptions,
   threadOf: (id: string) => StoredMessage[],
 ): Page<Conversation> {
-  const sorted = all
-    .filter((conversation) => matches(conversation, options, threadOf(conversation.id)))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id))
-
-  const limit = pageSize(options.limit)
-  let start = 0
-
-  if (options.cursor) {
-    const anchor = all.find((conversation) => conversation.id === options.cursor)
-    if (!anchor) return { items: [] }
-
-    const found = sorted.findIndex(
-      (conversation) =>
-        (anchor.updatedAt.localeCompare(conversation.updatedAt) || anchor.id.localeCompare(conversation.id)) > 0,
-    )
-    start = found === -1 ? sorted.length : found
-  }
-
-  const slice = sorted.slice(start, start + limit)
-  const last = slice[slice.length - 1]
-
-  return {
-    items: slice,
-    ...(start + slice.length < sorted.length && last ? { cursor: last.id } : {}),
-  }
+  const matching = all.filter((conversation) => matches(conversation, options, threadOf(conversation.id)))
+  return pageAfter(all, matching, options, (conversation) => conversation.id, byNewest((one) => one.updatedAt))
 }
 
 function matches(conversation: Conversation, options: ListOptions, thread: StoredMessage[]): boolean {

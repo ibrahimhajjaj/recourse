@@ -1,7 +1,7 @@
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import { RESOLVED_CATEGORIES } from '../helpdesk/types.js'
 import type { Page } from './types.js'
-import { pageSize } from './paginate.js'
+import { pageAfter } from './paginate.js'
 import { orderingOf, sortedAt, ticketCursor, ticketCursorAt, type TicketOrdering } from '../helpdesk/ordering.js'
 
 /**
@@ -64,38 +64,28 @@ export function sortTickets(tickets: Ticket[], ordering = orderingOf()): Ticket[
 export function pageTickets(tickets: Ticket[], filter: TicketFilter = {}): Page<Ticket> {
   const ordering = orderingOf(filter)
   const matching = applyFilter(tickets, filter)
-  const sorted = sortTickets(matching, ordering)
-  const limit = pageSize(filter.limit)
 
-  let start = 0
-
-  if (filter.cursor) {
-    const at = ticketCursorAt(filter.cursor, ordering)
-
-    // Looked up among every ticket rather than only the matching ones, which
-    // is what the SQL stores do and the reason they were right. Walking an
-    // open queue while somebody closes a ticket you already passed used to end
-    // the listing there: the cursor was no longer in the filtered list, so it
-    // could not be found, and the rest of the queue was silently dropped.
-    const anchor = tickets.find((ticket) => ticket.ticketNumber === at)
-
-    // Deleted since it was handed out. The listing ends rather than starting
-    // again, because restarting looks like a first page to a caller looping
-    // until the cursor runs out, so it never runs out.
-    if (!anchor) return { items: [] }
-
-    const found = sorted.findIndex((ticket) => compare(ticket, anchor, ordering) > 0)
-    start = found === -1 ? sorted.length : found
+  // The cursor carries the ordering it was issued for, so it is unwrapped to a
+  // ticket number here and rewrapped below; the shared pager only ever sees
+  // plain ids, the way every other listing's cursors are.
+  const options = {
+    limit: filter.limit,
+    ...(filter.cursor ? { cursor: String(ticketCursorAt(filter.cursor, ordering)) } : {}),
   }
 
-  const slice = sorted.slice(start, start + limit)
-  const last = slice[slice.length - 1]
+  const page = pageAfter(
+    tickets,
+    matching,
+    options,
+    (ticket) => String(ticket.ticketNumber),
+    (a, b) => compare(a, b, ordering),
+  )
+
+  const last = page.items[page.items.length - 1]
 
   return {
-    items: slice,
-    ...(start + slice.length < sorted.length && last
-      ? { cursor: ticketCursor(ordering, last.ticketNumber) }
-      : {}),
+    items: page.items,
+    ...(page.cursor && last ? { cursor: ticketCursor(ordering, last.ticketNumber) } : {}),
     ...(filter.includeTotal ? { total: matching.length } : {}),
   }
 }
