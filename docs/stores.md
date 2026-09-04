@@ -75,6 +75,24 @@ In SQL both fall out of `(updated_at, id) < (SELECT updated_at, id FROM t WHERE
 id = ?)` with a matching `ORDER BY`, which is why the two SQL stores here had
 neither bug.
 
+A ticket queue is the same shape with one extra rule: the caller chooses what
+to sort by, and a cursor is only a position within one ordering. Four helpers
+carry that so a store does not have to reinvent it:
+
+```ts
+import { orderingOf, sortedAt, sortColumn, ticketCursor, ticketCursorAt } from '@recourse-ai/core'
+
+const ordering = orderingOf(filter)                 // the sortBy and order, defaults filled in
+const at = ticketCursorAt(filter.cursor, ordering)  // throws if the cursor was issued for another
+// ... then, per row: sortedAt(ticket, ordering.sortBy) in memory,
+// or sortColumn(ordering.sortBy) as a SQL expression.
+const next = ticketCursor(ordering, last.ticketNumber)
+```
+
+`ticketCursorAt` throwing is the point. A cursor used against a different
+ordering points at a row that has moved, and the page that comes back is
+quietly wrong rather than empty, which is the worse of the two.
+
 Be careful with `deletes` and `conversationMeta` in particular. A store that
 accepts `deleteConversation` and keeps the data has turned a legal obligation
 into a lie, and one that drops `meta` has an agent talking over the person who

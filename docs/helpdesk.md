@@ -85,6 +85,11 @@ month, where `ana@` takes every tie and `zoe@` takes none. Somebody who has
 never been assigned anything counts as having waited longest, so a new
 teammate starts at the front rather than at the back forever.
 
+`assignTicket` and `loadOf` are exported for a caller doing its own routing:
+`loadOf(tickets, ids)` turns tickets you already hold into the shape
+`assignTicket` takes, counting what each person has open and when each was last
+handed one.
+
 How busy somebody is comes from asking about them, one small query per member
 of the team, rather than reading a page of the queue and counting. A page is
 the most recently touched tickets, so a backlog of unclaimed work filled it and
