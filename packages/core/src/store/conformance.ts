@@ -452,6 +452,62 @@ export function storeConformance(options: ConformanceOptions): void {
       })
     }
 
+    if (can.pagination) {
+      it('hands over both conversations touched in the same millisecond', async () => {
+        // Without a second thing to order by, two rows with the same timestamp
+        // can come back in either order, so paging one at a time hands one of
+        // them over twice and the other never.
+        const store = await make()
+        const sameInstant = '2026-01-01T00:00:00.000Z'
+
+        for (const id of ['c1', 'c2', 'c3']) {
+          await store.appendMessage(id, message({ createdAt: sameInstant }), { channel: 'web' })
+        }
+
+        const seen: string[] = []
+        let cursor: string | undefined
+
+        for (let page = 0; page < 5; page++) {
+          const got = await store.listConversations({ limit: 1, ...(cursor ? { cursor } : {}) })
+          seen.push(...got.items.map((one) => one.id))
+          cursor = got.cursor
+          if (!cursor) break
+        }
+
+        expect(seen.sort()).toEqual(['c1', 'c2', 'c3'])
+      })
+    }
+
+    if (can.pagination && can.filters) {
+      it('keeps walking when a conversation it already passed stops matching', async () => {
+        // Read while it is being written to, which is the only way a live
+        // deployment is ever read. A conversation you have already been handed
+        // sliding out of the window must not end the walk: the cursor points
+        // at it, and looking for it among only the matching ones would fail
+        // and silently drop everything after it.
+        const store = await make()
+        const until = '2026-01-03T00:00:00.000Z'
+
+        // A conversation's `updatedAt` is its newest message's timestamp, so
+        // the fixture only has to date the messages.
+        for (const [id, at] of [
+          ['c1', '2026-01-01T00:00:00.000Z'],
+          ['c2', '2026-01-02T00:00:00.000Z'],
+        ] as const) {
+          await store.appendMessage(id, message({ createdAt: at }), { channel: 'web' })
+        }
+
+        const first = await store.listConversations({ limit: 1, until })
+        expect(first.items[0]?.id).toBe('c2')
+
+        // c2 is touched again and leaves the window it was handed over in.
+        await store.appendMessage('c2', message({ createdAt: '2026-02-01T00:00:00.000Z' }))
+
+        const next = await store.listConversations({ limit: 5, until, cursor: first.cursor as string })
+        expect(next.items.map((one) => one.id)).toEqual(['c1'])
+      })
+    }
+
     // ---- the queue, and the order it comes back in ----
 
     if (can.tickets) {

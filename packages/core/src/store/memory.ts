@@ -2,6 +2,7 @@ import type {
   Conversation,
   Lead,
   ListOptions,
+  Page,
   Stats,
   Store,
   StoredMessage,
@@ -9,7 +10,7 @@ import type {
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
-import { paginate } from './paginate.js'
+import { paginate, pageSize } from './paginate.js'
 
 // Re-exported here because the package's entry points name this module as
 // pagination's home, and moving a public name is a change to the surface
@@ -90,10 +91,7 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
     },
 
     async listConversations(options = {}) {
-      const filtered = [...conversations.values()]
-        .filter((conversation) => matches(conversation, options, messages.get(conversation.id) ?? []))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      return paginate(filtered, options, (conversation) => conversation.id)
+      return pageConversations([...conversations.values()], options, (id) => messages.get(id) ?? [])
     },
 
     async updateConversation(id, patch) {
@@ -275,6 +273,56 @@ function withinRange(timestamp: string, options: ListOptions): boolean {
   if (options.since && timestamp < options.since) return false
   if (options.until && timestamp > options.until) return false
   return true
+}
+
+/**
+ * A page of conversations, newest activity first.
+ *
+ * Shared by the memory and file stores so their answers cannot drift, and
+ * written to match what the SQL stores do rather than what an array makes
+ * easy. Two things follow from that.
+ *
+ * The id breaks a tie on the timestamp, the same way round as the timestamp
+ * itself. Two conversations touched in the same millisecond otherwise swap
+ * places between pages, and one of them is never handed over.
+ *
+ * The cursor is located among every conversation rather than only the matching
+ * ones. A walk of `?unanswered=true` where a conversation you already passed
+ * stops matching used to end there: its id was no longer in the filtered list,
+ * so it could not be found, and the rest was silently dropped. A cursor whose
+ * conversation is genuinely gone still ends the listing, because restarting
+ * looks like a first page to a caller looping until the cursor runs out.
+ */
+export function pageConversations(
+  all: Conversation[],
+  options: ListOptions,
+  threadOf: (id: string) => StoredMessage[],
+): Page<Conversation> {
+  const sorted = all
+    .filter((conversation) => matches(conversation, options, threadOf(conversation.id)))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id))
+
+  const limit = pageSize(options.limit)
+  let start = 0
+
+  if (options.cursor) {
+    const anchor = all.find((conversation) => conversation.id === options.cursor)
+    if (!anchor) return { items: [] }
+
+    const found = sorted.findIndex(
+      (conversation) =>
+        (anchor.updatedAt.localeCompare(conversation.updatedAt) || anchor.id.localeCompare(conversation.id)) > 0,
+    )
+    start = found === -1 ? sorted.length : found
+  }
+
+  const slice = sorted.slice(start, start + limit)
+  const last = slice[slice.length - 1]
+
+  return {
+    items: slice,
+    ...(start + slice.length < sorted.length && last ? { cursor: last.id } : {}),
+  }
 }
 
 function matches(conversation: Conversation, options: ListOptions, thread: StoredMessage[]): boolean {

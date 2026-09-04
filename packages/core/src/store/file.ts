@@ -4,7 +4,7 @@ import type { Conversation, Lead, Store, StoredMessage } from './types.js'
 import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import type { SourceRecord } from '../knowledge/records.js'
 import { newMessageId, pageTickets, searchIn } from './tickets.js'
-import { computeStats } from './memory.js'
+import { computeStats, pageConversations } from './memory.js'
 import { paginate } from './paginate.js'
 
 export interface FileStoreOptions {
@@ -219,22 +219,7 @@ export function fileStore(options: FileStoreOptions): Store {
 
     async listConversations(listOptions = {}) {
       await load()
-      const filtered = [...conversations.values()]
-        .filter((conversation) => {
-          if (listOptions.since && conversation.updatedAt < listOptions.since) return false
-          if (listOptions.until && conversation.updatedAt > listOptions.until) return false
-          if (listOptions.channel && conversation.channel !== listOptions.channel) return false
-          if (listOptions.contactId && conversation.contact?.id !== listOptions.contactId) return false
-          if (
-            listOptions.unansweredOnly &&
-            !(messages.get(conversation.id) ?? []).some((message) => message.unanswered)
-          ) {
-            return false
-          }
-          return true
-        })
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      return paginate(filtered, listOptions, (conversation) => conversation.id)
+      return pageConversations([...conversations.values()], listOptions, (id) => messages.get(id) ?? [])
     },
 
     async updateConversation(id, patch) {
