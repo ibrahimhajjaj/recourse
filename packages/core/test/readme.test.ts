@@ -72,3 +72,22 @@ describe('the chat endpoint refusal codes', () => {
     expect(invented, `codes in the table the endpoint never sends: ${invented}`).toEqual([])
   })
 })
+
+/**
+ * A store can opt out of parts of the conformance suite, and the list of what
+ * it may opt out of is a promise to whoever is writing one. A capability added
+ * to the type and not to the page is a promise nobody knows they have.
+ */
+describe('the store capabilities', () => {
+  const conformance = readFileSync(join(root, 'src/store/conformance.ts'), 'utf8')
+  const stores = readFileSync(join(root, '../../docs/stores.md'), 'utf8')
+
+  const declared = [...conformance.matchAll(/^ {2}([a-zA-Z]+)\?: boolean$/gm)].map((match) => match[1] as string)
+
+  it('are every one of them on the page that promises them', () => {
+    expect(declared.length).toBeGreaterThan(0)
+
+    const missing = declared.filter((capability) => !stores.includes(`\`${capability}\``))
+    expect(missing, `capabilities a store may decline that docs/stores.md never lists: ${missing}`).toEqual([])
+  })
+})
