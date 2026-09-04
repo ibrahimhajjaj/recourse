@@ -16,6 +16,15 @@ export interface WebSearchOptions {
    * carrier pages rather than from whoever ranks well today.
    */
   sites?: string[]
+  /**
+   * Also search for pictures, and let the answer show one.
+   *
+   * Worth having where the answer is a thing rather than a fact: which of the
+   * three fittings this is, what the part looks like, which end of the cable
+   * goes where. Off by default, because most support answers are sentences and
+   * a picture of roughly the right object is worse than none.
+   */
+  images?: boolean
 }
 
 /**
@@ -58,6 +67,7 @@ export function webSearch(options: WebSearchOptions = {}): Action {
             query: String(input.query ?? ''),
             limit,
             ...(sites.length > 0 ? { includeDomains: sites } : {}),
+            ...(options.images ? { sources: ['web', 'images'] } : {}),
           }),
         },
         { signal: ctx.signal, attempts: 2 },
@@ -68,6 +78,7 @@ export function webSearch(options: WebSearchOptions = {}): Action {
       const body = (await response.json()) as {
         data?: {
           web?: Array<{ url?: string; title?: string; description?: string }>
+          images?: Array<{ url?: string; title?: string; imageUrl?: string }>
         }
       }
 
@@ -78,7 +89,21 @@ export function webSearch(options: WebSearchOptions = {}): Action {
         snippet: (item.description ?? '').slice(0, 400),
       }))
 
-      return { results, note: 'Cite these by URL and say the information came from the web.' }
+      const note = 'Cite these by URL and say the information came from the web.'
+      if (!options.images) return { results, note }
+
+      const pictures = (body.data?.images ?? [])
+        .filter((item) => typeof item.imageUrl === 'string' && item.imageUrl.startsWith('https:'))
+        .slice(0, 3)
+        .map((item) => ({ title: item.title ?? '', image: item.imageUrl as string, page: item.url ?? '' }))
+
+      return {
+        results,
+        images: pictures,
+        note:
+          `${note} At most one picture, written as ![description](image url), and only where seeing ` +
+          'the thing is the answer. Never one that merely decorates a reply.',
+      }
     },
   })
 }

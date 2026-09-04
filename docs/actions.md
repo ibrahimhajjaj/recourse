@@ -46,6 +46,11 @@ webSearch({ sites: ['royalmail.com', 'dpd.co.uk'] })
 Without that, a question about a delayed parcel can be answered from whichever
 forum ranks well today, in your name.
 
+`images: true` searches for pictures as well, and lets the answer show one where
+seeing the thing is the answer: which of three fittings this is, which end of the
+cable goes where. Off otherwise, since a picture of roughly the right object is
+worse than none.
+
 
 ## Answering with something other than a sentence
 

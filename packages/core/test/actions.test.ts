@@ -461,6 +461,40 @@ describe('web search', () => {
     expect(sent[2]).not.toHaveProperty('includeDomains')
   })
 
+  it('asks for pictures only when told to, and only keeps the ones served over https', async () => {
+    const sent: Array<Record<string, unknown>> = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      sent.push(JSON.parse(String((init as RequestInit).body)))
+      return new Response(
+        JSON.stringify({
+          data: {
+            web: [],
+            images: [
+              { title: 'Blue fitting', imageUrl: 'https://cdn.example/a.jpg', url: 'https://example.com/a' },
+              { title: 'Insecure', imageUrl: 'http://cdn.example/b.jpg', url: 'https://example.com/b' },
+            ],
+          },
+        }),
+        { status: 200 },
+      )
+    }) as unknown as typeof fetch
+
+    try {
+      const off = (await webSearch().execute?.({ query: 'blue fitting' }, ctx())) as Record<string, unknown>
+      const on = (await webSearch({ images: true }).execute?.({ query: 'blue fitting' }, ctx())) as {
+        images: Array<{ image: string }>
+      }
+
+      expect(sent[0]).not.toHaveProperty('sources')
+      expect(off).not.toHaveProperty('images')
+
+      expect(sent[1]).toMatchObject({ sources: ['web', 'images'] })
+      expect(on.images.map((picture) => picture.image)).toEqual(['https://cdn.example/a.jpg'])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })
 
 describe('the agent running actions', () => {
