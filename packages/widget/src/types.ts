@@ -184,7 +184,7 @@ export type StreamFrame =
       payload?: Record<string, unknown>
     }
   | { type: 'ui'; kind: string; id: string; data: Record<string, unknown> }
-  | { type: 'suggestions'; items: string[] }
+  | { type: 'suggestions'; items: string[]; pickOne?: boolean }
   | { type: 'captured'; kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }
   | { type: 'handoff'; ticketId?: string; message: string }
   | { type: 'notice'; message: string }

@@ -86,6 +86,8 @@ export function createWidget(options: WidgetOptions) {
     controller: AbortController | null
     conversationId: string
     suggestions: string[]
+    /** Whether choosing one of them is the only way on. */
+    pickOne: boolean
     /** Files picked but not yet sent. Cleared the moment they go. */
     staged: OutgoingAttachment[]
   } = {
@@ -95,6 +97,7 @@ export function createWidget(options: WidgetOptions) {
     // Groups this tab's turns into one thread in the transcript log.
     conversationId: `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
     suggestions: options.suggestions ?? [],
+    pickOne: false,
     staged: [],
   }
 
@@ -656,6 +659,7 @@ export function createWidget(options: WidgetOptions) {
 
   function paintSuggestions() {
     suggestions.replaceChildren()
+    paintComposer()
     if (state.suggestions.length === 0) return
 
     for (const text of state.suggestions.slice(0, 4)) {
@@ -665,6 +669,22 @@ export function createWidget(options: WidgetOptions) {
       button.addEventListener('click', () => void ask(text))
       suggestions.appendChild(button)
     }
+  }
+
+  /**
+   * The state of the text box, which two things can close.
+   *
+   * A turn in flight closes it because a second question would arrive with no
+   * answer to the first. A guided step closes it because the agent has offered
+   * the only replies it can act on, and a typed one would be asked again. The
+   * placeholder changes in the second case: a box that will not take what you
+   * type and does not say why is the worse half of the two.
+   */
+  function paintComposer() {
+    const locked = state.busy || state.pickOne
+    input.disabled = state.pickOne
+    input.placeholder = state.pickOne ? strings.choosePlaceholder : strings.placeholder
+    send.disabled = locked
   }
 
   function repaint() {
@@ -745,6 +765,8 @@ export function createWidget(options: WidgetOptions) {
   function forgetLocally() {
     state.messages = []
     state.suggestions = options.suggestions ?? []
+    // A wiped conversation is not still mid-flow, so the box comes back.
+    state.pickOne = false
     state.conversationId = `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
     persist(options.endpoint, [], options.persist !== false)
     repaint()
@@ -847,7 +869,10 @@ export function createWidget(options: WidgetOptions) {
 
     errorBox.hidden = true
     state.busy = true
-    send.disabled = true
+    // Both go: the question they asked is the answer to whatever was offered,
+    // so the buttons are stale and the box belongs to them again.
+    state.pickOne = false
+    paintComposer()
 
     // A dictation still running would keep writing into a box the customer has
     // already sent.
@@ -873,10 +898,10 @@ export function createWidget(options: WidgetOptions) {
     await runTurn(undefined, sending)
 
     state.busy = false
-    send.disabled = false
+    paintComposer()
     state.controller = null
     scrollToEnd()
-    input.focus()
+    if (!input.disabled) input.focus()
   }
 
   /**
@@ -1079,6 +1104,7 @@ function readable(name: string): string {
       requested.push({ id: frame.id, name: frame.name, input: frame.input, payload: frame.payload })
     } else if (frame.type === 'suggestions') {
       state.suggestions = frame.items
+      state.pickOne = frame.pickOne === true && frame.items.length > 0
     } else if (frame.type === 'reasoning') {
       // In the working line rather than the transcript. It is not the answer,
       // it is why the answer is taking a moment, and it is gone once the answer
@@ -1150,13 +1176,13 @@ function readable(name: string): string {
     if (!pending || state.busy) return
 
     state.busy = true
-    send.disabled = true
+    paintComposer()
     state.controller = new AbortController()
 
     await runTurn([{ name: pending.name, input: pending.input, output: values }])
 
     state.busy = false
-    send.disabled = false
+    paintComposer()
     state.controller = null
   }
 

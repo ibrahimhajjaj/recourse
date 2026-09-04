@@ -214,7 +214,7 @@ export type StreamFrame =
   /** Inline UI the client should render: a form, a card, buttons, a table. */
   | { type: 'ui'; kind: string; id: string; data: Record<string, unknown> }
   /** Clickable replies to offer under the answer. */
-  | { type: 'suggestions'; items: string[] }
+  | { type: 'suggestions'; items: string[]; pickOne?: boolean }
   /** A lead or custom data set was captured during the turn. */
   | { type: 'captured'; kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }
   /** The conversation was handed to a person. */

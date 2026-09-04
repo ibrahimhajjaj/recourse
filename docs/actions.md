@@ -32,6 +32,11 @@ Built in: `collectLeads`, `collectData`, `escalate`, `suggestedMessages`,
 `slackNotify`, `scheduleMeeting`, `stripeBilling`, `shopifyOrders`, `liveChat`,
 `transferToPhone`.
 
+`suggestedMessages({ pickOne: true })` takes the text box away while its
+suggestions are on screen, so the only way on is to choose one. For a guided
+step with a fixed set of answers. Leave it off for ordinary support: a customer
+whose question is not on the list has nowhere to put it.
+
 The commerce actions are read-only on purpose. An agent that can cancel a
 subscription will eventually cancel the wrong one, and the customer will not find
 out until the coffee stops arriving.

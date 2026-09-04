@@ -33,6 +33,16 @@ export function clientAction(options: ClientActionOptions): Action {
 export interface SuggestionsOptions {
   whenToUse?: string
   max?: number
+  /**
+   * Takes the text box away while the suggestions are on screen, so the only
+   * way on is to choose one.
+   *
+   * For a guided flow with a fixed set of answers, where a typed reply would
+   * only be re-asked. Off by default, and it should stay off for ordinary
+   * support: a customer whose question is not on the list has nowhere to put
+   * it, and being unable to type at a support agent is its own bad experience.
+   */
+  pickOne?: boolean
 }
 
 /**
@@ -65,7 +75,7 @@ export function suggestedMessages(options: SuggestionsOptions = {}): Action {
         .filter(Boolean)
         .slice(0, max)
 
-      ctx.emit({ type: 'suggestions', items })
+      ctx.emit({ type: 'suggestions', items, ...(options.pickOne && items.length > 0 ? { pickOne: true } : {}) })
       return { shown: items.length, message: 'Suggestions displayed. Do not repeat them in your reply.' }
     },
   })

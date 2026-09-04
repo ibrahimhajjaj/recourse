@@ -22,6 +22,8 @@ export interface WidgetStrings {
   close: string
   /** The composer. */
   placeholder: string
+  /** Replaces it while the agent is offering a fixed set of replies. */
+  choosePlaceholder: string
   send: string
   inputLabel: string
   /** The attachment control, and the button that takes one back off. */
@@ -89,6 +91,7 @@ export const DEFAULT_STRINGS: WidgetStrings = {
   open: 'Open the support chat',
   close: 'Close the support chat',
   placeholder: 'Type your question',
+  choosePlaceholder: 'Choose one of the options above',
   send: 'Send',
   inputLabel: 'Your question',
   attach: 'Attach a file',
