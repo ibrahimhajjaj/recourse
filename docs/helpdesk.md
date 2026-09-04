@@ -44,8 +44,13 @@ createHelpdesk({
 ```
 
 `when` matches on what a ticket **is**: `contains` over the subject and
-description, `statusCategory`, `channel`, `teamId`, `unassigned`, `emailDomain`,
-and `custom` for anything else.
+description, `statusCategory`, `channel`, `teamId`, `unassigned`, `email`,
+`emailDomain`, and `custom` for anything else.
+
+`email` is the whole address rather than the domain, which is how you name a
+handful of accounts: the reseller whose tickets go straight to the person who
+knows them, without also catching everybody else at that company. Routing rules
+take the same two fields.
 
 `changed` matches on what an update **moved**, which is a different question and
 the one most real rules ask. A closed ticket looks identical whether it was

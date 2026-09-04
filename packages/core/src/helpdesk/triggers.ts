@@ -24,6 +24,15 @@ export interface TriggerCondition {
   unassigned?: boolean
   emailDomain?: string[]
   /**
+   * Matched against the customer's whole address, not just its domain.
+   *
+   * A named account, a handful of VIPs, the one reseller whose tickets go
+   * straight to the person who knows them. A domain cannot say that, and
+   * writing it as a `custom` predicate hides a routing decision inside a
+   * function nobody reading the rules will open.
+   */
+  email?: string[]
+  /**
    * Fires only when this update moved something, and optionally where to.
    *
    * The two rules every desk eventually wants cannot be written any other way,
@@ -116,6 +125,11 @@ function matches(ticket: Ticket, when: TriggerCondition, previous?: Ticket): boo
   if (when.emailDomain?.length) {
     const domain = ticket.customer.email?.split('@')[1]?.toLowerCase()
     if (!domain || !when.emailDomain.some((allowed) => domain === allowed.toLowerCase())) return false
+  }
+
+  if (when.email?.length) {
+    const address = ticket.customer.email?.toLowerCase()
+    if (!address || !when.email.some((allowed) => address === allowed.trim().toLowerCase())) return false
   }
 
   if (when.changed) {

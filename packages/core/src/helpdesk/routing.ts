@@ -21,6 +21,15 @@ export interface RoutingCondition {
   contains?: string[]
   /** Matched against the customer's email domain, without the @. */
   emailDomain?: string[]
+  /**
+   * Matched against the customer's whole address, not just its domain.
+   *
+   * A named account, a handful of VIPs, the one reseller whose tickets go
+   * straight to the person who knows them. A domain cannot say that, and
+   * writing it as a `custom` predicate hides a routing decision inside a
+   * function nobody reading the rules will open.
+   */
+  email?: string[]
   /** Escape hatch for anything the fields above cannot express. */
   custom?: (ticket: Ticket) => boolean
 }
@@ -58,6 +67,11 @@ function matches(ticket: Ticket, when: RoutingCondition): boolean {
   if (when.emailDomain?.length) {
     const domain = ticket.customer.email?.split('@')[1]?.toLowerCase()
     if (!domain || !when.emailDomain.some((allowed) => domain === allowed.toLowerCase())) return false
+  }
+
+  if (when.email?.length) {
+    const address = ticket.customer.email?.toLowerCase()
+    if (!address || !when.email.some((allowed) => address === allowed.trim().toLowerCase())) return false
   }
 
   if (when.custom && !when.custom(ticket)) return false
