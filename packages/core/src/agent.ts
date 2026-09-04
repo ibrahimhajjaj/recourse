@@ -483,6 +483,23 @@ export function createAgent(options: AgentOptions) {
   const followUps = options.followUps === true ? {} : options.followUps === false ? null : (options.followUps ?? null)
   const takeover = options.takeover === true ? {} : options.takeover === false ? null : (options.takeover ?? null)
 
+  // Refused at construction rather than at the turn that needs it. The tool set
+  // is keyed on the name, so two actions sharing one means the second replaces
+  // the first: the agent is handed a tool that behaves like the wrong one, and
+  // nothing anywhere says so. Two of the same kind is a real configuration,
+  // escalations on the website and on Instagram being the obvious one, and the
+  // fix is to name them, not to let one disappear.
+  const named = new Set<string>()
+  for (const action of actions) {
+    if (named.has(action.name)) {
+      throw new Error(
+        `two actions are both called "${action.name}". Give one of them a different name, ` +
+          'or the tool set keeps only the last.',
+      )
+    }
+    named.add(action.name)
+  }
+
   // Which procedures this agent can run at all. Which of their actions are
   // reachable is decided per turn, below: an action resolved once here is an
   // action bound on every turn, including the ones where nothing unlocked it.
