@@ -46,6 +46,20 @@ describe('sending an approved template', () => {
     ])
   })
 
+  it('takes the punctuation out of a number the way a CRM exports it', async () => {
+    // A campaign list has `+44 7700 900000` in it, and WhatsApp wants digits.
+    // Fixing it here beats failing once per recipient at send time.
+    const seen = stub({ messages: [{ id: 'wamid.9' }] })
+
+    await sendWhatsAppTemplate(credentials, {
+      to: '+44 (7700) 900-000',
+      template: 'order_shipped',
+      language: 'en_GB',
+    })
+
+    expect(JSON.parse(String(seen[0]?.init?.body)).to).toBe('447700900000')
+  })
+
   it('sends a header’s values separately from the body’s', async () => {
     const seen = stub({ messages: [{ id: 'wamid.2' }] })
 

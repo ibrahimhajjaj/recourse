@@ -21,7 +21,13 @@ export interface WhatsAppTemplateOptions {
 }
 
 export interface TemplateMessage {
-  /** The recipient, in international format without a leading `+`. */
+  /**
+   * The recipient's number, with the country code.
+   *
+   * Written however your list has it. WhatsApp wants digits only, and a list
+   * exported from a CRM has `+44 7700 900000` in it, so the punctuation is
+   * taken out here rather than failing once per recipient at send time.
+   */
   to: string
   /** The template's name as approved, exactly. */
   template: string
@@ -59,20 +65,23 @@ export async function sendWhatsAppTemplate(
     components.push({ type: 'body', parameters: message.variables.map(asText) })
   }
 
-  const response = await fetch(`https://graph.facebook.com/${version}/${options.phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${options.accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to: message.to,
-      type: 'template',
-      template: {
-        name: message.template,
-        language: { code: message.language },
-        ...(components.length > 0 ? { components } : {}),
-      },
-    }),
-  })
+  const response = await fetch(
+    `https://graph.facebook.com/${version}/${encodeURIComponent(options.phoneNumberId)}/messages`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${options.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: message.to.replace(/\D/g, ''),
+        type: 'template',
+        template: {
+          name: message.template,
+          language: { code: message.language },
+          ...(components.length > 0 ? { components } : {}),
+        },
+      }),
+    },
+  )
 
   if (!response.ok) {
     throw new Error(`WhatsApp template send failed: ${response.status} ${(await response.text()).slice(0, 300)}`)

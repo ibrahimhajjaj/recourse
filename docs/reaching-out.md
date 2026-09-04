@@ -40,6 +40,10 @@ await sendWhatsAppTemplate(
 )
 ```
 
+Write `to` however your list has it. WhatsApp wants digits, and an export from
+a CRM has `+44 7700 900000` in it, so the punctuation is taken out for you
+rather than failing once per recipient at send time.
+
 The values are positional, filling the template's `{{1}}` and `{{2}}` in order,
 because that is what the API takes. Meta rejects a message whose count does not
 match the approved body, which is the right failure: the alternative is a
