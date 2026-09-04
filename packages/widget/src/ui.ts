@@ -406,8 +406,10 @@ export function renderForm(
 const chart: UiRenderer = (data) => {
   const points = (Array.isArray(data.points) ? data.points : [])
     .map((raw) => raw as { label?: unknown; value?: unknown; display?: unknown })
-    .map((point) => ({ label: str(point.label), value: Number(point.value), display: str(point.display) }))
-    .filter((point) => point.label !== '' && Number.isFinite(point.value))
+    .map((point) => ({ label: str(point.label), value: numeric(point.value), display: str(point.display) }))
+    .filter((point): point is { label: string; value: number; display: string } =>
+      point.label !== '' && point.value !== null,
+    )
     .slice(0, 12)
 
   if (points.length === 0) return null
@@ -553,4 +555,18 @@ function read(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElemen
   }
 
   return element.value
+}
+
+/**
+ * A value, or null where there is not one.
+ *
+ * `Number()` turns null, undefined and an empty string into zero, all three of
+ * which pass a finite check. On a chart that is not a rounding quirk: it draws
+ * a point labelled zero where the truth is that nobody knows, and "Refunds: 0"
+ * is a statement, not a gap.
+ */
+function numeric(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }

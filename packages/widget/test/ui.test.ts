@@ -515,3 +515,39 @@ describe('a chart with a number below zero in it', () => {
     expect(node?.textContent).toContain('-5')
   })
 })
+
+describe('a chart point with no number in it', () => {
+  it('is dropped rather than drawn as zero', () => {
+    // Number(null), Number(undefined) and Number('') are all zero and all
+    // finite, so a missing value used to render as a point labelled zero.
+    // "Refunds: 0" is a statement; the truth was that nobody knows.
+    const { node } = render('chart', {
+      points: [
+        { label: 'Paid', value: 40 },
+        { label: 'Refunded', value: null },
+        { label: 'Pending', value: '' },
+        { label: 'Unknown' },
+      ],
+    })
+
+    expect(node?.querySelectorAll('.ui-chart-bar')).toHaveLength(1)
+    expect(node?.textContent).not.toContain('Refunded')
+    expect(node?.textContent).not.toContain('Pending')
+    expect(node?.textContent).not.toContain('Unknown')
+  })
+
+  it('still takes a number that arrived as a string', () => {
+    // A JSON payload from somebody else's API is entitled to send "40".
+    const { node } = render('chart', { points: [{ label: 'Paid', value: '40' }] })
+
+    expect(node?.querySelectorAll('.ui-chart-bar')).toHaveLength(1)
+    expect(node?.textContent).toContain('40')
+  })
+
+  it('keeps a real zero, which is a different thing from no answer', () => {
+    const { node } = render('chart', { points: [{ label: 'Refunded', value: 0 }] })
+
+    expect(node?.textContent).toContain('Refunded')
+    expect(node?.textContent).toContain('0')
+  })
+})

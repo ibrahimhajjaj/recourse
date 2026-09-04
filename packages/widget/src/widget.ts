@@ -474,7 +474,9 @@ export function createWidget(options: WidgetOptions) {
     placeholder: strings.placeholder,
     footnote: strings.footnote ?? '',
     greeting: options.greeting ?? '',
-    suggestions: options.suggestions ?? [],
+    // Copied, not held. The array belongs to the page that passed it and it is
+    // entitled to keep changing it.
+    suggestions: [...(options.suggestions ?? [])],
   }
 
   /** What it was built with, so an override can be taken back off. */
