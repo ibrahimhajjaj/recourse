@@ -582,6 +582,28 @@ export function createApiHandler(options: ApiOptions) {
     }
   })
 
+  /**
+   * Registered before `/helpdesk/tickets/:number`, which would otherwise match
+   * this path and go looking for a ticket numbered "stats".
+   */
+  router.get('/helpdesk/stats', async (request) => {
+    const helpdesk = desk()
+    if (!helpdesk) return noHelpdesk()
+
+    const url = new URL(request.url)
+    const category = url.searchParams.get('statusCategory')
+
+    return ok(
+      await helpdesk.stats({
+        statusCategory: (category as StatusCategory) ?? undefined,
+        teamId: url.searchParams.get('teamId') ?? undefined,
+        channel: url.searchParams.get('channel') ?? undefined,
+        since: url.searchParams.get('since') ?? undefined,
+        until: url.searchParams.get('until') ?? undefined,
+      }),
+    )
+  })
+
   router.get('/helpdesk/tickets', async (request) => {
     const helpdesk = desk()
     if (!helpdesk) return noHelpdesk()

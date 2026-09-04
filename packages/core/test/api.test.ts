@@ -702,3 +702,35 @@ describe('exporting conversations', () => {
     expect(body.data).toHaveLength(20)
   })
 })
+
+describe('the queue in numbers', () => {
+  it('reports what a support lead asks for', async () => {
+    const { helpdesk, handle } = setup()
+    if (!helpdesk) throw new Error('the fixture has no help desk')
+
+    const opened = await helpdesk.openTicket({
+      subject: 'Kettle arrived broken',
+      description: 'It was cracked',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+    })
+    await helpdesk.reply(opened.ticketNumber, 'On its way.', { type: 'agent', id: 'ana@shop.example' })
+
+    const body = await bodyOf(await handle(get('/helpdesk/stats')))
+
+    expect(body.data).toMatchObject({ created: 1, solved: 0, unsolved: 1, byChannel: { web: 1 } })
+    expect(body.data.medianFirstReplyMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('is not mistaken for a ticket numbered "stats"', async () => {
+    const { handle } = setup()
+
+    expect((await handle(get('/helpdesk/stats'))).status).toBe(200)
+  })
+
+  it('answers 501 where no help desk is configured', async () => {
+    const { handle } = setup({ withHelpdesk: false })
+
+    expect((await handle(get('/helpdesk/stats'))).status).toBe(501)
+  })
+})

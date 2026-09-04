@@ -317,6 +317,27 @@ function buildTools(options: McpOptions): Tool[] {
     })
 
     tools.push({
+      name: 'get_queue_stats',
+      description:
+        'How the ticket queue is doing: created, solved, the outstanding backlog, and how long ' +
+        'customers wait for a reply. Medians, in milliseconds.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          since: { type: 'string', description: 'ISO timestamp. Only tickets touched on or after it.' },
+          until: { type: 'string', description: 'ISO timestamp. Only tickets touched on or before it.' },
+        },
+        additionalProperties: false,
+      },
+      async run(args) {
+        return helpdesk.stats({
+          ...(typeof args.since === 'string' ? { since: args.since } : {}),
+          ...(typeof args.until === 'string' ? { until: args.until } : {}),
+        })
+      },
+    })
+
+    tools.push({
       name: 'get_ticket',
       description: 'One ticket and the messages on it, by its number.',
       inputSchema: {

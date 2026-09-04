@@ -55,6 +55,9 @@ return still counts, and it defaults to seven. That also makes a polling
 trigger possible without any of the above: point one at `/conversations` and
 let it poll.
 
+`GET /helpdesk/stats` reports the queue: created, solved, the backlog, and how
+long customers actually wait. It takes the same filters as the ticket list.
+
 `GET /conversations/export` is the same list with every transcript attached, a
 page at a time, for when you want the lot rather than a row per thread. It takes
 the same filters, and pages smaller because each item is a whole conversation

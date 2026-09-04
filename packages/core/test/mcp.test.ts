@@ -311,6 +311,14 @@ describe('working through a backlog', () => {
     expect((payload(answer) as Array<{ subject: string }>).map((one) => one.subject)).toEqual(['newer', 'older'])
   })
 
+  it('reports how the queue is doing', async () => {
+    const store = await withTickets()
+    const mcp = createMcp({ store, helpdesk: createHelpdesk({ store }) })
+    const answer = await call(mcp, 'tools/call', { name: 'get_queue_stats', arguments: {} })
+
+    expect(payload(answer)).toMatchObject({ created: 2, solved: 0, unsolved: 2 })
+  })
+
   it('turns the queue round when asked for the oldest', async () => {
     // What an assistant told to work through a backlog actually wants.
     const store = await withTickets()

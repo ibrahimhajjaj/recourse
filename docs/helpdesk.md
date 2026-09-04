@@ -140,6 +140,10 @@ It reads every thread in the slice, so it is a dashboard call rather than
 something to run per turn. `ticketStats(tickets, threads)` is the same
 arithmetic as a pure function, for a caller that already has both.
 
+Over HTTP it is `GET /helpdesk/stats`, taking the same `?statusCategory=`,
+`?teamId=`, `?channel=`, `?since=` and `?until=` as the ticket list. From a
+coding agent it is the `get_queue_stats` tool.
+
 ## Nobody is awake at three in the morning
 
 `assignTicket` always took availability per candidate; until now the host had
