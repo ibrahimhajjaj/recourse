@@ -36,6 +36,16 @@ The commerce actions are read-only on purpose. An agent that can cancel a
 subscription will eventually cancel the wrong one, and the customer will not find
 out until the coffee stops arriving.
 
+`webSearch` reaches the open web, which is usually more reach than you want. Name
+the sites it may use and it stays inside them:
+
+```ts
+webSearch({ sites: ['royalmail.com', 'dpd.co.uk'] })
+```
+
+Without that, a question about a delayed parcel can be answered from whichever
+forum ranks well today, in your name.
+
 
 ## Answering with something other than a sentence
 
@@ -51,9 +61,15 @@ customButton({
   buttons: [
     { label: 'Track my order', url: 'https://example.com/track' },
     { label: 'Start a return', url: 'https://example.com/returns' },
+    { label: 'Pay now', url: 'https://example.com/pay', sameTab: true },
   ],
 })
 ```
+
+A button opens a new tab unless you set `sameTab`, which is the right default
+for a reference page: the customer reads it and the conversation is still there
+behind it. Checkout and sign-in are the exceptions, because both are built to
+own the whole window and neither works well in a tab somebody forgets about.
 
 Four kinds ship: `button`, `card`, `table` and `list`, plus forms the customer
 can fill in. Your own action emits one directly:
