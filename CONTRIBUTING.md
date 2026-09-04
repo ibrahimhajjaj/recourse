@@ -67,9 +67,23 @@ Build before lint. The store adapters lint by typechecking against core's
 generated declarations, so linting a fresh checkout first reports a pile of
 errors from a `dist` that does not exist yet.
 
-Two gates stay on CI because they need something a checkout does not have: the
-PHP suite, which runs on 7.4 and 8.3, and the retrieval evals. A pull request
-that passes `pnpm verify:ci` can still fail on those two.
+Three gates stay on CI because they need something a checkout does not have, so
+a pull request that passes `pnpm verify:ci` can still fail on them.
+
+**The Postgres store suite** is the one to watch, because it does not fail
+without a database: it skips, quietly, and a green run looks identical either
+way. Set `TEST_DATABASE_URL` and it runs. `packages/store-postgres/README.md`
+has two ways to get one, neither of which leaves anything behind.
+
+**The PHP suite**, which CI runs on 7.4 and 8.3. One version is enough while you
+work, and if you have PHP at all you already can:
+
+```sh
+cd packages/wordpress && composer install && vendor/bin/phpunit
+vendor/bin/phpcs --standard=.phpcs.xml.dist includes tests
+```
+
+**The retrieval evals**, which measure rather than assert and want an API key.
 
 Per package while you work:
 
