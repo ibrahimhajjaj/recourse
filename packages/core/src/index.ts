@@ -127,6 +127,7 @@ export {
   ticketCursorAt,
   sortedAt,
   sortColumn,
+  ticketStats,
 } from './helpdesk/index.js'
 export type {
   Helpdesk,
@@ -150,6 +151,7 @@ export type {
   TicketFilter,
   TicketSort,
   TicketOrdering,
+  TicketStats,
 } from './helpdesk/index.js'
 
 export {

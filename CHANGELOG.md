@@ -66,6 +66,11 @@ documented case of this agent answering badly.
 worked. `includeTotal` adds the count. A cursor carries the ordering it was
 issued for and is refused against another, rather than paging into nonsense.
 
+**`helpdesk.stats()`** reports the queue: created, solved, the outstanding
+backlog, tickets by channel and status, and median first-reply, reply and
+time-to-close. None of those was a field on a ticket, so nothing could answer
+them before.
+
 **`ticketSource`** indexes tickets your team already answered, with a Zendesk
 reader that takes solved tickets and their last public reply.
 

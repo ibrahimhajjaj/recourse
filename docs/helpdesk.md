@@ -106,6 +106,40 @@ eligible for stays unassigned, which is what the unassigned queue is for. Only
 auto-assignment respects it; a manager assigning by hand is making a decision
 and is entitled to.
 
+## What the queue looks like
+
+`helpdesk.stats(filter?)` answers the questions a support lead asks on the
+thirtieth day, over whatever slice the filter names:
+
+```ts
+const { created, solved, unsolved, medianFirstReplyMs, medianTimeToCloseMs } = await helpdesk.stats({
+  since: '2026-01-01T00:00:00.000Z',
+})
+```
+
+`unsolved` is the backlog, which is the one worth watching over time: created
+and solved both going up tells you nothing on its own.
+
+The response times are medians, not averages. One ticket that sat over a bank
+holiday weekend moves a mean enough to hide a week of good work, and the
+question is "what does a customer normally wait", which a median answers and a
+mean does not. A duration is absent rather than zero when nothing qualified,
+because zero is a real answer meaning somebody replied instantly.
+
+Only a reply from a person counts as an answer. A note is written between
+colleagues and a status change is the software talking to itself, and counting
+either would say the customer was answered when nobody has spoken to them. A
+customer writing again restarts their clock, since what is being measured is
+how long they wait after speaking rather than how long since the ticket opened.
+
+Time to close reads the status events on the thread rather than `updatedAt`: a
+ticket closed in an hour and edited a week later took an hour. A ticket that
+came back counts to the last close.
+
+It reads every thread in the slice, so it is a dashboard call rather than
+something to run per turn. `ticketStats(tickets, threads)` is the same
+arithmetic as a pure function, for a caller that already has both.
+
 ## Nobody is awake at three in the morning
 
 `assignTicket` always took availability per candidate; until now the host had

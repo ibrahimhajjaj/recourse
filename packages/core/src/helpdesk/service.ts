@@ -5,6 +5,7 @@ import type { Agent } from '../agent.js'
 import { defaultViews, evaluateTriggers, type SavedView, type Trigger } from './triggers.js'
 import type { Channel } from '../store/types.js'
 import { assignTicket, loadOf, type AssignmentAlgorithm } from './assignment.js'
+import { ticketStats } from './stats.js'
 import { routeTicket, type RoutingRule } from './routing.js'
 import { DEFAULT_STATUSES, defaultStatusFor, validateStatuses } from './statuses.js'
 import { detectAndTranslate, type TranslationOptions } from './translate.js'
@@ -469,6 +470,27 @@ export function createHelpdesk(options: HelpdeskOptions) {
     /** An internal note the customer will not see. */
     note: (ticketNumber: number, content: string, sender: TicketMessageSender) =>
       post(ticketNumber, 'note', content, sender),
+
+    /**
+     * The queue's numbers over whatever slice the filter names.
+     *
+     * Reads the threads as well as the tickets, because the response times are
+     * only in the messages: how long somebody waited is the gap between what
+     * they said and what a person said back, and no field on a ticket records
+     * it. That makes this heavier than `listTickets`, so it is a dashboard
+     * call rather than something to run per turn.
+     */
+    async stats(filter: TicketFilter = {}) {
+      const page = await store.listTickets({ limit: 200, ...filter })
+      const threads = new Map<number, TicketMessage[]>()
+
+      for (const ticket of page.items) {
+        const thread = await store.listTicketMessages(ticket.ticketNumber)
+        threads.set(ticket.ticketNumber, thread.items)
+      }
+
+      return ticketStats(page.items, threads)
+    },
 
     statuses: () => statuses,
     teams: () => teams,

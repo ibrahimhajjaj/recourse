@@ -70,3 +70,4 @@ export {
   sortColumn,
   type TicketOrdering,
 } from './ordering.js'
+export { ticketStats, type TicketStats } from './stats.js'
