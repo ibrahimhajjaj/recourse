@@ -1,0 +1,182 @@
+{
+  "model": "no-model",
+  "recordedAt": "2026-09-04T08:53:04.341Z",
+  "cases": [
+    {
+      "id": "ret-delivery-time",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 2
+    },
+    {
+      "id": "ret-delivery-ireland",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-delivery-cost",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-tracking",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-refund",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 1
+    },
+    {
+      "id": "ret-refund-paraphrase",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-damaged",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-engraved",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-pause",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-pausing-stem",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-cancel",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-sub-discount",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-grind-french",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-ethiopia",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-freshness",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-signin",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-delete",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-address",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-wholesale",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-wholesale-minimum",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-nothing",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    },
+    {
+      "id": "ret-nothing-weather",
+      "suite": "retrieval",
+      "passed": true,
+      "failures": [],
+      "answer": "",
+      "ms": 0
+    }
+  ]
+}
