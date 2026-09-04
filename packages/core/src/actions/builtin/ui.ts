@@ -69,6 +69,37 @@ export interface FormField extends ActionField {
    * scrolls sideways.
    */
   input?: 'text' | 'multiline' | 'email' | 'tel' | 'date'
+  /** Lets the customer pick more than one of `options`. */
+  multiple?: boolean
+  /**
+   * Options under headings, for a list long enough that a flat one is a wall:
+   * `{ 'North': ['Leeds', 'York'], 'South': ['Bath', 'Exeter'] }`.
+   *
+   * The model is told the flat set, because a heading is a thing to read
+   * rather than a thing to choose, and it only ever picks a value.
+   */
+  groups?: Record<string, string[]>
+  /**
+   * A regular expression the answer has to match, as a string.
+   *
+   * Checked by the browser before the form is sent, so a mistyped postcode is
+   * caught while the customer is looking at the box rather than a turn later
+   * when the agent asks for it again. Not a substitute for checking on the
+   * server: this runs on the customer's machine and can be turned off there.
+   */
+  pattern?: string
+  minLength?: number
+  maxLength?: number
+  /** For a number field. */
+  min?: number
+  max?: number
+  /**
+   * What to say when it does not match.
+   *
+   * Browsers say "Please match the requested format", which tells nobody what
+   * the format is. Say what a good answer looks like.
+   */
+  invalidMessage?: string
 }
 
 export interface CustomFormOptions {
@@ -118,7 +149,15 @@ export function formSchema(options: CustomFormOptions) {
       input: field.input,
       placeholder: field.placeholder,
       required: field.required !== false,
-      options: field.options,
+      options: field.groups ? Object.values(field.groups).flat() : field.options,
+      groups: field.groups,
+      multiple: field.multiple,
+      pattern: field.pattern,
+      minLength: field.minLength,
+      maxLength: field.maxLength,
+      min: field.min,
+      max: field.max,
+      invalidMessage: field.invalidMessage,
     })),
   }
 }

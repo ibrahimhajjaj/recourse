@@ -108,7 +108,16 @@ control: `date` gets a picker, `email` and `tel` get the right keyboard on a
 phone and the browser's own checking, `multiline` gets somewhere to describe
 what happened. `type` stays what the model is told the value is, since a date
 and an email address are both strings to it. A field listing `options` is a
-dropdown either way. Your own action emits one directly:
+dropdown either way, `multiple: true` lets them pick several, and `groups` puts
+the options under headings for a list long enough that a flat one is a wall.
+
+A field also takes `pattern`, `minLength`, `maxLength`, `min`, `max` and an
+`invalidMessage` saying what a good answer looks like, since "Please match the
+requested format" tells nobody what the format is. The browser enforces them
+before the form is sent, so a mistyped postcode costs the customer a moment
+rather than a round trip. It is not the check that matters: this runs on their
+machine, where it can be turned off, so whatever receives the values still has
+to look at them. Your own action emits one directly:
 
 ```ts
 ctx.emit({

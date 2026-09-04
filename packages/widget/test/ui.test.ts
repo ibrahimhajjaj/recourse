@@ -335,3 +335,83 @@ describe('form fields that are not a text box', () => {
     expect(draw({ input: 'date', options: ['Yes', 'No'] }).tagName).toBe('SELECT')
   })
 })
+
+describe('what a form will not accept', () => {
+  const build = (field: Record<string, unknown>) => {
+    const ctx = context()
+    const form = renderForm(
+      { title: 'Warranty claim', submitLabel: 'Send', fields: [{ name: 'x', label: 'X', type: 'string', ...field }] },
+      ctx,
+    )
+    const control = form.querySelector('.ui-field input, .ui-field textarea, .ui-field select') as HTMLElement
+    return { form, control, ctx }
+  }
+
+  it('puts the constraints on the control, so the browser refuses before we do', () => {
+    const { control } = build({ pattern: '^[A-Z]{2}\\d{2}', minLength: 4, maxLength: 8 })
+    const input = control as HTMLInputElement
+
+    expect(input.pattern).toBe('^[A-Z]{2}\\d{2}')
+    expect(input.minLength).toBe(4)
+    expect(input.maxLength).toBe(8)
+  })
+
+  it('bounds a number rather than a string', () => {
+    const { control } = build({ type: 'number', min: 1, max: 9 })
+
+    expect((control as HTMLInputElement).min).toBe('1')
+    expect((control as HTMLInputElement).max).toBe('9')
+  })
+
+  it('says what a good answer looks like instead of the browser’s own wording', () => {
+    const { control } = build({ pattern: '^[A-Z]{2}\\d{2}', invalidMessage: 'Like SW1A 1AA.' })
+    const input = control as HTMLInputElement
+
+    input.value = 'nope'
+    input.dispatchEvent(new Event('invalid'))
+    expect(input.validationMessage).toBe('Like SW1A 1AA.')
+
+    // Cleared on the next edit, or the first refusal sticks to a fixed value.
+    input.value = 'SW11'
+    input.dispatchEvent(new Event('input'))
+    expect(input.validationMessage).toBe('')
+  })
+})
+
+describe('picking more than one, and picking from headings', () => {
+  const build = (field: Record<string, unknown>) => {
+    const ctx = context()
+    const form = renderForm(
+      { title: 'Where', submitLabel: 'Send', fields: [{ name: 'where', label: 'Where', type: 'string', ...field }] },
+      ctx,
+    )
+    return { form, select: form.querySelector('select') as HTMLSelectElement, ctx }
+  }
+
+  it('groups the options under their headings', () => {
+    const { select } = build({ groups: { North: ['Leeds', 'York'], South: ['Bath'] } })
+
+    expect([...select.querySelectorAll('optgroup')].map((g) => g.label)).toEqual(['North', 'South'])
+    expect(select.querySelectorAll('option')).toHaveLength(3)
+  })
+
+  it('ignores a group with nothing in it', () => {
+    const { select } = build({ groups: { North: ['Leeds'], South: [] } })
+
+    expect([...select.querySelectorAll('optgroup')].map((g) => g.label)).toEqual(['North'])
+  })
+
+  it('returns every choice from a multiple select, and one from a single', () => {
+    const many = build({ options: ['Leeds', 'York', 'Bath'], multiple: true })
+    for (const chosen of [...many.select.options].filter((o) => o.value !== 'York')) chosen.selected = true
+    many.form.dispatchEvent(new Event('submit', { cancelable: true }))
+
+    expect(many.ctx.responded[0]).toEqual({ where: ['Leeds', 'Bath'] })
+
+    const one = build({ options: ['Leeds', 'York'] })
+    one.select.value = 'York'
+    one.form.dispatchEvent(new Event('submit', { cancelable: true }))
+
+    expect(one.ctx.responded[0]).toEqual({ where: 'York' })
+  })
+})

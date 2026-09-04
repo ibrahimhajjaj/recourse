@@ -290,6 +290,14 @@ export function renderForm(
       placeholder?: unknown
       required?: unknown
       options?: unknown
+      groups?: unknown
+      multiple?: unknown
+      pattern?: unknown
+      minLength?: unknown
+      maxLength?: unknown
+      min?: unknown
+      max?: unknown
+      invalidMessage?: unknown
     }
     const name = str(field.name)
     if (!name) continue
@@ -300,14 +308,23 @@ export function renderForm(
 
     let element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 
-    if (Array.isArray(field.options) && field.options.length > 0) {
+    const grouped = groupsOf(field.groups)
+
+    if (grouped || (Array.isArray(field.options) && field.options.length > 0)) {
       const select = document.createElement('select')
-      for (const option of field.options) {
-        const node = document.createElement('option')
-        node.value = str(option)
-        node.textContent = str(option)
-        select.appendChild(node)
+      if (field.multiple === true) select.multiple = true
+
+      if (grouped) {
+        for (const [heading, values] of grouped) {
+          const group = document.createElement('optgroup')
+          group.label = heading
+          for (const value of values) group.appendChild(option(value))
+          select.appendChild(group)
+        }
+      } else {
+        for (const value of field.options as unknown[]) select.appendChild(option(str(value)))
       }
+
       element = select
     } else if (field.type === 'boolean') {
       const input = document.createElement('input')
@@ -330,6 +347,7 @@ export function renderForm(
     if (field.required !== false && element instanceof HTMLInputElement && element.type !== 'checkbox') {
       element.required = true
     }
+    constrain(element, field)
 
     label.appendChild(element)
     form.appendChild(label)
@@ -351,10 +369,11 @@ export function renderForm(
     if (submitted) return
     submitted = true
 
+    // The browser has already refused to fire this if anything is invalid, so
+    // reaching here means every constraint below passed.
     const values: Record<string, unknown> = {}
     for (const { name, element } of inputs) {
-      values[name] =
-        element instanceof HTMLInputElement && element.type === 'checkbox' ? element.checked : element.value
+      values[name] = read(element)
     }
 
     // Replaced by a confirmation, so nobody submits the same form twice.
@@ -384,4 +403,85 @@ export function renderUi(frame: UiFrame, context: UiContext): HTMLElement | null
 function inputType(input: unknown, type: unknown): string {
   if (input === 'date' || input === 'email' || input === 'tel') return input
   return type === 'number' ? 'number' : 'text'
+}
+
+function option(value: string): HTMLOptionElement {
+  const node = document.createElement('option')
+  node.value = value
+  node.textContent = value
+  return node
+}
+
+/** Options under headings, when the form sent any that are usable. */
+function groupsOf(groups: unknown): Array<[string, string[]]> | null {
+  if (!groups || typeof groups !== 'object' || Array.isArray(groups)) return null
+
+  const usable = Object.entries(groups as Record<string, unknown>)
+    .map(([heading, values]): [string, string[]] => [
+      heading,
+      (Array.isArray(values) ? values : []).map((value) => str(value)).filter(Boolean),
+    ])
+    .filter(([, values]) => values.length > 0)
+
+  return usable.length > 0 ? usable : null
+}
+
+/**
+ * The constraints the browser can enforce on its own.
+ *
+ * Everything here is a native attribute rather than a listener, so the box
+ * turns red before the form is sent and the customer fixes it while looking at
+ * it. A mistyped postcode caught here costs them a moment; caught a turn later
+ * it costs a round trip and the agent asking for the same thing twice.
+ *
+ * This is not the check that matters. It runs on the customer's own machine,
+ * where anybody who wants to can turn it off, so whatever receives the values
+ * still has to look at them.
+ */
+function constrain(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  field: {
+    pattern?: unknown
+    minLength?: unknown
+    maxLength?: unknown
+    min?: unknown
+    max?: unknown
+    invalidMessage?: unknown
+  },
+): void {
+  const message = str(field.invalidMessage)
+
+  if (element instanceof HTMLSelectElement) return
+
+  if (typeof field.pattern === 'string' && field.pattern && element instanceof HTMLInputElement) {
+    element.pattern = field.pattern
+  }
+  if (typeof field.minLength === 'number') element.minLength = field.minLength
+  if (typeof field.maxLength === 'number') element.maxLength = field.maxLength
+
+  if (element instanceof HTMLInputElement && element.type === 'number') {
+    if (typeof field.min === 'number') element.min = String(field.min)
+    if (typeof field.max === 'number') element.max = String(field.max)
+  }
+
+  if (!message) return
+
+  // "Please match the requested format" tells nobody what the format is.
+  // Cleared on every edit, or the first refusal sticks to a corrected value.
+  const say = () => element.setCustomValidity(element.validity.valid ? '' : message)
+  element.addEventListener('input', () => {
+    element.setCustomValidity('')
+    say()
+  })
+  element.addEventListener('invalid', say)
+}
+
+/** What one control's answer is. A multiple select has several. */
+function read(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): unknown {
+  if (element instanceof HTMLInputElement && element.type === 'checkbox') return element.checked
+  if (element instanceof HTMLSelectElement && element.multiple) {
+    return [...element.selectedOptions].map((chosen) => chosen.value)
+  }
+
+  return element.value
 }

@@ -595,6 +595,12 @@ export const styles = `
 }
 /* Down only. Wider is the panel's job and it has none to give. */
 .ui-field textarea { resize: vertical; min-height: 60px; }
+/* A multiple select collapses to one row otherwise, and looks like a dropdown
+   that will not open. */
+.ui-field select[multiple] { min-height: 88px; }
+/* Only once they have typed something. Marking an empty required field red
+   before anybody has touched it is the form telling them off in advance. */
+.ui-field :invalid:not(:placeholder-shown) { border-color: var(--rc-alert); }
 .ui-field input[type="checkbox"] { width: 16px; height: 16px; }
 
 /* The nudge above the launcher, before anyone has opened the panel. */
