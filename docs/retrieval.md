@@ -64,11 +64,11 @@ failures left.
 
 ## The other ways content gets in
 
-A website and a folder are two of five. The rest matter more than they look,
+A website and a folder are two of six. The rest matter more than they look,
 because the best answers usually come from the shortest source:
 
 ```ts
-import { qnaSource, textSource, notionSource } from '@recourse-ai/core'
+import { qnaSource, textSource, notionSource, ticketSource } from '@recourse-ai/core'
 ```
 
 **`qnaSource`** takes question and answer pairs. This is the one to reach for
@@ -88,6 +88,30 @@ database, CMS or anywhere else. It is the escape hatch: if you can produce
 
 **`notionSource`** reads a Notion database, for teams whose help content lives
 there rather than on the site.
+
+**`ticketSource`** turns tickets your team already answered into knowledge. A
+desk that has been running a year is the best-written documentation a business
+has and the least likely to exist as a document: the answer to "does the two
+year warranty cover the charger" was typed by somebody who knew, six times, and
+lives only in a ticket.
+
+```ts
+import { ticketSource, zendeskTickets } from '@recourse-ai/core'
+
+ticketSource({ load: () => zendeskTickets({ subdomain: 'acme', accessToken: token }) })
+```
+
+It takes a question and a resolution, never a whole thread. Two reasons, and
+both are the difference between this helping and hurting. A thread is mostly
+scheduling and apology, so indexing it buries the one sentence that answered
+anything. And a customer's own address and order number have no business in a
+knowledge base every other customer is answered from. The Zendesk reader asks
+only for solved tickets and takes the last public reply, so an internal note
+written between colleagues about a customer never becomes something the agent
+can repeat to the next one.
+
+Any desk works: `load` is a function returning `{ id, subject, question, answer }`,
+so a CSV export or your own database is the same amount of work.
 
 All of them compose. Passing four sources to `buildIndex` indexes all four into
 one knowledge base, and a chunk cites whichever it came from.

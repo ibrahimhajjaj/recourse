@@ -2,6 +2,13 @@ export { websiteSource, planCrawl, type WebsiteSourceOptions, type CrawlPlan, ty
 export { filesSource, type FilesSourceOptions } from './files.js'
 export { textSource } from './text.js'
 export { qnaSource, type QnaPair, type QnaSourceOptions } from './qna.js'
+export {
+  ticketSource,
+  zendeskTickets,
+  type ResolvedTicket,
+  type TicketSourceOptions,
+  type ZendeskTicketOptions,
+} from './tickets.js'
 export { notionSource, toMarkdown as notionToMarkdown, type NotionSourceOptions } from './notion.js'
 export {
   parsePdf,
