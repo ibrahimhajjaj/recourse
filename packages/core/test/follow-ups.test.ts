@@ -4,6 +4,7 @@ import { simulateReadableStream } from 'ai'
 import { createAgent } from '../src/agent.js'
 import { buildIndex } from '../src/knowledge/build.js'
 import { textSource } from '../src/sources/text.js'
+import { memoryStore } from '../src/store/index.js'
 import { suggestedMessages } from '../src/actions/index.js'
 import type { Action } from '../src/actions/types.js'
 import type { StreamFrame } from '../src/types.js'
@@ -261,5 +262,27 @@ describe('when the follow-ups are somebody else’s job', () => {
     expect(seen.some((frame) => frame.type === 'handoff')).toBe(true)
     expect(seen.some((frame) => frame.type === 'suggestions')).toBe(false)
     expect(generated).toEqual([])
+  })
+})
+
+describe('a second attempt at a question', () => {
+  it('does not write the question down twice', async () => {
+    // The caller has dropped the answer it did not want and sent the history
+    // ending at the question. Recording it again would leave a transcript
+    // where the customer appears to have asked the same thing twice.
+    const { instance } = model()
+    const store = memoryStore()
+    const agent = await agentWith(instance, { store })
+
+    for await (const frame of agent.stream('do you do refunds?', [], { conversationId: 'c1' })) void frame
+    for await (const frame of agent.stream('do you do refunds?', [], { conversationId: 'c1', retry: true })) void frame
+
+    const thread = await store.getConversation('c1')
+    const asked = (thread?.messages ?? []).filter((message) => message.role === 'user')
+
+    expect(asked).toHaveLength(1)
+    // Both answers stay. The one nobody wanted is a documented case of this
+    // agent answering badly, which is the useful half of the record.
+    expect((thread?.messages ?? []).filter((message) => message.role === 'assistant')).toHaveLength(2)
   })
 })

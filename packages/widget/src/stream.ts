@@ -30,6 +30,12 @@ export interface StreamRequest {
   contact?: Record<string, string | number | boolean>
   /** Results of client actions from the previous, paused turn. */
   actionResults?: Array<{ name: string; input?: unknown; output: unknown }>
+  /**
+   * A second attempt at the last question, the first answer having been
+   * dropped from `messages` already. Keeps the question out of the transcript
+   * twice; the answer nobody wanted stays there, being the useful half.
+   */
+  retry?: boolean
   /** Files sent with the message being asked now. */
   attachments?: OutgoingAttachment[]
 }

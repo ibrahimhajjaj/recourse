@@ -48,6 +48,7 @@ const widget = createWidget({
 | `data-call-transport` | `hosted` to carry the call on your own socket instead of a voice vendor's. |
 | `data-feedback` | `false` to remove the thumbs on each answer. |
 | `data-copy` | `false` to remove the copy button. |
+| `data-retry` | `false` to remove the control that asks the last question again. |
 | `data-delete` | `true` to let a visitor delete their own conversation. |
 | `data-invite` | A message that opens the widget itself after a pause. |
 | `data-invite-delay` | Milliseconds before it does. |
@@ -86,6 +87,15 @@ order, an invoice, an address.
 
 Actions can then refuse to answer an unverified session rather than trusting the
 id it was handed.
+
+A control under the newest answer asks the same question again, for when the
+answer was no good. It drops that answer from what the model sees, so the
+second attempt starts clean rather than being asked to improve on its own
+reply, and it sends `retry: true` so the question is not written into the
+transcript twice. The rejected answer stays in the transcript: it is a
+documented case of this agent answering badly, which is the useful half of the
+record. Only ever on the newest answer, because regenerating one in the middle
+would leave the rest of the conversation replying to something that has gone.
 
 `window.recourse` exposes `open()`, `close()`, `ask(question)`, `clear()`,
 `destroy()`, `handle(name, fn)` for a client action, `setOptions` and

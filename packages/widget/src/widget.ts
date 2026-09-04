@@ -828,15 +828,17 @@ export function createWidget(options: WidgetOptions) {
   }
 
   /** Thumbs, so the host learns which answers were actually any good. */
-  function paintFeedback(wrapper: HTMLElement, messageIndex: number, text = '') {
+  function paintFeedback(wrapper: HTMLElement, messageIndex: number, text = '', canRetry = false) {
     const copyButton = paintCopy(text)
+    const retryButton = canRetry && options.retry !== false ? paintRetry() : null
 
     if (options.feedback === false) {
-      if (!copyButton) return
+      if (!copyButton && !retryButton) return
 
       const only = document.createElement('div')
       only.className = 'feedback'
-      only.appendChild(copyButton)
+      if (copyButton) only.appendChild(copyButton)
+      if (retryButton) only.appendChild(retryButton)
       wrapper.appendChild(only)
       return
     }
@@ -871,8 +873,61 @@ export function createWidget(options: WidgetOptions) {
     }
 
     if (copyButton) row.appendChild(copyButton)
+    if (retryButton) row.appendChild(retryButton)
 
     wrapper.appendChild(row)
+  }
+
+  function paintRetry() {
+    // Only ever one on screen. The control belongs to the newest answer, and
+    // an older one keeping its own would regenerate a reply the rest of the
+    // conversation has already answered around.
+    for (const stale of log.querySelectorAll('[data-retry]')) stale.remove()
+
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'icon-button'
+    button.setAttribute('aria-label', strings.retry)
+    button.dataset.retry = 'true'
+    button.appendChild(
+      icon('M17.65 6.35A8 8 0 104 12h2a6 6 0 1110.24 4.24L13 13h7v7l-2.35-2.35A8 8 0 0017.65 6.35z', true),
+    )
+    button.addEventListener('click', () => void retryLast())
+    return button
+  }
+
+  /**
+   * Asks the same question again, having dropped the answer nobody wanted.
+   *
+   * Dropped locally rather than everywhere: the model gets a clean second
+   * attempt instead of being asked to improve on its own reply, and the
+   * transcript keeps the rejected answer, which is the most useful thing in
+   * it. Only ever offered on the last answer, because regenerating one in the
+   * middle would leave the rest of the conversation replying to something that
+   * is no longer there.
+   */
+  async function retryLast() {
+    if (state.busy) return
+
+    const last = state.messages[state.messages.length - 1]
+    if (!last || last.role !== 'assistant') return
+
+    state.busy = true
+    state.pickOne = false
+    paintComposer()
+
+    state.messages.pop()
+    // The buttons belonged to the answer that has just gone.
+    state.suggestions = []
+    repaint()
+
+    state.controller = new AbortController()
+    await runTurn(undefined, undefined, true)
+
+    state.busy = false
+    paintComposer()
+    state.controller = null
+    scrollToEnd()
   }
 
   /** Whether the thumb actually reached a store. Never throws. */
@@ -951,6 +1006,7 @@ export function createWidget(options: WidgetOptions) {
   async function runTurn(
     actionResults?: Array<{ name: string; input?: unknown; output: unknown }>,
     sending?: OutgoingAttachment[],
+    retry = false,
   ) {
     const { bubble, wrapper } = paintMessage({ role: 'assistant', content: '' })
     // The answer is rebuilt from scratch on every delta, so without this a two
@@ -1021,6 +1077,7 @@ export function createWidget(options: WidgetOptions) {
         userHash: options.userHash,
         contact: options.contact,
         actionResults,
+        ...(retry ? { retry: true } : {}),
         // Only on the first pass. The second half of a paused turn resumes a
         // question the server has already read the files for.
         ...(sending && sending.length > 0 ? { attachments: sending } : {}),
@@ -1088,7 +1145,7 @@ export function createWidget(options: WidgetOptions) {
       answer.citedAs = cited.citedAs
       state.messages.push(answer)
       paintSources(wrapper, answer.sources, answer.citedAs)
-      paintFeedback(wrapper, state.messages.length - 1, answer.content)
+      paintFeedback(wrapper, state.messages.length - 1, answer.content, true)
       persist(options.endpoint, state.messages, options.persist !== false)
       emit('response', { text: answer.content, sources: answer.sources })
     } else {

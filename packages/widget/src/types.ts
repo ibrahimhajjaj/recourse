@@ -64,6 +64,15 @@ export interface WidgetOptions {
   /** A copy control under each answer. Off unless the browser has a clipboard. */
   copy?: boolean
   /**
+   * A control that asks the last question again, on the last answer only.
+   *
+   * On unless set to false. It costs a turn each time it is pressed, which is
+   * the reason to turn it off, and the reason to leave it on is that the
+   * alternative for a customer given a bad answer is retyping the question or
+   * leaving.
+   */
+  retry?: boolean
+  /**
    * A control that forgets the conversation, locally and on the server.
    *
    * Best-effort privacy rather than a compliance feature: it deletes the one

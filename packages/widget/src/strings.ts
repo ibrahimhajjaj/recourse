@@ -24,6 +24,8 @@ export interface WidgetStrings {
   placeholder: string
   /** Replaces it while the agent is offering a fixed set of replies. */
   choosePlaceholder: string
+  /** The control that asks the same question again. */
+  retry: string
   send: string
   inputLabel: string
   /** The attachment control, and the button that takes one back off. */
@@ -92,6 +94,7 @@ export const DEFAULT_STRINGS: WidgetStrings = {
   close: 'Close the support chat',
   placeholder: 'Type your question',
   choosePlaceholder: 'Choose one of the options above',
+  retry: 'Try answering again',
   send: 'Send',
   inputLabel: 'Your question',
   attach: 'Attach a file',

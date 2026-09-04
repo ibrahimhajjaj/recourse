@@ -80,6 +80,7 @@ function readConfig(): WidgetOptions | null {
     // `data-copy="false"` and `data-delete="true"`, since a data attribute is
     // a string and everything else here reads one.
     copy: data.copy !== 'false',
+    retry: data.retry !== 'false',
     allowDelete: data.delete === 'true',
     ...window.recourseConfig,
     ...(target ? { target } : {}),

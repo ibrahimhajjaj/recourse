@@ -311,6 +311,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
       token?: string
       conversationId?: string
       actionResults?: Array<{ name?: unknown; input?: unknown; output?: unknown }>
+      retry?: unknown
     }
 
     // Whatever the browser ran, capped so a page cannot flood the prompt.
@@ -353,6 +354,10 @@ export function createChatHandler(options: ChatHandlerOptions) {
             conversationId: typeof claim?.conversationId === 'string' ? claim.conversationId : undefined,
             ...(options.analytics?.country?.(request) ? { country: countryFrom(request) } : {}),
             clientResults,
+            // The caller has dropped the answer it did not want and sent the
+            // history ending at the question, so the question is already in
+            // the transcript and must not be written down twice.
+            ...(claim?.retry === true ? { retry: true } : {}),
             // Captured from the single retrieval the agent already ran, rather
             // than retrieving a second time just to log what was used.
             onMatches: (found) => {

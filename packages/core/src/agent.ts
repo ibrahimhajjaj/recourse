@@ -352,6 +352,20 @@ export interface StreamOptions {
    */
   clientResults?: ActionOutcome[]
   /**
+   * Answer the same question again, because the last answer was no good.
+   *
+   * The caller drops the answer it did not want and sends the history ending
+   * at the question, which is how the model gets a clean second attempt rather
+   * than being asked to improve on its own reply.
+   *
+   * All this changes here is the transcript: the question is not written down
+   * a second time, since it was asked once. The answer that was rejected stays
+   * in the record. It is the most useful thing in it, being a documented case
+   * of this agent answering badly, and deleting it would leave a gap list with
+   * nothing to learn from.
+   */
+  retry?: boolean
+  /**
    * Receives what retrieval found, before generation starts. The frames
    * deliberately carry only display-safe citations, so this is how a caller
    * gets the full passages for logging without widening the wire protocol.
@@ -686,11 +700,12 @@ export function createAgent(options: AgentOptions) {
     const attachments = messages[messages.length - 1]?.attachments ?? []
     const prepared = attachments.length > 0 ? await prepareAttachments(attachments, options.attachments) : null
 
-    // A continuation is the second half of a turn the browser interrupted, not
-    // a new question, so the customer's message is already in the transcript.
-    const isContinuation = (call.clientResults?.length ?? 0) > 0
+    // Two ways a turn arrives with its question already written down: the
+    // second half of one the browser interrupted, and a second attempt at one
+    // the customer did not like the answer to. Neither is a new question.
+    const alreadyAsked = (call.clientResults?.length ?? 0) > 0 || call.retry === true
 
-    if (store && !isContinuation) {
+    if (store && !alreadyAsked) {
       const record: StoredMessage = {
         id: newId('m'),
         role: 'user',
