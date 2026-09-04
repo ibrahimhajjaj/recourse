@@ -453,9 +453,12 @@ export function createApiHandler(options: ApiOptions) {
     const kb = knowledge()
     if (!kb) return noKnowledge()
 
+    // Every source rather than a page of them, and so no cursor to hand back.
+    // A knowledge base is tens or hundreds of entries, not a feed, and a list
+    // that silently stopped at two hundred was how a rebuild lost the rest.
     const status = new URL(request.url).searchParams.get('status')
     const page = await kb.listSources(status === 'pending_deletion' ? 'pending_deletion' : 'active')
-    return ok(page.items, { pagination: { cursor: page.cursor } })
+    return ok(page.items)
   })
 
   router.get('/sources/summary', async () => {

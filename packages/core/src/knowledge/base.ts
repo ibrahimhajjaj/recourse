@@ -108,7 +108,7 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions) {
     updateSource,
 
     getSource: (id: string) => store.getSource(id),
-    listSources: (status?: SourceRecord['status']) => store.listSources({ status, limit: 200 }),
+    listSources: (status?: SourceRecord['status']) => allSources(store, status),
 
     async deleteSource(id: string) {
       const deleted = await store.deleteSource(id)
@@ -130,7 +130,7 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions) {
      * know" without anyone noticing until the complaints arrived.
      */
     async train(): Promise<KnowledgeIndex> {
-      const active = await store.listSources({ status: 'active', limit: 500 })
+      const active = await allSources(store, 'active')
 
       const documents: Document[] = []
       for (const record of active.items) {
@@ -181,7 +181,7 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions) {
     index: () => current,
 
     async summary(): Promise<SourcesSummary> {
-      const all = await store.listSources({ limit: 500 })
+      const all = await allSources(store)
       const byType = {
         text: { count: 0, characters: 0 },
         qna: { count: 0, characters: 0 },
@@ -231,3 +231,32 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions) {
 }
 
 export type KnowledgeBase = ReturnType<typeof createKnowledgeBase>
+
+/**
+ * Every source, not the first page of them.
+ *
+ * A page is capped well below the number a real knowledge base holds, so
+ * asking for five hundred and being handed two hundred was the quiet failure
+ * this replaces: a rebuild dropped every source past the cap and the agent
+ * stopped knowing things, with no error anywhere and nothing to notice until
+ * the answers came back wrong.
+ *
+ * The ceiling is there so a corrupt cursor cannot spin forever, and it is high
+ * enough that reaching it means something else is wrong.
+ */
+async function allSources(
+  store: Store,
+  status?: SourceRecord['status'],
+): Promise<{ items: SourceRecord[] }> {
+  const items: SourceRecord[] = []
+  let cursor: string | undefined
+
+  for (let page = 0; page < 500; page++) {
+    const got = await store.listSources({ ...(status ? { status } : {}), limit: 200, ...(cursor ? { cursor } : {}) })
+    items.push(...got.items)
+    cursor = got.cursor
+    if (!cursor) break
+  }
+
+  return { items }
+}

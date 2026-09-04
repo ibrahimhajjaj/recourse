@@ -136,6 +136,12 @@ always right; the in-memory ones now match, and both behaviours are conformance
 assertions every store has to pass. Conversations also had no tiebreak, so two
 touched in the same millisecond could be handed over twice or never.
 
+**A rebuild dropped every source past the first page.** `train()` asked for
+five hundred sources and a page is capped at two hundred, so a knowledge base
+larger than that rebuilt from a fraction of itself: the agent stopped knowing
+things, with no error anywhere and nothing to notice until the answers came
+back wrong. The source list and the summary had the same cap.
+
 **A withheld action result still reached the page.** When a result read as an
 instruction the model was protected, but the `action` frame carrying it had
 already gone out, and the same call reported both `done` and `failed`.
