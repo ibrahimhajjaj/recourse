@@ -240,6 +240,7 @@ the thing you came for.
 | Let someone talk to it from the page | [docs/calls.md](docs/calls.md) |
 | Point a real phone number at it | [docs/twilio.md](docs/twilio.md) |
 | Open tickets, route them, respect working hours | [docs/helpdesk.md](docs/helpdesk.md) |
+| See how long customers wait, and whether the backlog is growing | [docs/helpdesk.md](docs/helpdesk.md#what-the-queue-looks-like) |
 | Hand off to Zendesk, Intercom or another desk | [docs/escalation.md](docs/escalation.md) |
 | Answer someone who did not write in English | [docs/languages.md](docs/languages.md) |
 | Keep it inside its limits | [docs/safety.md](docs/safety.md) |

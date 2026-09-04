@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -140,5 +140,33 @@ describe('counts the documentation states', () => {
 
     expect(claim, 'docs/retrieval.md no longer says how many sources there are').not.toBeNull()
     expect(WORDS[(claim?.[1] ?? '').toLowerCase()], `docs/retrieval.md says "two of ${claim?.[1]}"`).toBe(unique.size)
+  })
+})
+
+/**
+ * The README's table is how anybody finds anything here: one row per job,
+ * pointing at the page that does it. A page nobody links from it is a page
+ * nobody will read, however good it is.
+ */
+describe('the map of the documentation', () => {
+  it('has a row for every page', () => {
+    const readme = readFileSync(join(root, '../../README.md'), 'utf8')
+    const pages = readdirSync(join(root, '../../docs')).filter((file) => file.endsWith('.md'))
+
+    expect(pages.length).toBeGreaterThan(5)
+
+    const missing = pages.filter((page) => !readme.includes(`docs/${page}`))
+    expect(missing, `pages the README never links: ${missing}`).toEqual([])
+  })
+
+  it('points every row at a page that exists', () => {
+    const readme = readFileSync(join(root, '../../README.md'), 'utf8')
+    const linked = [...readme.matchAll(/\]\(docs\/([a-z-]+\.md)/g)].map((match) => match[1] as string)
+    const pages = new Set(readdirSync(join(root, '../../docs')))
+
+    expect(linked.length).toBeGreaterThan(5)
+
+    const broken = [...new Set(linked)].filter((page) => !pages.has(page))
+    expect(broken, `rows pointing at pages that do not exist: ${broken}`).toEqual([])
   })
 })
