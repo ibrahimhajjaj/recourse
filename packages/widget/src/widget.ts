@@ -921,8 +921,14 @@ export function createWidget(options: WidgetOptions) {
     state.suggestions = []
     repaint()
 
+    // Sent again with the question, because they travel beside the message
+    // rather than inside it: without this a retried "what is wrong with this?"
+    // reaches the model with the photo missing, and it answers about nothing.
+    const asked = state.messages[state.messages.length - 1]
+    const files = asked?.role === 'user' ? asked.attachments : undefined
+
     state.controller = new AbortController()
-    await runTurn(undefined, undefined, true)
+    await runTurn(undefined, files, true)
 
     state.busy = false
     paintComposer()

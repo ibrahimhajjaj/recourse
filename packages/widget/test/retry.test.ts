@@ -111,3 +111,33 @@ describe('trying again', () => {
     expect(retryButton(root)).toBeNull()
   })
 })
+
+describe('retrying a question that came with a photo', () => {
+  /** Drives the picker the way a real one does; happy-dom has no dialog. */
+  function pick(root: ShadowRoot, files: File[]) {
+    const picker = root.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(picker, 'files', { value: files, configurable: true })
+    picker.dispatchEvent(new Event('change'))
+  }
+
+  it('sends the photo again, or the second answer is about nothing', async () => {
+    // Files travel beside the message rather than inside it, so a retry that
+    // sends only the text reaches the model with the picture missing.
+    const root = mount({ attachments: true })
+    const sent = stub(['That looks fine.', 'That is a cracked seal.'])
+
+    pick(root, [new File([new Uint8Array(64)], 'kettle.png', { type: 'image/png' })])
+    for (let tick = 0; tick < 60; tick++) {
+      if (root.querySelector('.tray img')) break
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+
+    await ask(root, 'what is wrong with this?')
+    expect((sent[0] as { attachments?: unknown[] }).attachments).toHaveLength(1)
+
+    retryButton(root)?.click()
+    await settle()
+
+    expect((sent[1] as { attachments?: Array<{ name: string }> }).attachments?.[0]?.name).toBe('kettle.png')
+  })
+})
