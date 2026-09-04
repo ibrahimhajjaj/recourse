@@ -576,6 +576,10 @@ export const styles = `
 .ui-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--rc-muted); }
 .ui-field input[type="text"],
 .ui-field input[type="number"],
+.ui-field input[type="email"],
+.ui-field input[type="tel"],
+.ui-field input[type="date"],
+.ui-field textarea,
 .ui-field select {
   font: inherit;
   font-size: 14px;
@@ -585,7 +589,12 @@ export const styles = `
   border-radius: 9px;
   padding: 8px 10px;
 }
-.ui-field input:focus, .ui-field select:focus { outline: 2px solid var(--rc-accent); outline-offset: -1px; }
+.ui-field input:focus, .ui-field textarea:focus, .ui-field select:focus {
+  outline: 2px solid var(--rc-accent);
+  outline-offset: -1px;
+}
+/* Down only. Wider is the panel's job and it has none to give. */
+.ui-field textarea { resize: vertical; min-height: 60px; }
 .ui-field input[type="checkbox"] { width: 16px; height: 16px; }
 
 /* The nudge above the launcher, before anyone has opened the panel. */

@@ -103,7 +103,12 @@ behind it. Checkout and sign-in are the exceptions, because both are built to
 own the whole window and neither works well in a tab somebody forgets about.
 
 Four kinds ship: `button`, `card`, `table` and `list`, plus forms the customer
-can fill in. Your own action emits one directly:
+can fill in. A form field takes an `input` when a plain text box is the wrong
+control: `date` gets a picker, `email` and `tel` get the right keyboard on a
+phone and the browser's own checking, `multiline` gets somewhere to describe
+what happened. `type` stays what the model is told the value is, since a date
+and an email address are both strings to it. A field listing `options` is a
+dropdown either way. Your own action emits one directly:
 
 ```ts
 ctx.emit({

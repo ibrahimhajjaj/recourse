@@ -58,6 +58,17 @@ export function customButton(options: CustomButtonOptions): Action {
 export interface FormField extends ActionField {
   label: string
   placeholder?: string
+  /**
+   * The control to draw, where a plain text box is the wrong one.
+   *
+   * Separate from `type`, which is what the model is told the value is: a date
+   * and an email address are both strings to it, and both are the wrong box to
+   * put in front of somebody on a phone. `date` gets a picker, `email` and
+   * `tel` get the right keyboard and the browser's own checking, `multiline`
+   * gets somewhere to describe what happened rather than a single line that
+   * scrolls sideways.
+   */
+  input?: 'text' | 'multiline' | 'email' | 'tel' | 'date'
 }
 
 export interface CustomFormOptions {
@@ -104,6 +115,7 @@ export function formSchema(options: CustomFormOptions) {
       name: field.name,
       label: field.label,
       type: field.type,
+      input: field.input,
       placeholder: field.placeholder,
       required: field.required !== false,
       options: field.options,

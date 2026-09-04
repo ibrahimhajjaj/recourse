@@ -301,3 +301,37 @@ describe('buttons', () => {
     expect(here.node?.querySelector('a')?.rel).toBe('noopener noreferrer')
   })
 })
+
+describe('form fields that are not a text box', () => {
+  const draw = (field: Record<string, unknown>) => {
+    const form = renderForm(
+      { title: 'Warranty claim', submitLabel: 'Send', fields: [{ name: 'x', label: 'X', type: 'string', ...field }] },
+      context(),
+    )
+    return form.querySelector('.ui-field input, .ui-field textarea, .ui-field select') as HTMLElement
+  }
+
+  it('draws a picker for a date and the right keyboard for an address or a number', () => {
+    // All strings to the model, all the wrong box in front of somebody on a
+    // phone, which is why the control is named separately from the type.
+    expect((draw({ input: 'date' }) as HTMLInputElement).type).toBe('date')
+    expect((draw({ input: 'email' }) as HTMLInputElement).type).toBe('email')
+    expect((draw({ input: 'tel' }) as HTMLInputElement).type).toBe('tel')
+  })
+
+  it('gives somewhere to describe what happened', () => {
+    const area = draw({ input: 'multiline' }) as HTMLTextAreaElement
+    expect(area.tagName).toBe('TEXTAREA')
+    expect(area.required).toBe(true)
+  })
+
+  it('falls back to a text box for anything it does not know', () => {
+    expect((draw({ input: 'colour-wheel' }) as HTMLInputElement).type).toBe('text')
+    expect((draw({}) as HTMLInputElement).type).toBe('text')
+    expect((draw({ type: 'number' }) as HTMLInputElement).type).toBe('number')
+  })
+
+  it('still prefers a dropdown when the field lists its options', () => {
+    expect(draw({ input: 'date', options: ['Yes', 'No'] }).tagName).toBe('SELECT')
+  })
+})

@@ -286,6 +286,7 @@ export function renderForm(
       name?: unknown
       label?: unknown
       type?: unknown
+      input?: unknown
       placeholder?: unknown
       required?: unknown
       options?: unknown
@@ -312,14 +313,20 @@ export function renderForm(
       const input = document.createElement('input')
       input.type = 'checkbox'
       element = input
+    } else if (field.input === 'multiline') {
+      const area = document.createElement('textarea')
+      area.rows = 3
+      if (field.placeholder) area.placeholder = str(field.placeholder)
+      element = area
     } else {
       const input = document.createElement('input')
-      input.type = field.type === 'number' ? 'number' : 'text'
+      input.type = inputType(field.input, field.type)
       if (field.placeholder) input.placeholder = str(field.placeholder)
       element = input
     }
 
     element.name = name
+    if (field.required !== false && element instanceof HTMLTextAreaElement) element.required = true
     if (field.required !== false && element instanceof HTMLInputElement && element.type !== 'checkbox') {
       element.required = true
     }
@@ -364,4 +371,17 @@ export const RENDERERS: Record<string, UiRenderer> = { button, card, table, list
 export function renderUi(frame: UiFrame, context: UiContext): HTMLElement | null {
   const renderer = RENDERERS[frame.kind]
   return renderer ? renderer(frame.data, context) : null
+}
+
+/**
+ * The `type` attribute for a field.
+ *
+ * An unknown value falls back to text rather than being passed through: these
+ * come from a form definition that crossed the wire, and a browser given a
+ * type it does not recognise draws a text box anyway. Doing it here means the
+ * same thing happens in every browser.
+ */
+function inputType(input: unknown, type: unknown): string {
+  if (input === 'date' || input === 'email' || input === 'tel') return input
+  return type === 'number' ? 'number' : 'text'
 }
