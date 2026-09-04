@@ -170,8 +170,11 @@ export interface AgentOptions {
    * something the customer may never click.
    *
    * Skipped when the model already offered some itself, when the reply is
-   * empty, and when the conversation has been handed to a person, who does not
-   * need a widget proposing what to say to them.
+   * empty, when the conversation has been handed to a person, who does not
+   * need a widget proposing what to say to them, when the spending cap has
+   * been reached since the answer started, and when retrieval found nothing:
+   * proposing three more questions under one the agent could not answer is
+   * being cheerful about a gap.
    */
   followUps?: boolean | { max?: number }
   /**
@@ -1099,15 +1102,8 @@ export function createAgent(options: AgentOptions) {
     // After the answer, never before: the customer reads the reply while this
     // runs, and a turn that waited on it would be slower for the sake of
     // something they may never click.
-    // Checked again, not just at the top of the turn. The cap was read before
-    // the answer and the answer has since been paid for, so a deployment that
-    // crossed the line during it would otherwise buy a row of buttons on the
-    // wrong side of its own limit, on every reply.
-    const affordable = !options.budget || (await options.budget.check()).ok
-
     if (
       followUps &&
-      affordable &&
       answered.trim() &&
       !handedOver &&
       // Retrieval found nothing, so the agent has just failed to answer. A row
@@ -1117,12 +1113,24 @@ export function createAgent(options: AgentOptions) {
       matches.length > 0 &&
       !ran.some((call) => call.name === 'suggest_replies')
     ) {
-      const proposed = await proposeFollowUps(spoke, question, answered, followUps.max ?? 3, signal)
-      if (proposed.items.length > 0) yield { type: 'suggestions', items: proposed.items }
-      // Billed like any other call, because it is one, on every reply. A cap
-      // that did not see this would be off by a call per message.
-      if (options.budget && (proposed.usage.inputTokens || proposed.usage.outputTokens)) {
-        await options.budget.record(nameOf(spoke), proposed.usage)
+      // Read again, not just at the top of the turn: the cap was checked before
+      // the answer and the answer has since been paid for, so a deployment that
+      // crossed the line during it would buy a row of buttons on the wrong side
+      // of its own limit. Inside the condition rather than above it, because a
+      // shared limiter is a network round trip and the deployments that never
+      // asked for follow-ups must not pay for one on every reply.
+      // Not `return`: the turn still owes the caller a `done` frame, and a
+      // client that never gets one waits for an answer that has already been
+      // delivered.
+      if (!options.budget || (await options.budget.check()).ok) {
+        const proposed = await proposeFollowUps(spoke, question, answered, followUps.max ?? 3, signal)
+        if (proposed.items.length > 0) yield { type: 'suggestions', items: proposed.items }
+
+        // Billed like any other call, because it is one, on every reply. A cap
+        // that did not see this would be off by a call per message.
+        if (options.budget && (proposed.usage.inputTokens || proposed.usage.outputTokens)) {
+          await options.budget.record(nameOf(spoke), proposed.usage)
+        }
       }
     }
 

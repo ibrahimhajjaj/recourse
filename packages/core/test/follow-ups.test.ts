@@ -154,6 +154,27 @@ describe('follow-up questions after every reply', () => {
     expect(seen.some((frame) => frame.type === 'delta')).toBe(true)
     expect(seen.some((frame) => frame.type === 'suggestions')).toBe(false)
     expect(generated).toEqual([])
+    // The turn still owes a `done`, or a client waits for an answer it has.
+    expect(seen[seen.length - 1]).toMatchObject({ type: 'done' })
+  })
+
+  it('does not read a shared cap on a turn that was never going to ask', async () => {
+    // `check()` is a network round trip on a shared limiter, and doubling it
+    // on every reply is a real cost for deployments that never turned this on.
+    let checks = 0
+    const budget = {
+      check: async () => {
+        checks++
+        return { ok: true as const }
+      },
+      spent: async () => ({ day: { tokens: 0, dollars: 0 }, month: { tokens: 0, dollars: 0 } }),
+      record: async () => {},
+    }
+
+    const { instance } = model()
+    await frames(await agentWith(instance, { budget }), 'do you do refunds?')
+
+    expect(checks).toBe(1)
   })
 
   it('bills the extra call, since it happens on every reply', async () => {
