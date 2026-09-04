@@ -218,19 +218,23 @@ export function createChatHandler(options: ChatHandlerOptions) {
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
     if (request.method !== 'POST') {
-      return json({ error: 'method not allowed' }, 405, cors)
+      return json({ error: 'method not allowed', code: 'method_not_allowed' }, 405, cors)
     }
 
     const gate = await limiter.check(callerKey(request))
     if (!gate.ok) {
-      return json({ error: 'too many requests' }, 429, { ...cors, 'Retry-After': String(gate.retryAfter) })
+      return json(
+        { error: options.rateLimit?.message ?? 'too many requests', code: 'rate_limited' },
+        429,
+        { ...cors, 'Retry-After': String(gate.retryAfter) },
+      )
     }
 
     let body: unknown
     try {
       body = await request.json()
     } catch {
-      return json({ error: 'expected a JSON body' }, 400, cors)
+      return json({ error: 'expected a JSON body', code: 'bad_request' }, 400, cors)
     }
 
     // Thumbs arrive on the same endpoint, so the widget needs no second URL to
@@ -320,7 +324,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
     )
 
     if (identity.rejected) {
-      return json({ error: 'identity could not be verified' }, 401, cors)
+      return json({ error: 'identity could not be verified', code: 'unverified_identity' }, 401, cors)
     }
 
     const recent = messages.slice(-maxHistory)
@@ -412,19 +416,19 @@ async function recordFeedback(
   }
 
   if (typeof conversationId !== 'string' || typeof messageIndex !== 'number') {
-    return json({ error: 'feedback needs conversationId and messageIndex' }, 400, cors)
+    return json({ error: 'feedback needs conversationId and messageIndex', code: 'bad_request' }, 400, cors)
   }
   if (value !== 'positive' && value !== 'negative' && value !== null) {
-    return json({ error: 'feedback value must be positive, negative or null' }, 400, cors)
+    return json({ error: 'feedback value must be positive, negative or null', code: 'bad_request' }, 400, cors)
   }
-  if (!store) return json({ error: 'no store configured to record feedback' }, 501, cors)
+  if (!store) return json({ error: 'no store configured to record feedback', code: 'not_configured' }, 501, cors)
 
   const found = await store.getConversation(conversationId)
-  if (!found) return json({ error: 'unknown conversation' }, 404, cors)
+  if (!found) return json({ error: 'unknown conversation', code: 'not_found' }, 404, cors)
 
   const replies = found.messages.filter((message) => message.role === 'assistant')
   const target = replies[messageIndexToReply(messageIndex, found.messages)]
-  if (!target) return json({ error: 'unknown message' }, 404, cors)
+  if (!target) return json({ error: 'unknown message', code: 'not_found' }, 404, cors)
 
   await store.setFeedback(conversationId, target.id, value)
   return new Response(null, { status: 204, headers: cors })

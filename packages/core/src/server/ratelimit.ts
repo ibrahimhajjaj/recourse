@@ -2,6 +2,14 @@ export interface RateLimitOptions {
   /** Requests allowed per window, per caller. Zero disables the limiter. */
   limit?: number
   windowMs?: number
+  /**
+   * What a throttled visitor is told.
+   *
+   * The default says a machine refused them. A shop that knows its own traffic
+   * can say something a customer can act on, and the one who trips this is
+   * usually a real person asking too fast rather than the script it is for.
+   */
+  message?: string
 }
 
 export interface RateLimitResult {
