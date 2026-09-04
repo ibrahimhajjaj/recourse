@@ -322,7 +322,16 @@ export function fileStore(options: FileStoreOptions): Store {
       const existing = tickets.get(ticketNumber)
       if (!existing) return null
 
-      const updated: Ticket = { ...existing, ...patch, ticketNumber, updatedAt: new Date().toISOString() }
+      // The patch's own timestamp when it carries one, matching the SQL stores.
+      // An import knows when the thing happened, and stamping it "now" in one
+      // store and not another is how a queue comes back in a different order
+      // depending on where it lives.
+      const updated: Ticket = {
+        ...existing,
+        ...patch,
+        ticketNumber,
+        updatedAt: patch.updatedAt ?? new Date().toISOString(),
+      }
       tickets.set(ticketNumber, updated)
       await append(ticketsLog, {
         kind: 'ticket-patch',

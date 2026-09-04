@@ -161,7 +161,11 @@ export function memoryStore(options: MemoryStoreOptions = {}): Store {
         ...existing,
         ...patch,
         ticketNumber,
-        updatedAt: new Date().toISOString(),
+        // The patch's own timestamp when it carries one, which is what the SQL
+        // stores already do. A backfill or an import knows when the thing
+        // happened, and stamping it "now" in one store and not another is how
+        // a queue comes back in a different order depending on where it lives.
+        updatedAt: patch.updatedAt ?? new Date().toISOString(),
       }
       tickets.set(ticketNumber, updated)
       return updated
