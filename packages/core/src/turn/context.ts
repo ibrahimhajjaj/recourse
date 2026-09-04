@@ -8,6 +8,16 @@ import { INPUT_RULES, runRules } from '../safety/rules.js'
 import { passageText } from '../server/prompt.js'
 import type { Channel } from '../store/types.js'
 
+/**
+ * Procedure and channel pairs already reported as unrunnable.
+ *
+ * Module scope on purpose. The alternative is a warning on every message, and
+ * a deployment with one web-only procedure and any WhatsApp traffic fills its
+ * log with the same line forever. Bounded by how many procedures and channels
+ * are configured, which is a handful, rather than by traffic.
+ */
+const announced = new Set<string>()
+
 export interface TurnContext {
   /** The passages, with any that carry instructions dropped. */
   matches: Match[]
@@ -65,7 +75,18 @@ export function resolveContext(input: {
     input.actions.filter((action) => worksHere(action, here)),
   )
   for (const { name, missing } of dropped) {
-    input.logger.warn(`procedure ${name} is not available here`, { missing: missing.join(', ') })
+    // Once per procedure per channel, not once per message. This is a
+    // configuration fact rather than an event: it is true of every turn on
+    // that channel, and saying so on every one buries everything else in the
+    // log while telling an operator nothing they did not learn the first time.
+    const said = `${name}:${input.channel ?? 'any'}`
+    if (announced.has(said)) continue
+    announced.add(said)
+
+    input.logger.warn(
+      `procedure "${name}" cannot run on ${input.channel ?? 'this channel'}: ` +
+        `${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} not available here`,
+    )
   }
 
   const matched = matchingProcedures(usable, said, input.channel)

@@ -166,6 +166,37 @@ describe('a turn where two procedures both match', () => {
 })
 
 describe('a procedure whose actions this channel cannot run', () => {
+  it('says so once per channel rather than once per message', () => {
+    // A configuration fact, not an event: it is true of every turn on that
+    // channel, and repeating it buries everything else in the log while
+    // telling an operator nothing they did not learn the first time.
+    const said: string[] = []
+    const noisy = { warn: (message: string) => void said.push(message), error: () => {} }
+
+    const ask = (channel: string) =>
+      resolveContext({
+        messages: [{ role: 'user', content: 'I want to claim on the warranty for my kettle' }],
+        found: [],
+        // A fresh name each run, so an earlier test in this file has not
+        // already used up the one warning this is checking for.
+        procedures: [{ ...claim, name: `warranty_claim_${channel}` }],
+        actions: [form, notes],
+        passageThreshold: null,
+        channel,
+        logger: noisy,
+      })
+
+    ask('whatsapp')
+    ask('whatsapp')
+    ask('whatsapp')
+    expect(said).toHaveLength(1)
+    expect(said[0]).toContain('whatsapp')
+
+    // A different channel is a different fact, and worth saying once too.
+    ask('sms')
+    expect(said).toHaveLength(2)
+  })
+
   it('runs where every action it names is available', () => {
     expect(context('web').applicable.map((p) => p.name)).toEqual(['warranty_claim'])
   })
