@@ -1110,6 +1110,11 @@ export function createAgent(options: AgentOptions) {
       affordable &&
       answered.trim() &&
       !handedOver &&
+      // Retrieval found nothing, so the agent has just failed to answer. A row
+      // of buttons proposing more questions under that is the widget being
+      // cheerful about a gap, and every one of them is a question it is about
+      // to fail in the same way.
+      matches.length > 0 &&
       !ran.some((call) => call.name === 'suggest_replies')
     ) {
       const proposed = await proposeFollowUps(spoke, question, answered, followUps.max ?? 3, signal)

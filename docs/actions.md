@@ -50,8 +50,9 @@ createAgent({ ..., followUps: true })
 ```
 
 It costs a second model call on every reply, which is the trade. It is skipped
-when the model offered some itself, when the reply is empty, and once a person
-has the conversation.
+when the model offered some itself, when the reply is empty, once a person has
+the conversation, and when retrieval found nothing: proposing more questions
+under an answer the agent could not give is being cheerful about a gap.
 
 `suggestedMessages({ pickOne: true })` takes the text box away while its
 suggestions are on screen, so the only way on is to choose one. For a guided

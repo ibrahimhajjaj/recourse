@@ -113,6 +113,23 @@ describe('follow-up questions after every reply', () => {
     expect((seen.find((frame) => frame.type === 'suggestions') as { items: string[] }).items).toEqual(['One?', 'Two?'])
   })
 
+  it('offers none when the agent just failed to answer', async () => {
+    // Retrieval found nothing, so a row of buttons proposing more questions is
+    // the widget being cheerful about a gap, and every one of them is a
+    // question it is about to fail in the same way.
+    const { instance, generated } = model()
+    const agent = createAgent({
+      index: await buildIndex({ sources: [textSource([{ id: 'r', title: 'Hours', text: 'We open at nine.' }])] }),
+      model: instance,
+      followUps: true,
+    })
+
+    const seen = await frames(agent, 'zzzz quantum flux capacitor')
+
+    expect(seen.some((frame) => frame.type === 'suggestions')).toBe(false)
+    expect(generated).toEqual([])
+  })
+
   it('says nothing when the model proposes nothing', async () => {
     const { instance } = model('   ')
     const seen = await frames(await agentWith(instance, { followUps: true }), 'do you do refunds?')
