@@ -85,6 +85,12 @@ month, where `ana@` takes every tie and `zoe@` takes none. Somebody who has
 never been assigned anything counts as having waited longest, so a new
 teammate starts at the front rather than at the back forever.
 
+How busy somebody is comes from asking about them, one small query per member
+of the team, rather than reading a page of the queue and counting. A page is
+the most recently touched tickets, so a backlog of unclaimed work filled it and
+made everybody look idle: the agent buried under a hundred and fifty was handed
+the next one, and a cap on open tickets never tripped.
+
 Both are also settable per team, and the team's own value wins. Teams are
 different sizes doing different work: two people on billing pick their own
 tickets and know each other's cases, ten on general support want them spread

@@ -140,6 +140,12 @@ touched in the same millisecond could be handed over twice or never.
 instruction the model was protected, but the `action` frame carrying it had
 already gone out, and the same call reported both `done` and `failed`.
 
+**How busy an agent is was counted off one page of the queue.** That page is
+the most recently touched tickets, so a backlog of unclaimed work filled it and
+made everybody look idle: the agent buried under a hundred and fifty open
+tickets was handed the next one, and a cap never tripped. It asks about each
+member of the team instead, which is exact and less work.
+
 **A tie in ticket assignment went alphabetically.** Two agents on the same load
 were separated by their id, so the one whose email sorted first took every tie
 there would ever be. It goes to whoever has waited longest now, with somebody

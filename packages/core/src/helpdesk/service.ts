@@ -4,7 +4,7 @@ import type { Webhooks } from '../webhooks/index.js'
 import type { Agent } from '../agent.js'
 import { defaultViews, evaluateTriggers, type SavedView, type Trigger } from './triggers.js'
 import type { Channel } from '../store/types.js'
-import { assignTicket, loadOf, type AssignmentAlgorithm } from './assignment.js'
+import { assignTicket, type AssignmentAlgorithm, type Availability } from './assignment.js'
 import { ticketStats } from './stats.js'
 import { routeTicket, type RoutingRule } from './routing.js'
 import { DEFAULT_STATUSES, defaultStatusFor, validateStatuses } from './statuses.js'
@@ -132,6 +132,42 @@ export function createHelpdesk(options: HelpdeskOptions) {
   const views = options.views ?? defaultViews()
 
   /**
+   * What each member of a team currently has open, and when they last got one.
+   *
+   * Asked per person rather than by scanning a page of the queue. The scan was
+   * one call reading two hundred tickets, which is both more work and wrong:
+   * a desk with more open tickets than that undercounted everybody, so the
+   * least-busy agent was whoever happened to be missing from the page and a
+   * cap on open tickets never tripped.
+   *
+   * One query each, returning a count and their newest ticket, which is all
+   * the two algorithms need between them.
+   */
+  async function loadOfTeam(members: string[]): Promise<Availability[]> {
+    return Promise.all(
+      members.map(async (id) => {
+        const page = await store.listTickets({
+          openOnly: true,
+          assigneeId: id,
+          limit: 1,
+          includeTotal: true,
+          sortBy: 'created',
+          order: 'desc',
+        })
+
+        const newest = page.items[0]
+
+        return {
+          id,
+          available: true,
+          openTickets: page.total ?? page.items.length,
+          ...(newest ? { lastAssignedAt: newest.createdAt } : {}),
+        }
+      }),
+    )
+  }
+
+  /**
    * Applies whatever the rules decided.
    *
    * Runs after the ticket exists rather than on the draft, because a rule can
@@ -225,8 +261,7 @@ export function createHelpdesk(options: HelpdeskOptions) {
     } else if (draft.teamId) {
       const team = teams.find((candidate) => candidate.id === draft.teamId)
       if (team?.members.length) {
-        const open = await store.listTickets({ openOnly: true, limit: 200 })
-        const loads = loadOf(open.items, team.members)
+        const loads = await loadOfTeam(team.members)
 
         const maxOpen = team.maxOpenPerAgent ?? options.maxOpenPerAgent
 

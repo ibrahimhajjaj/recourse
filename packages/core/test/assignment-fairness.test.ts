@@ -181,3 +181,91 @@ describe('a team that works differently from the rest of the desk', () => {
     expect(second.assigneeId).toBeUndefined()
   })
 })
+
+describe('a desk with more open tickets than one page', () => {
+  /** A ticket somebody already holds, dated so the ordering is deliberate. */
+  async function backlog(
+    store: ReturnType<typeof memoryStore>,
+    count: number,
+    at: string,
+    assigneeId?: string,
+  ) {
+    for (let index = 0; index < count; index++) {
+      await store.createTicket({
+        subject: `Backlog ${index}`,
+        description: 'x',
+        statusId: 'new',
+        statusCategory: 'new',
+        customer: { email: 'sam@example.com' },
+        channel: 'web',
+        metadata: {},
+        createdAt: at,
+        updatedAt: at,
+        ...(assigneeId ? { assigneeId } : {}),
+      })
+    }
+  }
+
+  it('still knows who is busiest behind a queue of unassigned work', async () => {
+    // The scan read the most recently touched page, so a backlog of unclaimed
+    // tickets filled it and both agents looked idle. Ana is buried under a
+    // hundred and fifty and would have been handed the next one.
+    const store = memoryStore()
+    const desk = createHelpdesk({
+      store,
+      assignment: 'least_busy',
+      teams: [
+        { id: 'support', name: 'Support', isDefault: true, members: ['ana@shop.example', 'zoe@shop.example'] },
+      ],
+    })
+
+    await backlog(store, 150, '2026-01-01T00:00:00.000Z', 'ana@shop.example')
+    await backlog(store, 5, '2026-02-01T00:00:00.000Z', 'zoe@shop.example')
+    await backlog(store, 200, '2026-03-01T00:00:00.000Z')
+
+    const next = await desk.openTicket({
+      subject: 'The next one',
+      description: 'x',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+    })
+
+    expect(next.assigneeId).toBe('zoe@shop.example')
+  })
+
+  it('trips a cap that a page scan would have missed', async () => {
+    const store = memoryStore()
+    const desk = createHelpdesk({
+      store,
+      assignment: 'least_busy',
+      teams: [
+        { id: 'support', name: 'Support', isDefault: true, members: ['ana@shop.example'], maxOpenPerAgent: 100 },
+      ],
+    })
+
+    const now = new Date().toISOString()
+    for (let index = 0; index < 250; index++) {
+      await store.createTicket({
+        subject: `Old ${index}`,
+        description: 'x',
+        statusId: 'new',
+        statusCategory: 'new',
+        customer: { email: 'sam@example.com' },
+        channel: 'web',
+        metadata: {},
+        createdAt: now,
+        updatedAt: now,
+        assigneeId: 'ana@shop.example',
+      })
+    }
+
+    const next = await desk.openTicket({
+      subject: 'The next one',
+      description: 'x',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+    })
+
+    expect(next.assigneeId).toBeUndefined()
+  })
+})
