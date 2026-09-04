@@ -108,30 +108,49 @@ export async function whatsAppTemplates(options: {
   apiVersion?: string
 }): Promise<ApprovedTemplate[]> {
   const version = options.apiVersion ?? 'v21.0'
-  const url = `https://graph.facebook.com/${version}/${options.businessAccountId}/message_templates?limit=100`
+  const headers = { Authorization: `Bearer ${options.accessToken}` }
+  const found: ApprovedTemplate[] = []
 
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${options.accessToken}` } })
-  if (!response.ok) {
-    throw new Error(`could not read WhatsApp templates: ${response.status} ${(await response.text()).slice(0, 300)}`)
+  // Followed to the end rather than reading the first hundred. An account with
+  // more than that would otherwise report a template as missing when it is
+  // simply on page two, and the caller's whole reason for asking is to find out
+  // whether the one it is about to send four thousand times exists.
+  let next: string | null =
+    `https://graph.facebook.com/${version}/${encodeURIComponent(options.businessAccountId)}/message_templates?limit=100`
+
+  // A ceiling on the walk, so a paging cursor that never terminates cannot
+  // turn a pre-flight check into an infinite loop.
+  for (let page = 0; next && page < 50; page++) {
+    const response: Response = await fetch(next, { headers })
+    if (!response.ok) {
+      throw new Error(`could not read WhatsApp templates: ${response.status} ${(await response.text()).slice(0, 300)}`)
+    }
+
+    const body = (await response.json()) as {
+      data?: Array<{
+        name?: string
+        language?: string
+        status?: string
+        category?: string
+        components?: Array<{ type?: string; text?: string }>
+      }>
+      paging?: { next?: string }
+    }
+
+    for (const template of body.data ?? []) {
+      found.push({
+        name: template.name ?? '',
+        language: template.language ?? '',
+        status: template.status ?? '',
+        category: template.category ?? '',
+        variables: countHoles(template.components ?? []),
+      })
+    }
+
+    next = body.paging?.next ?? null
   }
 
-  const body = (await response.json()) as {
-    data?: Array<{
-      name?: string
-      language?: string
-      status?: string
-      category?: string
-      components?: Array<{ type?: string; text?: string }>
-    }>
-  }
-
-  return (body.data ?? []).map((template) => ({
-    name: template.name ?? '',
-    language: template.language ?? '',
-    status: template.status ?? '',
-    category: template.category ?? '',
-    variables: countHoles(template.components ?? []),
-  }))
+  return found
 }
 
 /** How many `{{n}}` the body carries. */

@@ -113,6 +113,12 @@ can repeat to the next one.
 Any desk works: `load` is a function returning `{ id, subject, question, answer }`,
 so a CSV export or your own database is the same amount of work.
 
+The Zendesk reader costs a request per ticket, because the resolution is in the
+comments and the search does not carry them. It reads them one at a time on
+purpose: a burst of two hundred is how an index build ends up rate limited. Keep
+`limit` to what you actually want indexed, and remember this runs at build time
+rather than per answer.
+
 All of them compose. Passing four sources to `buildIndex` indexes all four into
 one knowledge base, and a chunk cites whichever it came from.
 

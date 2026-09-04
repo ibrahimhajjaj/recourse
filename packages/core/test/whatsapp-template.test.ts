@@ -111,6 +111,52 @@ describe('reading the approved list before a campaign', () => {
     expect(templates[1]?.status).toBe('PENDING')
   })
 
+  it('reads past the first hundred, or a real template looks missing', async () => {
+    // The whole reason to ask is to find out whether the template you are
+    // about to send four thousand times exists. Stopping at page one reports
+    // it missing when it is simply further down the list.
+    const asked: string[] = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async (url: string) => {
+      asked.push(String(url))
+      return new Response(
+        JSON.stringify(
+          asked.length === 1
+            ? { data: [{ name: 'first', status: 'APPROVED' }], paging: { next: 'https://graph.facebook.com/next' } }
+            : { data: [{ name: 'order_shipped', status: 'APPROVED' }] },
+        ),
+        { status: 200 },
+      )
+    }) as unknown as typeof fetch
+
+    try {
+      const templates = await whatsAppTemplates({ businessAccountId: '999', accessToken: 'tok' })
+
+      expect(asked).toHaveLength(2)
+      expect(templates.map((one) => one.name)).toEqual(['first', 'order_shipped'])
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('stops walking rather than looping forever on a cursor that never ends', async () => {
+    const originalFetch = globalThis.fetch
+    let pages = 0
+    globalThis.fetch = vi.fn(async () => {
+      pages++
+      return new Response(JSON.stringify({ data: [{ name: `t${pages}` }], paging: { next: 'https://x/next' } }), {
+        status: 200,
+      })
+    }) as unknown as typeof fetch
+
+    try {
+      const templates = await whatsAppTemplates({ businessAccountId: '999', accessToken: 'tok' })
+      expect(templates.length).toBeLessThanOrEqual(50)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('asks the business account, which is not the phone number id', async () => {
     const seen = stub({ data: [] })
     await whatsAppTemplates({ businessAccountId: '999', accessToken: 'tok' })
