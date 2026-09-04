@@ -12,6 +12,7 @@
  */
 
 import type { Conversation, Store, StoredMessage } from './store/types.js'
+import { upTo } from './store/paginate.js'
 
 export interface Outcomes {
   /** Conversations examined. */
@@ -83,10 +84,14 @@ export interface OutcomeOptions {
  */
 export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
   const withinMs = (options.withinDays ?? 7) * 24 * 60 * 60 * 1000
-  const page = await options.store.listConversations({ limit: options.limit ?? 500 })
+  // Read across pages. A page is capped below this, so asking for five hundred
+  // used to be answered with two hundred and reported as five hundred's worth.
+  const items = await upTo(options.limit ?? 500, (cursor) =>
+    options.store.listConversations({ limit: 200, ...(cursor ? { cursor } : {}) }),
+  )
 
   const tally: Outcomes = {
-    conversations: page.items.length,
+    conversations: items.length,
     looksAnswered: 0,
     escalated: 0,
     unanswered: 0,
@@ -97,7 +102,7 @@ export async function outcomes(options: OutcomeOptions): Promise<Outcomes> {
   }
 
   // Oldest first, so "did anybody come back" is a question about what follows.
-  const ordered = [...page.items].sort(
+  const ordered = [...items].sort(
     (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
   )
 

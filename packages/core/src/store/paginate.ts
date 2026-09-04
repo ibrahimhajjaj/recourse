@@ -98,3 +98,30 @@ export function pageAfter<T>(
 export function byNewest<T extends { id: string }>(at: (item: T) => string): (a: T, b: T) => number {
   return (a, b) => at(b).localeCompare(at(a)) || b.id.localeCompare(a.id)
 }
+
+/**
+ * Reads up to `most` rows, across as many pages as that takes.
+ *
+ * A page is capped well below what a caller often wants, and asking for more
+ * than the cap is silently honoured as the cap. That is how a rebuild came to
+ * read a fifth of a knowledge base, how a report said it had looked at five
+ * hundred conversations when it had seen two hundred, and how the busiest
+ * agent on a desk looked idle: every one of them a confident wrong number
+ * rather than an error.
+ *
+ * The page count is bounded as well as the row count, so a store handing back
+ * a cursor that never resolves cannot spin here forever.
+ */
+export async function upTo<T>(most: number, fetch: (cursor?: string) => Promise<Page<T>>): Promise<T[]> {
+  const rows: T[] = []
+  let cursor: string | undefined
+
+  for (let page = 0; page < 1000 && rows.length < most; page++) {
+    const got = await fetch(cursor)
+    rows.push(...got.items)
+    cursor = got.cursor
+    if (!cursor) break
+  }
+
+  return rows.slice(0, most)
+}

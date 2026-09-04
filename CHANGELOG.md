@@ -136,6 +136,15 @@ always right; the in-memory ones now match, and both behaviours are conformance
 assertions every store has to pass. Conversations also had no tiebreak, so two
 touched in the same millisecond could be handed over twice or never.
 
+**Four things read one page and treated it as the whole set.** A page is capped
+below what these callers ask for, and asking for more is silently honoured as
+the cap, so each one produced a confident wrong number rather than an error: a
+rebuild that saw a fifth of the knowledge base, a report that said it had looked
+at five hundred conversations having seen two hundred, an agent workload count
+that made the busiest person on the desk look idle, and queue statistics for the
+first two hundred tickets. `upTo` from `@recourse-ai/core/store` is the shared
+way to read past a page.
+
 **A rebuild dropped every source past the first page.** `train()` asked for
 five hundred sources and a page is capped at two hundred, so a knowledge base
 larger than that rebuilt from a fraction of itself: the agent stopped knowing

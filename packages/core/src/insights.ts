@@ -21,6 +21,7 @@ import type { LanguageModel } from 'ai'
 import { patchConversationMeta } from './store/meta.js'
 import { getLogger } from './diagnostics.js'
 import type { Conversation, Store, StoredMessage } from './store/types.js'
+import { upTo } from './store/paginate.js'
 
 /** Where the answers live on the conversation, so a store needs no migration. */
 export const INSIGHT_KEYS = {
@@ -149,11 +150,26 @@ export function insightOf(conversation: Conversation): Partial<Insight> {
 }
 
 async function staleConversations(store: Store, limit: number): Promise<Conversation[]> {
-  // Read wider than the limit, because the marked ones are a minority of any
-  // page and asking for exactly `limit` would usually return fewer.
-  const page = await store.listConversations({ limit: limit * 5 })
+  // Read across pages until enough marked ones turn up, rather than filtering
+  // one page and hoping. The marked ones are a minority anywhere, and the list
+  // is newest first, so a stale summary on a conversation nobody has touched
+  // for a month sat behind hundreds of fresher ones and was never refreshed.
+  const found: Conversation[] = []
 
-  return page.items.filter((conversation) => conversation.meta?.[INSIGHT_KEYS.stale] === true).slice(0, limit)
+  await upTo(limit * 100, (cursor) =>
+    store
+      .listConversations({ limit: 200, ...(cursor ? { cursor } : {}) })
+      .then((page) => {
+        for (const conversation of page.items) {
+          if (found.length < limit && conversation.meta?.[INSIGHT_KEYS.stale] === true) found.push(conversation)
+        }
+
+        // Stop the walk as soon as there are enough, however far in they were.
+        return found.length >= limit ? { items: page.items } : page
+      }),
+  )
+
+  return found
 }
 
 async function ask(
