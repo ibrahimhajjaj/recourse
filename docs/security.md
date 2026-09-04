@@ -131,6 +131,36 @@ install and nothing to keep connected. `redisRateLimiter({ client })` takes any
 Redis you already have. Both fail open, because a Redis outage turning every
 customer away is a worse failure than a few minutes of unmetered traffic.
 
+`message` sets what the customer is told when they are turned away, since the
+default says nothing about how long to wait or who to ask.
+
+## What the chat endpoint refuses with
+
+Every refusal carries a code beside the sentence, so a client that has to
+react, retrying one and not another, never has to match on prose that will be
+improved later:
+
+```json
+{ "error": "too many requests", "code": "rate_limited" }
+```
+
+| Code | Status | What happened |
+| --- | --- | --- |
+| `bad_request` | 400 | The body was not JSON, or was missing something required |
+| `unverified_identity` | 401 | Identity verification is on and the signature did not check out |
+| `method_not_allowed` | 405 | Something other than POST |
+| `rate_limited` | 429 | The limiter turned this caller away |
+| `not_configured` | 501 | Feedback or deletion was asked for on a deployment with no store |
+| `not_found` | 404 | The conversation or message named does not exist |
+
+Failures that happen *during* an answer are different: the stream has already
+started, so they arrive as an `error` frame in the event stream carrying a
+sentence and a reference that ties it to one line in your log. That path is
+[above](#what-a-customer-is-told-when-the-provider-fails).
+
+The management API answers in its own shape, `{ error: { code, message } }`,
+because it is a different surface with different callers. Both are stable.
+
 ## Origins
 
 The chat endpoint answers any origin unless you say otherwise, which is right

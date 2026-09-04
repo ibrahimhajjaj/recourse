@@ -44,3 +44,31 @@ describe('the exports table', () => {
     expect(invented, 'rows in the README for entry points that are not exported').toEqual([])
   })
 })
+
+/**
+ * The refusal codes exist so a client can react to one and not another without
+ * matching on prose. A code nobody documented is a code nobody can react to,
+ * and a table is not compiled: it stays wrong while every other test is green.
+ */
+describe('the chat endpoint refusal codes', () => {
+  const handler = readFileSync(join(root, 'src/server/handler.ts'), 'utf8')
+  const security = readFileSync(join(root, '../../docs/security.md'), 'utf8')
+
+  const used = new Set([...handler.matchAll(/code: '([a-z_]+)'/g)].map((match) => match[1] as string))
+
+  // Rows of the table, not anywhere in the page. `rate_limited` is also one of
+  // the words the provider-failure log uses, so a looser search finds it there
+  // and passes while the table is missing it.
+  const table = new Set([...security.matchAll(/^\| `([a-z_]+)` \| \d{3} \|/gm)].map((match) => match[1] as string))
+
+  it('are every one of them in the table', () => {
+    expect(table.size).toBeGreaterThan(0)
+    const missing = [...used].filter((code) => !table.has(code))
+    expect(missing, `refusal codes the endpoint sends but the table never lists: ${missing}`).toEqual([])
+  })
+
+  it('are documented for codes that actually exist', () => {
+    const invented = [...table].filter((code) => !used.has(code))
+    expect(invented, `codes in the table the endpoint never sends: ${invented}`).toEqual([])
+  })
+})
