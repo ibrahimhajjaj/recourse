@@ -7,9 +7,28 @@ import { message, storeConformance } from '../../core/src/store/conformance.js'
  * Runs against a real Postgres, and skips cleanly without one.
  *
  * `TEST_DATABASE_URL=postgres://... pnpm test`. In CI that is a service
- * container; locally it is a throwaway docker container. Skipping rather than
- * failing is deliberate: a contributor changing the widget should not be
- * blocked by a database they never touched.
+ * container. Skipping rather than failing is deliberate: a contributor
+ * changing the widget should not be blocked by a database they never touched.
+ *
+ * Locally, a throwaway container is one way and an installed Postgres is
+ * another. The second needs no daemon and leaves nothing behind:
+ *
+ * ```bash
+ * DIR=$(mktemp -d) SOCK=$(mktemp -d /tmp/pg.XXXX)
+ * initdb -D "$DIR" -U postgres --auth=trust
+ * pg_ctl -D "$DIR" -o "-p 55433 -k $SOCK -c listen_addresses=127.0.0.1" start
+ * createdb -h 127.0.0.1 -p 55433 -U postgres recourse
+ * TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55433/recourse pnpm test postgres
+ * pg_ctl -D "$DIR" stop -m fast && rm -rf "$DIR" "$SOCK"
+ * ```
+ *
+ * The socket directory is separate because a unix socket path has about a
+ * hundred bytes to play with, and a temporary directory under a long project
+ * path spends them before Postgres gets a look in. It fails with "Unix-domain
+ * socket path is too long", which does not sound like the problem it is.
+ *
+ * `pnpm test postgres` rather than `pnpm test`, since the vector suite beside
+ * this one needs the pgvector extension and a plain server does not have it.
  */
 const CONNECTION = process.env.TEST_DATABASE_URL
 

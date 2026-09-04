@@ -143,6 +143,16 @@ docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=recourse -e POSTGRES_DB=recours
 TEST_DATABASE_URL=postgres://postgres:recourse@localhost:55432/recourse pnpm test
 ```
 
+An installed Postgres works too, with no daemon and nothing left behind. The
+recipe is in the header of `test/postgres.test.ts`, including the one thing
+that catches people out: a unix socket path has about a hundred bytes to play
+with, so the socket directory has to sit somewhere short rather than beside a
+temporary data directory under a long project path.
+
+Use `pnpm test postgres` for that route. The vector suite next door needs the
+pgvector extension, which a plain server does not have, and its failures say
+`extension "vector" is not available` rather than anything about your changes.
+
 Without `TEST_DATABASE_URL` the suite skips rather than fails, so a contributor
 changing the widget is not blocked by a database they never touched. CI runs it
 against a service container on every push.
