@@ -400,7 +400,7 @@ export type {
 export { describeFailure, logFailure, consoleLogger, setLogger, getLogger } from './diagnostics.js'
 export type { Diagnostic, FailureReason, Logger } from './diagnostics.js'
 
-export { isPaused, waitedTooLong, UNANSWERED_MESSAGE, pauseAgent, resumeAgent, PAUSED_KEY, PAUSED_AT_KEY, PAUSED_MESSAGE, assignAgent, hasPerson, endedBecause, isEndCommand, END_COMMANDS, ASSIGNED_KEY, ENDED_BECAUSE_KEY, WAITING_MESSAGE } from './takeover.js'
+export { isPaused, waitedTooLong, UNANSWERED_MESSAGE, pauseAgent, resumeAgent, PAUSED_KEY, PAUSED_AT_KEY, PAUSED_MESSAGE, assignAgent, heldBy, hasPerson, endedBecause, isEndCommand, END_COMMANDS, ASSIGNED_KEY, ENDED_BECAUSE_KEY, WAITING_MESSAGE } from './takeover.js'
 export type { TakeoverOptions, EndReason } from './takeover.js'
 
 export { shrink, redact, type ShrinkOptions } from './actions/shrink.js'

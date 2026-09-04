@@ -130,6 +130,17 @@ From then on the wording changes to say a colleague has it. `pauseAgent` on its
 own still counts as somebody being there, because its usual caller is a person
 clicking "take over" in a dashboard and they are by definition present.
 
+Two people clicking it in the same second is not a hypothetical on a busy desk,
+so the second is refused and told who has it rather than quietly taking it:
+
+```ts
+const took = await assignAgent(store, conversationId, 'Marcus')
+if (!took.assigned) return `${took.heldBy} already has this one.`
+```
+
+A manager reassigning deliberately passes `{ takeFrom: true }`, because that is
+a decision rather than a race. `heldBy(store, conversationId)` reads it back.
+
 The gap between the two is also the only way to measure how long people queue.
 
 ### When nobody comes

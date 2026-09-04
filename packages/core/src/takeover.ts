@@ -184,12 +184,51 @@ export async function waitedTooLong(
  * the customer sits wondering whether anybody is coming. It also makes the
  * wait measurable: the gap between these two calls is how long people queue.
  */
-export async function assignAgent(store: Store, conversationId: string, who?: string): Promise<void> {
+export async function assignAgent(
+  store: Store,
+  conversationId: string,
+  who?: string,
+  options: { takeFrom?: boolean } = {},
+): Promise<{ assigned: boolean; heldBy?: string }> {
+  // Two people clicking "take over" in the same second is not a hypothetical
+  // on a busy desk. Silently letting the second win leaves the first typing a
+  // reply into a conversation somebody else now owns, and neither of them is
+  // told. So the second is refused and given the name of whoever has it.
+  //
+  // Read then write rather than a conditional update, because not every store
+  // has one. That leaves a window of milliseconds where both could pass, which
+  // is a far smaller thing than the silent overwrite it replaces, and the
+  // ticket the takeover creates is the durable record either way.
+  if (!options.takeFrom) {
+    const holder = await heldBy(store, conversationId)
+    if (holder && holder !== who) return { assigned: false, heldBy: holder }
+  }
+
   await patchConversationMeta(store, conversationId, {
     [PAUSED_KEY]: true,
     [ASSIGNED_KEY]: who ?? true,
     [ASSIGNED_AT_KEY]: new Date().toISOString(),
   })
+
+  return { assigned: true, ...(who ? { heldBy: who } : {}) }
+}
+
+/**
+ * Who has this conversation, when a name was recorded.
+ *
+ * `true` rather than a name means somebody took it over without saying who,
+ * which still counts as held: the point is that a second person is refused.
+ */
+export async function heldBy(store: Store, conversationId: string): Promise<string | undefined> {
+  try {
+    const thread = await store.getConversation(conversationId)
+    const holder = thread?.conversation.meta?.[ASSIGNED_KEY]
+
+    if (typeof holder === 'string' && holder) return holder
+    return holder === true ? 'somebody on the team' : undefined
+  } catch {
+    return undefined
+  }
 }
 
 /** Whether somebody is actually on this conversation, rather than asked for. */
