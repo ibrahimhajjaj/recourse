@@ -87,7 +87,11 @@ collectLeads({ onLead: (values) => notify.email('sales@shop.example', values) })
 ```
 
 `collectData` is the same shape with fields you name yourself, for anything
-that is not a sales lead: a warranty claim, a callback slot, a survey.
+that is not a sales lead: a warranty claim, a callback slot, a survey. It goes
+to the same three places, with `onData` in place of `onLead`, and it lands in
+the store tagged `capturedBy` with the action's own name, so several of them
+stay apart and a shipping address is never read back later as a sales lead.
+`GET /leads` returns both; filter on that field to tell them apart.
 
 `webSearch` reaches the open web, which is usually more reach than you want. Name
 the sites it may use and it stays inside them:

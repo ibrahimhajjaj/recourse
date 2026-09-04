@@ -583,6 +583,24 @@ const { text, sources, unanswered } = await agent.answer('where is my order?')
 That is the whole integration for anything that receives a message: a queue
 worker, a CLI, a channel nobody has written an adapter for yet.
 
+A client with its own interface can offer a regenerate button too. Drop the
+answer nobody wanted from the history you send, so it ends at the question, and
+say what you are doing:
+
+```ts
+await agent.answer(question, historyWithoutTheBadAnswer, { conversationId, retry: true })
+```
+
+The flag changes one thing: the question is not written into the transcript a
+second time, having been asked once. The rejected answer stays in the record,
+because a documented case of this agent answering badly is the most useful
+thing in it, and dropping it would leave the gap list nothing to learn from.
+
+Client actions are not offered on this path at all. They need a browser to run
+them and hand the result back, and a caller that collects the answer rather
+than streaming it cannot do that round trip; offering them anyway ends the turn
+with no words in it.
+
 ---
 
 [Back to the README](../README.md)
