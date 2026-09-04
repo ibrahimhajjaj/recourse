@@ -4,7 +4,7 @@ What changed between releases, and what it means for a deployment that already
 runs this. Written for somebody upgrading, so the breaking parts come first and
 each one says what to do rather than only what moved.
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-09-04)
 
 ### You have to change something
 
