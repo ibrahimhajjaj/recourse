@@ -363,17 +363,6 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                 }
 
                 const shrunk = shrink(data, options.results)
-
-                // The shrunk result, not the raw one. Whatever the page is
-                // told is the same thing the model was told, which keeps one
-                // redaction pass rather than two that can disagree.
-                options.context.emit?.({
-                  type: 'action',
-                  name: action.name,
-                  status: 'done',
-                  ...(options.actionDetail ? { result: shrunk } : {}),
-                })
-
                 const planted = instructionIn(shrunk, screenResults)
 
                 if (planted) {
@@ -390,6 +379,20 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
 
                   return { ok: false, error: WITHHELD }
                 }
+
+                // After the screen, and only once. Told before it, a result
+                // withheld from the model still reached the page, and the call
+                // reported both done and failed for the same run.
+                //
+                // The shrunk result rather than the raw one: whatever the page
+                // is told is what the model was told, which keeps one
+                // redaction pass rather than two that can disagree.
+                options.context.emit?.({
+                  type: 'action',
+                  name: action.name,
+                  status: 'done',
+                  ...(options.actionDetail ? { result: shrunk } : {}),
+                })
 
                 return { ok: true, data: shrunk }
               } catch (error) {
