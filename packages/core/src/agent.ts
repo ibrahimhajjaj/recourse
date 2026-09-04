@@ -1099,7 +1099,19 @@ export function createAgent(options: AgentOptions) {
     // After the answer, never before: the customer reads the reply while this
     // runs, and a turn that waited on it would be slower for the sake of
     // something they may never click.
-    if (followUps && answered.trim() && !handedOver && !ran.some((call) => call.name === 'suggest_replies')) {
+    // Checked again, not just at the top of the turn. The cap was read before
+    // the answer and the answer has since been paid for, so a deployment that
+    // crossed the line during it would otherwise buy a row of buttons on the
+    // wrong side of its own limit, on every reply.
+    const affordable = !options.budget || (await options.budget.check()).ok
+
+    if (
+      followUps &&
+      affordable &&
+      answered.trim() &&
+      !handedOver &&
+      !ran.some((call) => call.name === 'suggest_replies')
+    ) {
       const proposed = await proposeFollowUps(spoke, question, answered, followUps.max ?? 3, signal)
       if (proposed.items.length > 0) yield { type: 'suggestions', items: proposed.items }
       // Billed like any other call, because it is one, on every reply. A cap

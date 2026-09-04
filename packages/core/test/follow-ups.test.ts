@@ -120,6 +120,25 @@ describe('follow-up questions after every reply', () => {
     expect(seen.some((frame) => frame.type === 'suggestions')).toBe(false)
   })
 
+  it('does not buy them once the cap has been crossed', async () => {
+    // The cap was read before the answer and the answer has since been paid
+    // for. Without a second look, a deployment that crossed the line during
+    // its own turn buys a row of buttons on the wrong side of its limit.
+    let spent = 0
+    const budget = {
+      check: async () => (spent > 0 ? { ok: false as const, reason: 'capped' } : { ok: true as const }),
+      spent: async () => ({ day: { tokens: 0, dollars: 0 }, month: { tokens: 0, dollars: 0 } }),
+      record: async () => void spent++,
+    }
+
+    const { instance, generated } = model()
+    const seen = await frames(await agentWith(instance, { followUps: true, budget }), 'do you do refunds?')
+
+    expect(seen.some((frame) => frame.type === 'delta')).toBe(true)
+    expect(seen.some((frame) => frame.type === 'suggestions')).toBe(false)
+    expect(generated).toEqual([])
+  })
+
   it('bills the extra call, since it happens on every reply', async () => {
     const recorded: Array<{ model: string; usage: unknown }> = []
     const budget = {
