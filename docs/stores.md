@@ -75,6 +75,12 @@ In SQL both fall out of `(updated_at, id) < (SELECT updated_at, id FROM t WHERE
 id = ?)` with a matching `ORDER BY`, which is why the two SQL stores here had
 neither bug.
 
+Both SQL stores here pass the whole suite against a real server, Postgres 16
+and D1's SQLite. That matters more for the queue than for anything else,
+because its cursor compares a row value against an expression rather than a
+column, and an expression is exactly the sort of thing that typechecks and then
+behaves differently in two dialects.
+
 A ticket queue is the same shape with one extra rule: the caller chooses what
 to sort by, and a cursor is only a position within one ordering. Four helpers
 carry that so a store does not have to reinvent it:
