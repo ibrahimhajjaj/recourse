@@ -57,6 +57,23 @@ describe('custom buttons', () => {
   it('offers the labels as an enum, so the model picks rather than types', () => {
     expect(action.collect?.[0]?.options).toEqual(['Track my order', 'Start a return'])
   })
+
+  it('marks a button that should take the tab it is in, and only that one', async () => {
+    const checkout = customButton({
+      whenToUse: 'x',
+      buttons: [
+        { label: 'Pay now', url: 'https://shop.example/pay', sameTab: true },
+        { label: 'Read the policy', url: 'https://shop.example/policy' },
+      ],
+    })
+
+    const c = ctx()
+    await checkout.execute?.({ label: 'Pay now' }, c)
+    await checkout.execute?.({ label: 'Read the policy' }, c)
+
+    expect(c.frames[0]).toMatchObject({ data: { sameTab: true } })
+    expect((c.frames[1] as { data: Record<string, unknown> }).data).not.toHaveProperty('sameTab')
+  })
 })
 
 describe('custom forms', () => {

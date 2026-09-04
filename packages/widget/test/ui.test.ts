@@ -289,3 +289,15 @@ describe('element functions', () => {
     expect(button.textContent).toBe('Booking already cancelled')
   })
 })
+
+describe('buttons', () => {
+  it('opens a new tab by default and takes the current one when told to', () => {
+    const away = render('button', { label: 'Read the policy', url: 'https://shop.example/policy' })
+    const here = render('button', { label: 'Pay now', url: 'https://shop.example/pay', sameTab: true })
+
+    expect(away.node?.querySelector('a')?.getAttribute('target')).toBe('_blank')
+    expect(here.node?.querySelector('a')?.getAttribute('target')).toBeNull()
+    // Kept in both cases: the tab it lands in changes, the isolation does not.
+    expect(here.node?.querySelector('a')?.rel).toBe('noopener noreferrer')
+  })
+})

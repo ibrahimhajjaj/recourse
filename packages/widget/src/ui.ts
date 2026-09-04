@@ -70,13 +70,16 @@ function str(value: unknown): string {
 }
 
 /** A link, or plain text when the destination is not one we will open. */
-function link(label: string, url: string, className: string): HTMLElement {
+function link(label: string, url: string, className: string, sameTab = false): HTMLElement {
   if (!SAFE_URL.test(url)) return text('span', label, className)
 
   const anchor = document.createElement('a')
   anchor.textContent = label
   anchor.href = url
-  anchor.target = '_blank'
+  // A new tab by default, because leaving the page usually means abandoning the
+  // conversation. Checkout and sign-in are the exceptions: those are meant to
+  // take the whole window, and a chat left open behind them is worse.
+  if (!sameTab) anchor.target = '_blank'
   anchor.rel = 'noopener noreferrer'
   anchor.className = className
   return anchor
@@ -89,7 +92,7 @@ const button: UiRenderer = (data) => {
 
   const wrapper = document.createElement('div')
   wrapper.className = 'ui-actions'
-  wrapper.appendChild(link(label, url, 'ui-button'))
+  wrapper.appendChild(link(label, url, 'ui-button', data.sameTab === true))
   return wrapper
 }
 

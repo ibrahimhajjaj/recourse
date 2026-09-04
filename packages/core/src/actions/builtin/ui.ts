@@ -4,8 +4,15 @@ import type { Action, ActionField } from '../types.js'
 export interface CustomButtonOptions {
   name?: string
   whenToUse: string
-  /** Fixed buttons, or let the agent choose the label and url from a set. */
-  buttons: Array<{ label: string; url: string }>
+  /**
+   * Fixed buttons, or let the agent choose the label and url from a set.
+   *
+   * `sameTab` sends the customer there in the tab they are already in, instead
+   * of opening a new one. Right for a checkout or a sign-in, which are meant to
+   * take the whole window; wrong for a reference page, where losing the chat
+   * usually means losing the conversation.
+   */
+  buttons: Array<{ label: string; url: string; sameTab?: boolean }>
   procedureOnly?: boolean
 }
 
@@ -18,7 +25,7 @@ export interface CustomButtonOptions {
  * around it.
  */
 export function customButton(options: CustomButtonOptions): Action {
-  const allowed = new Map(options.buttons.map((button) => [button.label, button.url]))
+  const allowed = new Map(options.buttons.map((button) => [button.label, button]))
 
   return defineAction({
     name: options.name ?? 'show_button',
@@ -34,10 +41,15 @@ export function customButton(options: CustomButtonOptions): Action {
     ],
     async execute(input, ctx) {
       const label = String(input.label ?? '')
-      const url = allowed.get(label)
-      if (!url) throw new Error(`no button called "${label}"`)
+      const button = allowed.get(label)
+      if (!button) throw new Error(`no button called "${label}"`)
 
-      ctx.emit({ type: 'ui', kind: 'button', id: `btn_${label}`, data: { label, url } })
+      ctx.emit({
+        type: 'ui',
+        kind: 'button',
+        id: `btn_${label}`,
+        data: { label, url: button.url, ...(button.sameTab ? { sameTab: true } : {}) },
+      })
       return { shown: label, message: 'The button is displayed. Do not repeat the link as text.' }
     },
   })
