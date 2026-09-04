@@ -107,6 +107,15 @@ const ADMIN_PAGES = new Set(['/admin', '/admin/preview'])
  * configuration is code and belongs in your repository rather than behind a
  * POST that only some of your environments would have run.
  */
+/**
+ * Conversations per page of an export.
+ *
+ * Twenty rather than the list's default, because each one carries its whole
+ * transcript: a page of long threads is megabytes where a page of rows is
+ * kilobytes.
+ */
+const EXPORT_PAGE = 20
+
 export function createApiHandler(options: ApiOptions) {
   const { store } = options
   const router = createRouter()
@@ -228,6 +237,46 @@ export function createApiHandler(options: ApiOptions) {
       unansweredOnly: url.searchParams.get('unanswered') === 'true',
     })
     return ok(page.items, { pagination: { cursor: page.cursor } })
+  })
+
+  /**
+   * Whole conversations, transcripts included, a page at a time.
+   *
+   * `GET /conversations` gives you the list and `GET /conversations/:id` gives
+   * you one thread; an export needs both at once, and doing it with the other
+   * two is a request per conversation.
+   *
+   * Registered before `/conversations/:id`, which would otherwise match this
+   * path and look for a conversation called "export".
+   *
+   * Paged smaller than the list, because each item here is a whole transcript
+   * rather than a row. Filters the same way, and `?since=`/`?until=` are worth
+   * using: conversations come back most recently updated first, so a walk of a
+   * busy deployment is not a snapshot, and bounding the window makes it one.
+   */
+  router.get('/conversations/export', async (request) => {
+    const url = new URL(request.url)
+    const asked = pageParams(url)
+
+    const page = await store.listConversations({
+      ...asked,
+      limit: Math.min(asked.limit ?? EXPORT_PAGE, EXPORT_PAGE),
+      channel: url.searchParams.get('channel') ?? undefined,
+      contactId: url.searchParams.get('contactId') ?? undefined,
+      since: url.searchParams.get('since') ?? undefined,
+      until: url.searchParams.get('until') ?? undefined,
+    })
+
+    // Sequentially, deliberately. An export is a background job and this reads
+    // whole transcripts; firing a page of them at a database at once is how a
+    // nightly export becomes the reason the widget is slow.
+    const items = []
+    for (const conversation of page.items) {
+      const found = await store.getConversation(conversation.id)
+      items.push({ ...conversation, messages: found?.messages ?? [] })
+    }
+
+    return ok(items, { pagination: { cursor: page.cursor } })
   })
 
   router.get('/conversations/:id', async (_request, params) => {

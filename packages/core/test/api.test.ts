@@ -631,3 +631,74 @@ describe('the access log', () => {
     expect((await handle(get('/conversations', TOKEN))).status).toBe(200)
   })
 })
+
+describe('exporting conversations', () => {
+  /** Three threads, one of them somebody else's. */
+  async function seeded(store: Store) {
+    for (const [id, contact] of [
+      ['c1', { id: 'u_sam' }],
+      ['c2', { id: 'u_sam' }],
+      ['c3', { id: 'u_ada' }],
+    ] as const) {
+      await store.appendMessage(
+        id,
+        { id: `m_${id}_1`, role: 'user', content: `question on ${id}`, createdAt: new Date().toISOString() },
+        { channel: 'web', contact },
+      )
+      await store.appendMessage(id, {
+        id: `m_${id}_2`,
+        role: 'assistant',
+        content: `answer on ${id}`,
+        createdAt: new Date().toISOString(),
+      })
+    }
+  }
+
+  it('hands back whole transcripts, not a list of rows', async () => {
+    // The point of the endpoint: the alternative is one request per thread.
+    const { store, handle } = setup()
+    await seeded(store)
+
+    const body = await bodyOf(await handle(get('/conversations/export')))
+
+    expect(body.data).toHaveLength(3)
+    expect(body.data[0].messages.map((message: { content: string }) => message.content)).toEqual([
+      expect.stringContaining('question on'),
+      expect.stringContaining('answer on'),
+    ])
+  })
+
+  it('is not mistaken for a conversation called "export"', async () => {
+    const { store, handle } = setup()
+    await seeded(store)
+
+    expect((await handle(get('/conversations/export'))).status).toBe(200)
+    expect((await handle(get('/conversations/c1'))).status).toBe(200)
+  })
+
+  it('filters and pages like the list does', async () => {
+    const { store, handle } = setup()
+    await seeded(store)
+
+    const mine = await bodyOf(await handle(get('/conversations/export?contactId=u_sam')))
+    expect(mine.data.map((one: { id: string }) => one.id).sort()).toEqual(['c1', 'c2'])
+
+    const first = await bodyOf(await handle(get('/conversations/export?limit=1')))
+    expect(first.data).toHaveLength(1)
+    expect(first.pagination.cursor).toBeTruthy()
+  })
+
+  it('caps the page, since each item is a whole transcript', async () => {
+    const { store, handle } = setup()
+    for (let index = 0; index < 25; index++) {
+      await store.appendMessage(
+        `c${index}`,
+        { id: `m${index}`, role: 'user', content: 'hello', createdAt: new Date().toISOString() },
+        { channel: 'web' },
+      )
+    }
+
+    const body = await bodyOf(await handle(get('/conversations/export?limit=500')))
+    expect(body.data).toHaveLength(20)
+  })
+})
