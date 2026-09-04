@@ -153,3 +153,30 @@ describe('citation numbering contract', () => {
     expect(citedOnly(refs, 'see [99]')).toEqual([])
   })
 })
+
+describe('pictures in an answer', () => {
+  it('renders one, and does not leave the bang behind', () => {
+    const out = html('Like this: ![the blue fitting](https://cdn.example/fitting.jpg)')
+    expect(out).toContain('<img')
+    expect(out).toContain('src="https://cdn.example/fitting.jpg"')
+    expect(out).toContain('alt="the blue fitting"')
+    expect(out).not.toContain('!<')
+    expect(out).not.toContain('!&')
+  })
+
+  it('keeps the description and drops anything not served over https', () => {
+    // An image is fetched with nobody clicking anything, and a relative one
+    // resolves against whatever page the widget was embedded in.
+    for (const bad of ['http://cdn.example/x.jpg', '/local/x.jpg', 'javascript:alert(1)']) {
+      const out = html(`![a part](${bad})`)
+      expect(out).not.toContain('<img')
+      expect(out).toContain('a part')
+    }
+  })
+
+  it('still renders an ordinary link as a link', () => {
+    const out = html('[the manual](https://example.com/manual)')
+    expect(out).toContain('<a')
+    expect(out).not.toContain('<img')
+  })
+})

@@ -8,7 +8,7 @@
  * produce script, iframes or event handlers, because nothing here parses HTML.
  */
 
-const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\)|\*[^*\n]+\*)/g
+const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|!?\[[^\]]+\]\([^)\s]+\)|\*[^*\n]+\*)/g
 /** Only protocols that cannot execute script. `javascript:` never matches. */
 const SAFE_URL = /^(https?:|mailto:|\/|#)/i
 
@@ -120,6 +120,26 @@ function renderInline(text: string): DocumentFragment {
 
     if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
       fragment.appendChild(element('em', part.slice(1, -1)))
+      continue
+    }
+
+    const picture = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(part)
+    if (picture) {
+      const source = picture[2] as string
+      // https only, where a link may also be relative or a mailto. A relative
+      // image resolves against whatever page the widget is embedded in, and an
+      // image is fetched without anybody clicking anything, so a bad one is
+      // requested on its own.
+      if (/^https:/i.test(source)) {
+        const image = document.createElement('img')
+        image.src = source
+        image.alt = picture[1] as string
+        image.loading = 'lazy'
+        image.className = 'md-image'
+        fragment.appendChild(image)
+      } else {
+        fragment.appendChild(document.createTextNode(picture[1] as string))
+      }
       continue
     }
 

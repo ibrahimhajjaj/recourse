@@ -512,6 +512,7 @@ export const styles = `
   max-width: 92%;
 }
 .ui-card-image { display: block; width: 100%; height: auto; max-height: 160px; object-fit: cover; }
+.md-image { display: block; max-width: 100%; height: auto; border-radius: 8px; margin: 6px 0; }
 .ui-card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .ui-card h3 { margin: 0; font-size: 14.5px; font-weight: 620; }
 .ui-muted { color: var(--rc-muted); font-size: 13px; margin: 0; }
