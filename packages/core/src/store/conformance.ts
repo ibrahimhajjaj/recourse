@@ -547,6 +547,24 @@ export function storeConformance(options: ConformanceOptions): void {
         expect(seen).toEqual(['first', 'second', 'third'])
       })
 
+      it('pages by the last reply too, where the sort is an expression', async () => {
+        // Its own case because `lastMessage` is not a column: it falls back to
+        // when the ticket was opened, so a SQL store compares against an
+        // expression on both sides of the cursor and a mismatch there hands
+        // back a page that overlaps or skips.
+        const store = await queue()
+        const seen: string[] = []
+        let cursor: string | undefined
+
+        do {
+          const page = await store.listTickets({ limit: 1, sortBy: 'lastMessage', ...(cursor ? { cursor } : {}) })
+          seen.push(...page.items.map((one) => one.subject))
+          cursor = page.cursor
+        } while (cursor)
+
+        expect(seen).toEqual(['third', 'first', 'second'])
+      })
+
       it('refuses a cursor from a different ordering rather than paging into nonsense', async () => {
         // The cursor is a position in one ordering. Used against another it
         // points at a row that has moved, and the page is quietly wrong.
