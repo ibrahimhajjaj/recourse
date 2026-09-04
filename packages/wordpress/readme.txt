@@ -125,6 +125,16 @@ Each site in a network has its own settings and its own index. Uninstalling remo
 
 == Changelog ==
 
+= 0.3.0 =
+* The chat script no longer names a content delivery network. The widget can
+  load a voice runtime from one when a site turns calls on; the plugin never
+  does, so that loader is compiled out of the copy shipped here and the plugin
+  fetches nothing from another host.
+* Each provider in the settings list now names its own terms of service and
+  privacy policy, since the service contacted is whichever one you pick.
+* Moonshot's two links pointed at pages that have moved to the Kimi platform.
+* An icon and a banner, so the listing is not a grey circle.
+
 = 0.2.0 =
 * The answer ability no longer offers the model any action, which is what its
   read-only annotation always claimed. It was handing over every action a site
