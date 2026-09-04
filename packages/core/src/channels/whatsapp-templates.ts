@@ -61,38 +61,56 @@ export async function listTemplates(
   const call = options.fetch ?? fetch
   const version = options.apiVersion ?? DEFAULT_VERSION
   const limit = options.limit ?? 100
+  const found: MessageTemplate[] = []
 
-  const response = await call(
-    `https://graph.facebook.com/${version}/${options.wabaId}/message_templates?limit=${limit}`,
-    { headers: { Authorization: `Bearer ${options.accessToken}` } },
-  )
+  // Followed to the end rather than reading the first hundred. The whole point
+  // of asking is to find out whether the template you are about to send four
+  // thousand times exists, and stopping at page one reports a real one missing
+  // because it happens to be further down the list.
+  let next: string | null =
+    `https://graph.facebook.com/${version}/${options.wabaId}/message_templates?limit=${limit}`
 
-  const body = (await response.json()) as {
-    data?: Array<{
-      name?: string
-      language?: string
-      status?: string
-      category?: string
-      components?: Array<{ type?: string; text?: string; example?: { body_text?: string[][] } }>
-    }>
-    error?: { message?: string; code?: number }
+  // The page count is bounded too, so a cursor that never resolves cannot turn
+  // a pre-flight check into an endless loop.
+  for (let page = 0; next && page < 50; page++) {
+    const response: Response = await call(next, { headers: { Authorization: `Bearer ${options.accessToken}` } })
+
+    const body = (await response.json()) as {
+      data?: Array<{
+        name?: string
+        language?: string
+        status?: string
+        category?: string
+        components?: Array<{ type?: string; text?: string; example?: { body_text?: string[][] } }>
+      }>
+      paging?: { next?: string }
+      error?: { message?: string; code?: number }
+    }
+
+    if (!response.ok || body.error) {
+      throw new Error(`WhatsApp templates could not be listed: ${body.error?.message ?? response.status}`)
+    }
+
+    for (const template of body.data ?? []) {
+      if ((template.status ?? '').toUpperCase() !== 'APPROVED') continue
+
+      const name = String(template.name ?? '')
+      if (!name) continue
+
+      found.push({
+        name,
+        language: String(template.language ?? ''),
+        status: String(template.status ?? ''),
+        ...(template.category ? { category: template.category } : {}),
+        wabaId: options.wabaId,
+        variables: variablesOf(template.components ?? []),
+      })
+    }
+
+    next = body.paging?.next ?? null
   }
 
-  if (!response.ok || body.error) {
-    throw new Error(`WhatsApp templates could not be listed: ${body.error?.message ?? response.status}`)
-  }
-
-  return (body.data ?? [])
-    .filter((template) => (template.status ?? '').toUpperCase() === 'APPROVED')
-    .map((template) => ({
-      name: String(template.name ?? ''),
-      language: String(template.language ?? ''),
-      status: String(template.status ?? ''),
-      ...(template.category ? { category: template.category } : {}),
-      wabaId: options.wabaId,
-      variables: variablesOf(template.components ?? []),
-    }))
-    .filter((template) => template.name !== '')
+  return found
 }
 
 /**
@@ -190,7 +208,10 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
 
   const payload = {
     messaging_product: 'whatsapp',
-    to: options.to,
+    // Digits only, however the caller wrote it. A campaign list exported from
+    // a CRM has `+44 7700 900000` in it, and fixing that here beats failing
+    // once per recipient at send time.
+    to: options.to.replace(/\D/g, ''),
     type: 'template',
     template: {
       name,

@@ -32,12 +32,18 @@ Plain text there fails with a code most people read as a broken token, and the
 fix is not a bigger retry.
 
 ```ts
-import { sendWhatsAppTemplate, whatsAppTemplates } from '@recourse-ai/core'
+import { listTemplates, sendTemplate } from '@recourse-ai/core/channels'
 
-await sendWhatsAppTemplate(
-  { phoneNumberId, accessToken },
-  { to: '447700900000', template: 'order_shipped', language: 'en_GB', variables: ['Sam', 'LUM-1234'] },
-)
+const approved = await listTemplates({ accessToken, wabaId })
+
+await sendTemplate({
+  accessToken,
+  phoneNumberId,
+  to: '+44 7700 900000',
+  template: { name: 'order_shipped', variables: ['Sam', 'LUM-1234'] },
+  known: approved,
+  wabaId,
+})
 ```
 
 Write `to` however your list has it. WhatsApp wants digits, and an export from
@@ -49,17 +55,16 @@ because that is what the API takes. Meta rejects a message whose count does not
 match the approved body, which is the right failure: the alternative is a
 customer reading "Hi {{1}}".
 
-Check the list before a run rather than during one. A template still awaiting
-review, or rejected last week, fails once per recipient, and finding that out on
-the four thousandth is not a good way to find out:
+Read the list before a run rather than during one. Only approved templates come
+back, because one still in review cannot be sent and offering it to somebody
+building a campaign is offering them a failure in a few minutes' time. Passing
+that list as `known` buys two checks Meta's own errors will not give you: a
+name that exists in several languages with none given, and the one that catches
+everybody, a template paired with a number from a different business account.
 
-```ts
-const approved = await whatsAppTemplates({ businessAccountId, accessToken })
-```
-
-It reports each template's status and how many values it needs. Note that it
-takes the business account id, not the phone number id: two different numbers on
-the same dashboard, and the easiest thing here to get wrong.
+`listTemplates` takes the business account id, not the phone number id. They are
+two different numbers on the same dashboard and it is the easiest thing here to
+get wrong.
 
 ## Webhooks going out
 

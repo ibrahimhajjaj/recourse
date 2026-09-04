@@ -204,8 +204,6 @@ export type { Webhooks, WebhookOptions, WebhookEndpoint, WebhookEvent, WebhookDe
 
 export {
   whatsappChannel,
-  sendWhatsAppTemplate,
-  whatsAppTemplates,
   slackChannel,
   messengerChannel,
   instagramChannel,

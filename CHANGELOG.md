@@ -85,8 +85,9 @@ reassigning deliberately passes `{ takeFrom: true }`.
 **`ticketSource`** indexes tickets your team already answered, with a Zendesk
 reader that takes solved tickets and their last public reply.
 
-**`sendWhatsAppTemplate`** and **`whatsAppTemplates`**, because WhatsApp will not
-carry a message you wrote to somebody who has not written to you in a day.
+**`listTemplates` reads past its first page**, so a real approved template is no
+longer reported missing because it sits further down the list, and
+**`sendTemplate` takes a number written the way a CRM exports it**.
 
 **`GET /conversations/export`** returns whole transcripts a page at a time, and
 `?contactId=` on the conversation list is everything one person ever asked.

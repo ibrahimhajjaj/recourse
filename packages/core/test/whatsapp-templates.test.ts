@@ -365,3 +365,50 @@ describe('opening conversations in a campaign', () => {
     expect(body.template.components[0].parameters[1]).toEqual({ type: 'text', text: '' })
   })
 })
+
+describe('an account with more templates than one page', () => {
+  it('reads to the end, or a real one looks missing', async () => {
+    // The whole point of asking is to find out whether the template you are
+    // about to send four thousand times exists.
+    const asked: string[] = []
+    const fetch = (async (url: string) => {
+      asked.push(String(url))
+      return new Response(
+        JSON.stringify(
+          asked.length === 1
+            ? {
+                data: [{ name: 'first', language: 'en_US', status: 'APPROVED', components: [] }],
+                paging: { next: 'https://graph.facebook.com/next' },
+              }
+            : { data: [{ name: 'order_shipped', language: 'en_US', status: 'APPROVED', components: [] }] },
+        ),
+        { status: 200 },
+      )
+    }) as unknown as typeof globalThis.fetch
+
+    const templates = await listTemplates({ wabaId: 'waba_1', accessToken: 't', fetch })
+
+    expect(asked).toHaveLength(2)
+    expect(templates.map((one) => one.name)).toEqual(['first', 'order_shipped'])
+  })
+})
+
+describe('a number written the way a CRM exports it', () => {
+  it('goes out as digits', async () => {
+    const sent: Array<{ to: string }> = []
+    const fetch = (async (_url: string, init: RequestInit) => {
+      sent.push(JSON.parse(String(init.body)))
+      return new Response(JSON.stringify({ messages: [{ id: 'wamid.1' }] }), { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+
+    await sendTemplate({
+      accessToken: 't',
+      phoneNumberId: '123',
+      to: '+44 (7700) 900-000',
+      template: { name: 'order_update', language: 'en_US' },
+      fetch,
+    })
+
+    expect(sent[0]?.to).toBe('447700900000')
+  })
+})
