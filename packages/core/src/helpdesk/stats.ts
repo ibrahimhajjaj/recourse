@@ -27,6 +27,14 @@ export interface TicketStats {
   medianReplyMs?: number
   /** How long a ticket stays open before it is resolved. */
   medianTimeToCloseMs?: number
+  /**
+   * Set when there were more tickets than were read.
+   *
+   * Every number above is then about a slice rather than the whole period,
+   * and a reader who believes otherwise is worse off than one told nothing.
+   * Narrow the filter, or raise the ceiling deliberately.
+   */
+  partial?: boolean
 }
 
 /**

@@ -480,16 +480,46 @@ export function createHelpdesk(options: HelpdeskOptions) {
      * it. That makes this heavier than `listTickets`, so it is a dashboard
      * call rather than something to run per turn.
      */
-    async stats(filter: TicketFilter = {}) {
-      const page = await store.listTickets({ limit: 200, ...filter })
+    async stats(filter: TicketFilter = {}, options: { most?: number } = {}) {
+      // Paged through rather than one call. A single page was 200 tickets, so
+      // a desk with five thousand reported "created: 200" and meant it, which
+      // is the worst kind of wrong number: confident, plausible and quietly
+      // covering a fortieth of the data.
+      const most = options.most ?? 2000
+      const tickets: Ticket[] = []
+      let cursor: string | undefined
+
+      do {
+        const page = await store.listTickets({ limit: 200, ...filter, ...(cursor ? { cursor } : {}) })
+        tickets.push(...page.items)
+        cursor = page.cursor
+      } while (cursor && tickets.length < most)
+
       const threads = new Map<number, TicketMessage[]>()
 
-      for (const ticket of page.items) {
-        const thread = await store.listTicketMessages(ticket.ticketNumber)
-        threads.set(ticket.ticketNumber, thread.items)
+      for (const ticket of tickets) {
+        // Every message, not the first page of them. The close event is the
+        // last thing on a thread, so on a long ticket a default page would
+        // miss it and the time-to-close would silently fall back to whenever
+        // the ticket was last touched.
+        const thread: TicketMessage[] = []
+        let at: string | undefined
+
+        do {
+          const page = await store.listTicketMessages(ticket.ticketNumber, {
+            limit: 200,
+            ...(at ? { cursor: at } : {}),
+          })
+          thread.push(...page.items)
+          at = page.cursor
+        } while (at && thread.length < 1000)
+
+        threads.set(ticket.ticketNumber, thread)
       }
 
-      return ticketStats(page.items, threads)
+      // Said out loud when the slice was cut short, because a partial answer a
+      // reader believes is a whole one is worse than no answer.
+      return { ...ticketStats(tickets, threads), ...(cursor ? { partial: true } : {}) }
     },
 
     statuses: () => statuses,

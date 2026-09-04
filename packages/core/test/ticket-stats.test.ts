@@ -196,3 +196,61 @@ describe('reading them off a live desk', () => {
     expect(stats.medianFirstReplyMs).toBeGreaterThanOrEqual(0)
   })
 })
+
+describe('a desk bigger than one page', () => {
+  async function deskWith(count: number) {
+    const desk = createHelpdesk({
+      store: memoryStore(),
+      teams: [{ id: 'support', name: 'Support', isDefault: true, members: [] }],
+    })
+
+    for (let index = 0; index < count; index++) {
+      await desk.openTicket({
+        subject: `Ticket ${index}`,
+        description: 'x',
+        customer: { email: 'sam@example.com' },
+        channel: 'web',
+      })
+    }
+
+    return desk
+  }
+
+  it('counts every ticket, not the first page of them', async () => {
+    // A single page was 200, so a desk with more reported 200 and meant it:
+    // confident, plausible, and covering a fraction of the data.
+    const desk = await deskWith(250)
+    const stats = await desk.stats()
+
+    expect(stats.created).toBe(250)
+    expect(stats.partial).toBeUndefined()
+  })
+
+  it('says so when it stopped short rather than letting the number lie', async () => {
+    const desk = await deskWith(250)
+    const stats = await desk.stats({}, { most: 100 })
+
+    expect(stats.partial).toBe(true)
+    expect(stats.created).toBeLessThan(250)
+  })
+
+  it('reads a thread longer than one page', async () => {
+    // What is late on a thread is what matters: the reply that answered the
+    // customer, and the event that closed it. A page of internal notes in
+    // front of them is enough to push both out of reach.
+    const desk = await deskWith(1)
+    const [only] = (await desk.listTickets()).items
+    const ticketNumber = (only as { ticketNumber: number }).ticketNumber
+
+    for (let index = 0; index < 205; index++) {
+      await desk.note(ticketNumber, `note ${index}`, { type: 'agent', id: 'ana@shop.example' })
+    }
+    await desk.reply(ticketNumber, 'Sorted for you.', { type: 'agent', id: 'ana@shop.example' })
+
+    const stats = await desk.stats()
+
+    // Notes are not answers, so the only reply on this thread is the one past
+    // the first page. Read one page and there are none at all.
+    expect(stats.medianFirstReplyMs).toBeDefined()
+  })
+})

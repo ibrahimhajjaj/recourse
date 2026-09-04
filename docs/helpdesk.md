@@ -136,8 +136,14 @@ Time to close reads the status events on the thread rather than `updatedAt`: a
 ticket closed in an hour and edited a week later took an hour. A ticket that
 came back counts to the last close.
 
-It reads every thread in the slice, so it is a dashboard call rather than
-something to run per turn. `ticketStats(tickets, threads)` is the same
+It pages through the tickets and their threads rather than reading one page of
+each, because what is late on a thread is what matters: the reply that answered
+the customer, and the event that closed it. Past a ceiling of two thousand
+tickets it stops and sets `partial: true` on the answer, which you can raise
+with `stats(filter, { most })`. A partial answer a reader believes is a whole
+one is worse than no answer.
+
+That makes it a dashboard call rather than something to run per turn. `ticketStats(tickets, threads)` is the same
 arithmetic as a pure function, for a caller that already has both.
 
 Over HTTP it is `GET /helpdesk/stats`, taking the same `?statusCategory=`,
