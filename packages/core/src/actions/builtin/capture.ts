@@ -1,7 +1,25 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionContext, ActionField, ActionInput } from '../types.js'
+import type { Channel } from '../../store/types.js'
 
 export interface CollectLeadsOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
+  /**
+   * The tool name, when one is not enough.
+   *
+   * Two of the same action is a real configuration: escalations on the website
+   * and on Instagram, with different rules and different details to gather.
+   * They need different names, since the tool set is keyed on the name and two
+   * actions sharing one is refused rather than one quietly replacing the other.
+   */
+  name?: string
   /** Defaults to name, email and a message. */
   fields?: ActionField[]
   whenToUse?: string
@@ -33,7 +51,8 @@ const DEFAULT_LEAD_FIELDS: ActionField[] = [
  */
 export function collectLeads(options: CollectLeadsOptions): Action {
   return defineAction({
-    name: 'collect_lead',
+    name: options.name ?? 'collect_lead',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use when the customer asks to be contacted, requests a demo, quote or callback, or ' +
@@ -59,6 +78,14 @@ export function collectLeads(options: CollectLeadsOptions): Action {
 }
 
 export interface CollectDataOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   /** Tool name, so several of these can coexist. Lowercase with underscores. */
   name: string
   whenToUse: string
@@ -74,6 +101,7 @@ export interface CollectDataOptions {
 export function collectData(options: CollectDataOptions): Action {
   return defineAction({
     name: options.name,
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse: options.whenToUse,
     collect: options.fields,
     procedureOnly: options.procedureOnly,

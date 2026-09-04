@@ -1,5 +1,6 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionContext } from '../types.js'
+import type { Channel } from '../../store/types.js'
 
 /**
  * Handing the conversation to a person, live.
@@ -10,6 +11,14 @@ import type { Action, ActionContext } from '../types.js'
  * rather than something this can guess.
  */
 export interface LiveChatOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name?: string
   whenToUse?: string
   procedureOnly?: boolean
@@ -31,6 +40,7 @@ export interface LiveChatOptions {
 export function liveChat(options: LiveChatOptions): Action {
   return defineAction({
     name: options.name ?? 'connect_to_a_person',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use when the customer asks to speak to a person right now, or when the conversation is going ' +
@@ -80,6 +90,14 @@ export function liveChat(options: LiveChatOptions): Action {
 }
 
 export interface TransferToPhoneOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name?: string
   whenToUse?: string
   procedureOnly?: boolean
@@ -105,6 +123,7 @@ export interface TransferToPhoneOptions {
 export function transferToPhone(options: TransferToPhoneOptions): Action {
   return defineAction({
     name: options.name ?? 'transfer_to_a_phone_line',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use when the customer asks to speak to someone by phone, or when the problem clearly needs a ' +

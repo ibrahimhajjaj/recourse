@@ -1,8 +1,17 @@
 import { defineAction } from '../define.js'
 import type { Action } from '../types.js'
 import { fetchWithRetry } from '../../util/http.js'
+import type { Channel } from '../../store/types.js'
 
 export interface SlackNotifyOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name?: string
   whenToUse?: string
   /** An incoming webhook url from a Slack app. */
@@ -22,6 +31,7 @@ export interface SlackNotifyOptions {
 export function slackNotify(options: SlackNotifyOptions): Action {
   return defineAction({
     name: options.name ?? 'notify_the_team',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use to flag something the team should see straight away: an unhappy customer, a possible bug, ' +
@@ -53,6 +63,14 @@ export function slackNotify(options: SlackNotifyOptions): Action {
 }
 
 export interface BookingOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name?: string
   whenToUse?: string
   /** Your cal.com or Calendly scheduling link. */
@@ -74,6 +92,7 @@ export function scheduleMeeting(options: BookingOptions): Action {
 
   return defineAction({
     name: options.name ?? 'offer_a_booking_link',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use when the customer wants a call, a demo, a consultation, or to speak to someone at a specific time.',

@@ -2,6 +2,7 @@ import { defineAction } from '../define.js'
 import type { Action } from '../types.js'
 import { fetchWithRetry } from '../../util/http.js'
 import { getLogger } from '../../diagnostics.js'
+import type { Channel } from '../../store/types.js'
 
 /**
  * Commerce lookups.
@@ -13,6 +14,23 @@ import { getLogger } from '../../diagnostics.js'
  */
 
 export interface StripeOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
+  /**
+   * The tool name, when one is not enough.
+   *
+   * Two of the same action is a real configuration: escalations on the website
+   * and on Instagram, with different rules and different details to gather.
+   * They need different names, since the tool set is keyed on the name and two
+   * actions sharing one is refused rather than one quietly replacing the other.
+   */
+  name?: string
   /** A restricted key with read access is enough, and is what you should use. */
   secretKey: string
   whenToUse?: string
@@ -55,7 +73,8 @@ export function stripeBilling(options: StripeOptions): Action {
   }
 
   return defineAction({
-    name: 'look_up_billing',
+    name: options.name ?? 'look_up_billing',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       "Use for questions about the customer's plan, what they were charged, when they are next billed, " +
@@ -119,6 +138,23 @@ function readAmount(subscription: Record<string, unknown>): number | null {
 }
 
 export interface ShopifyOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
+  /**
+   * The tool name, when one is not enough.
+   *
+   * Two of the same action is a real configuration: escalations on the website
+   * and on Instagram, with different rules and different details to gather.
+   * They need different names, since the tool set is keyed on the name and two
+   * actions sharing one is refused rather than one quietly replacing the other.
+   */
+  name?: string
   /** The myshopify domain, such as `lumen-coffee.myshopify.com`. */
   shop: string
   /** An Admin API access token with read_orders. */
@@ -140,7 +176,8 @@ export function shopifyOrders(options: ShopifyOptions): Action {
   const base = options.apiBase ?? `https://${options.shop}/admin/api/${version}`
 
   return defineAction({
-    name: 'look_up_order',
+    name: options.name ?? 'look_up_order',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use for questions about a specific order: where it is, whether it shipped, what was in it, ' +

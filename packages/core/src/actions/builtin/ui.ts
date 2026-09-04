@@ -1,7 +1,16 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionField } from '../types.js'
+import type { Channel } from '../../store/types.js'
 
 export interface CustomButtonOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name?: string
   whenToUse: string
   /**
@@ -29,6 +38,7 @@ export function customButton(options: CustomButtonOptions): Action {
 
   return defineAction({
     name: options.name ?? 'show_button',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse: options.whenToUse,
     procedureOnly: options.procedureOnly,
     collect: [
@@ -103,6 +113,14 @@ export interface FormField extends ActionField {
 }
 
 export interface CustomFormOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name: string
   whenToUse: string
   title: string
@@ -121,6 +139,7 @@ export interface CustomFormOptions {
 export function customForm(options: CustomFormOptions): Action {
   return defineAction({
     name: options.name,
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse: options.whenToUse,
     procedureOnly: options.procedureOnly,
     runs: 'client',

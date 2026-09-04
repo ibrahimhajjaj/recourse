@@ -4,6 +4,7 @@ import type { Action, ActionContext, ActionField, ActionInput } from '../types.j
 import type { StoredMessage } from '../../store/types.js'
 import { INSIGHT_KEYS } from '../../insights.js'
 import { getLogger } from '../../diagnostics.js'
+import type { Channel } from '../../store/types.js'
 
 /**
  * What `escalate` hands to whatever opens the ticket.
@@ -75,6 +76,23 @@ export function ticketBody(ticket: EscalationRequest): string {
 
 export interface EscalateOptions {
   whenToUse?: string
+  /**
+   * The tool name, when one is not enough.
+   *
+   * Two escalations is a real configuration: one on the website and one on
+   * Instagram, with different rules and different details to gather. They need
+   * different names, since the tool set is keyed on the name and two actions
+   * sharing one is refused rather than one quietly replacing the other.
+   */
+  name?: string
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   /** Extra fields to gather before opening the ticket. */
   fields?: ActionField[]
   /**
@@ -226,7 +244,8 @@ async function contextFor(
  */
 export function escalate(options: EscalateOptions): Action {
   return defineAction({
-    name: 'escalate_to_human',
+    name: options.name ?? 'escalate_to_human',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use when the customer asks for a person, is frustrated or complaining, raises a billing ' +

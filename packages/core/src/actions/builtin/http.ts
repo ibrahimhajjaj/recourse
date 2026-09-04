@@ -1,8 +1,17 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionField, ActionInput } from '../types.js'
 import { fetchWithRetry } from '../../util/http.js'
+import type { Channel } from '../../store/types.js'
 
 export interface HttpActionOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name: string
   whenToUse: string
   collect?: ActionField[]
@@ -41,6 +50,7 @@ export function httpAction(options: HttpActionOptions): Action {
 
   return defineAction({
     name: options.name,
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse: options.whenToUse,
     collect: options.collect,
     procedureOnly: options.procedureOnly,

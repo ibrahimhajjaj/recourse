@@ -1,8 +1,26 @@
 import { defineAction } from '../define.js'
 import type { Action } from '../types.js'
 import { fetchWithRetry } from '../../util/http.js'
+import type { Channel } from '../../store/types.js'
 
 export interface WebSearchOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
+  /**
+   * The tool name, when one is not enough.
+   *
+   * Two of the same action is a real configuration: escalations on the website
+   * and on Instagram, with different rules and different details to gather.
+   * They need different names, since the tool set is keyed on the name and two
+   * actions sharing one is refused rather than one quietly replacing the other.
+   */
+  name?: string
   whenToUse?: string
   /** Results handed to the model. More costs context for little gain. */
   limit?: number
@@ -40,7 +58,8 @@ export function webSearch(options: WebSearchOptions = {}): Action {
   const sites = (options.sites ?? []).map((site) => site.trim()).filter(Boolean)
 
   return defineAction({
-    name: 'search_the_web',
+    name: options.name ?? 'search_the_web',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       'Use only when the documentation does not cover the question and the answer depends on ' +

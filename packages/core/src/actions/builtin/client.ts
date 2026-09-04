@@ -1,7 +1,16 @@
 import { defineAction } from '../define.js'
 import type { Action, ActionField } from '../types.js'
+import type { Channel } from '../../store/types.js'
 
 export interface ClientActionOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
   name: string
   whenToUse: string
   collect?: ActionField[]
@@ -22,6 +31,7 @@ export interface ClientActionOptions {
 export function clientAction(options: ClientActionOptions): Action {
   return defineAction({
     name: options.name,
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse: options.whenToUse,
     collect: options.collect,
     procedureOnly: options.procedureOnly,
@@ -31,6 +41,23 @@ export function clientAction(options: ClientActionOptions): Action {
 }
 
 export interface SuggestionsOptions {
+  /**
+   * The channels this is offered on. Unset means all of them.
+   *
+   * Some of these only work in one place, and some are a policy rather than a
+   * capability: a refund you are happy to let the agent issue to somebody who
+   * signed in on the website is a different proposition over SMS.
+   */
+  channels?: Channel[]
+  /**
+   * The tool name, when one is not enough.
+   *
+   * Two of the same action is a real configuration: escalations on the website
+   * and on Instagram, with different rules and different details to gather.
+   * They need different names, since the tool set is keyed on the name and two
+   * actions sharing one is refused rather than one quietly replacing the other.
+   */
+  name?: string
   whenToUse?: string
   max?: number
   /**
@@ -56,7 +83,8 @@ export function suggestedMessages(options: SuggestionsOptions = {}): Action {
   const max = options.max ?? 3
 
   return defineAction({
-    name: 'suggest_replies',
+    name: options.name ?? 'suggest_replies',
+    ...(options.channels ? { channels: options.channels } : {}),
     whenToUse:
       options.whenToUse ??
       `Call this at most once per reply, after answering, to offer up to ${max} short follow-up ` +

@@ -58,9 +58,35 @@ suggestions are on screen, so the only way on is to choose one. For a guided
 step with a fixed set of answers. Leave it off for ordinary support: a customer
 whose question is not on the list has nowhere to put it.
 
+Every built-in takes a `name`, and two of the same kind is a real
+configuration rather than a mistake: escalations on the website and on
+Instagram, with different rules and different details to gather before the
+ticket is opened. They need different names, because the tool set is keyed on
+the name, and two actions sharing one is refused at startup rather than one
+quietly replacing the other.
+
+```ts
+actions: [
+  escalate({ name: 'escalate_web', channels: ['web'], helpdesk }),
+  escalate({ name: 'escalate_social', channels: ['instagram'], fields: extra, helpdesk }),
+]
+```
+
 The commerce actions are read-only on purpose. An agent that can cancel a
 subscription will eventually cancel the wrong one, and the customer will not find
 out until the coffee stops arriving.
+
+A captured lead goes three places at once, and you pick whichever suits: the
+`onLead` callback, a `lead.captured` webhook, and the store. So "email me every
+time somebody leaves their details" is the callback and whatever you already
+send email with, rather than a field in a dashboard:
+
+```ts
+collectLeads({ onLead: (values) => notify.email('sales@shop.example', values) })
+```
+
+`collectData` is the same shape with fields you name yourself, for anything
+that is not a sales lead: a warranty claim, a callback slot, a survey.
 
 `webSearch` reaches the open web, which is usually more reach than you want. Name
 the sites it may use and it stays inside them:
