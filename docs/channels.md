@@ -185,6 +185,44 @@ channel with no entry gets the persona exactly as written.
 
 The alternative is a second agent with a copied persona, which then drifts.
 
+## Tools that only work in some of those places
+
+Wording is not the only thing that changes with the channel. A form is drawn by
+the widget, so on WhatsApp the agent calls it and the customer sees nothing.
+Name the channels and the action is only ever offered there:
+
+```ts
+customForm({ name: 'warranty_claim', channels: ['web'], ... })
+```
+
+Procedures take the same field, for a flow built around something only one
+channel has:
+
+```ts
+defineProcedure({
+  name: 'Warranty claim',
+  trigger: 'they want to claim on the warranty',
+  channels: ['web'],
+  steps: ['Show them @warranty_claim.', 'Call @open_claim with what it returns.'],
+})
+```
+
+Restricting the procedure is better than letting it match on WhatsApp and stall
+at the step nothing there can carry out.
+
+This is not only about what a channel can draw. An action you are happy to let
+the agent run for somebody who signed in on your website is a different
+proposition over SMS, where the only identity on offer is a phone number that
+can be spoofed. `channels` is where that judgment goes.
+
+The limit beats a procedure. An action a procedure unlocks is still withheld on
+a channel it was not offered on, because the procedure decided the flow
+applies, not that the tool works here.
+
+Client actions are handled without you saying anything. They need a browser to
+run them and hand the result back, so they are withheld from any caller that
+cannot do that round trip, which is every messaging channel.
+
 ## Three ways to answer a phone, and the one you can use today
 
 `voiceChannel` uses Twilio's Conversation Relay over a WebSocket. It is the best
