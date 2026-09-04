@@ -401,6 +401,20 @@ describe('picking more than one, and picking from headings', () => {
     expect([...select.querySelectorAll('optgroup')].map((g) => g.label)).toEqual(['North'])
   })
 
+  it('will not submit an empty list when one was required', () => {
+    // A single select has its first option chosen already; a multiple one can
+    // be left empty, and without this the flow carries on as though the
+    // customer had answered.
+    const { select } = build({ options: ['Leeds', 'York'], multiple: true })
+    expect(select.required).toBe(true)
+
+    const optional = build({ options: ['Leeds', 'York'], multiple: true, required: false })
+    expect(optional.select.required).toBe(false)
+
+    const single = build({ options: ['Leeds', 'York'] })
+    expect(single.select.required).toBe(false)
+  })
+
   it('returns every choice from a multiple select, and one from a single', () => {
     const many = build({ options: ['Leeds', 'York', 'Bath'], multiple: true })
     for (const chosen of [...many.select.options].filter((o) => o.value !== 'York')) chosen.selected = true

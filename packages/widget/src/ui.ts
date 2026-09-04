@@ -344,6 +344,13 @@ export function renderForm(
 
     element.name = name
     if (field.required !== false && element instanceof HTMLTextAreaElement) element.required = true
+    // Only meaningful on a multiple select, where nothing may be chosen: a
+    // single one has its first option selected already. Without it a required
+    // "which of these applies" submits an empty list and the flow carries on
+    // as though the customer had answered.
+    if (field.required !== false && element instanceof HTMLSelectElement && element.multiple) {
+      element.required = true
+    }
     if (field.required !== false && element instanceof HTMLInputElement && element.type !== 'checkbox') {
       element.required = true
     }
