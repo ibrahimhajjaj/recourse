@@ -206,6 +206,13 @@ export function d1Store(options: D1StoreOptions): Store {
         where.push('channel = ?')
         values.push(options.channel)
       }
+      if (options.contactId) {
+        // The contact is a JSON blob rather than its own column, so this reads
+        // the id out of it. Fine at this size: a contact lookup is a support
+        // agent looking somebody up, not a query on every turn.
+        where.push(`json_extract(contact, '$.id') = ?`)
+        values.push(options.contactId)
+      }
       if (options.since) {
         where.push('updated_at >= ?')
         values.push(options.since)

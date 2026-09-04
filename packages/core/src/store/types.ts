@@ -64,6 +64,15 @@ export interface ListOptions {
   /** Opaque cursor from a previous page. */
   cursor?: string
   channel?: Channel
+  /**
+   * Everything one person ever asked.
+   *
+   * Matched against `contact.id`, the id your own system knows them by. It is
+   * the first thing anybody wants when a customer writes in for the fourth
+   * time about the same order, and the thing a request to be forgotten needs
+   * before it can be honoured.
+   */
+  contactId?: string
   /** ISO timestamps. */
   since?: string
   until?: string

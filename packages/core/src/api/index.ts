@@ -222,6 +222,7 @@ export function createApiHandler(options: ApiOptions) {
     const page = await store.listConversations({
       ...pageParams(url),
       channel: url.searchParams.get('channel') ?? undefined,
+      contactId: url.searchParams.get('contactId') ?? undefined,
       since: url.searchParams.get('since') ?? undefined,
       until: url.searchParams.get('until') ?? undefined,
       unansweredOnly: url.searchParams.get('unanswered') === 'true',

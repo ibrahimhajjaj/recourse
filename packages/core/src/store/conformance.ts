@@ -430,6 +430,28 @@ export function storeConformance(options: ConformanceOptions): void {
       })
     }
 
+    if (can.filters) {
+      it('lists everything one person ever asked', async () => {
+        // The first thing anybody wants when a customer writes in for the
+        // fourth time about the same order, and what a request to be forgotten
+        // needs before it can be honoured.
+        const store = await make()
+        const sam = { id: 'u_sam', email: 'sam@example.com' }
+
+        await store.appendMessage('c1', message({ content: 'first' }), { channel: 'web', contact: sam })
+        await store.appendMessage('c2', message({ content: 'second' }), { channel: 'web', contact: sam })
+        await store.appendMessage('c3', message({ content: 'someone else' }), {
+          channel: 'web',
+          contact: { id: 'u_ada' },
+        })
+
+        const page = await store.listConversations({ contactId: 'u_sam' })
+        expect(page.items.map((one) => one.id).sort()).toEqual(['c1', 'c2'])
+
+        expect((await store.listConversations({ contactId: 'nobody' })).items).toEqual([])
+      })
+    }
+
     // ---- the queue, and the order it comes back in ----
 
     if (can.tickets) {

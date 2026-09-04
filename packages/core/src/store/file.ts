@@ -224,6 +224,7 @@ export function fileStore(options: FileStoreOptions): Store {
           if (listOptions.since && conversation.updatedAt < listOptions.since) return false
           if (listOptions.until && conversation.updatedAt > listOptions.until) return false
           if (listOptions.channel && conversation.channel !== listOptions.channel) return false
+          if (listOptions.contactId && conversation.contact?.id !== listOptions.contactId) return false
           if (
             listOptions.unansweredOnly &&
             !(messages.get(conversation.id) ?? []).some((message) => message.unanswered)

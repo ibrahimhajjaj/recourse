@@ -55,6 +55,12 @@ return still counts, and it defaults to seven. That also makes a polling
 trigger possible without any of the above: point one at `/conversations` and
 let it poll.
 
+`GET /conversations` filters on `?channel=`, `?since=`, `?until=`,
+`?unanswered=true` and `?contactId=`. The last one is everything a single
+person ever asked, matched on the id your own system knows them by, which is
+what somebody writing in for the fourth time about the same order needs, and
+what a request to be forgotten needs before it can be honoured.
+
 ## Reading it from inside a coding agent
 
 The same data, as tools a model can call. Turn it on and the management API

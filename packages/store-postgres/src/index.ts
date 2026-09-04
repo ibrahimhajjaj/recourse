@@ -212,6 +212,13 @@ export function postgresStore(options: PostgresStoreOptions): Store {
         values.push(options.channel)
         where.push(`c.channel = $${values.length}`)
       }
+      if (options.contactId) {
+        // The contact is jsonb rather than its own column, so this reads the id
+        // out of it. Fine at this size: a contact lookup is a support agent
+        // looking somebody up, not a query on every turn.
+        values.push(options.contactId)
+        where.push(`c.contact->>'id' = $${values.length}`)
+      }
       if (options.since) {
         values.push(options.since)
         where.push(`c.updated_at >= $${values.length}`)

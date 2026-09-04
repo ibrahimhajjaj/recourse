@@ -280,6 +280,7 @@ function withinRange(timestamp: string, options: ListOptions): boolean {
 function matches(conversation: Conversation, options: ListOptions, thread: StoredMessage[]): boolean {
   if (!withinRange(conversation.updatedAt, options)) return false
   if (options.channel && conversation.channel !== options.channel) return false
+  if (options.contactId && conversation.contact?.id !== options.contactId) return false
   if (options.unansweredOnly && !thread.some((message) => message.unanswered)) return false
   return true
 }
