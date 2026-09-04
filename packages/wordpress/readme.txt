@@ -56,7 +56,7 @@ Whichever provider you point it at, that provider's own terms of service and pri
 *   Groq, api.groq.com: [terms of use](https://groq.com/terms-of-use/), [privacy policy](https://groq.com/privacy-policy/)
 *   OpenRouter, openrouter.ai: [terms of service](https://openrouter.ai/terms), [privacy policy](https://openrouter.ai/privacy)
 *   Mistral AI, api.mistral.ai: [commercial terms of service](https://legal.mistral.ai/terms/commercial-terms-of-service), [privacy policy](https://legal.mistral.ai/terms/privacy-policy)
-*   Moonshot AI, api.moonshot.ai: [model agreement](https://platform.moonshot.ai/docs/agreement/modelagreement), [privacy policy](https://platform.moonshot.ai/docs/agreement/privacypolicy)
+*   Moonshot AI (Kimi), api.moonshot.ai: [terms of service](https://platform.kimi.ai/docs/agreement/modeluse), [privacy policy](https://platform.kimi.ai/docs/agreement/userprivacy)
 *   Alibaba Cloud Model Studio, dashscope.aliyuncs.com: [product terms of service](https://www.alibabacloud.com/help/en/legal/latest/alibaba-cloud-international-website-product-terms-of-service), [privacy policy](https://www.alibabacloud.com/help/en/legal/latest/alibaba-cloud-international-website-privacy-policy)
 
 Ollama is also offered, and is not an external service: it runs on your own server at localhost, so nothing leaves the machine.
