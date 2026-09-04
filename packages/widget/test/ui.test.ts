@@ -474,3 +474,30 @@ describe('a chart', () => {
     expect((node?.querySelector('.ui-chart-bar') as HTMLElement).style.width).toBe('0%')
   })
 })
+
+describe('a chart with a number below zero in it', () => {
+  it('gives it no length, since a bar cannot say "minus"', () => {
+    // Minus twenty drawn the same size as plus twenty says the opposite of
+    // what it means, and there is no room for an axis in a 400px panel.
+    const { node } = render('chart', {
+      points: [
+        { label: 'Paid', value: 40 },
+        { label: 'Refunded', value: -40, display: '-£40' },
+      ],
+    })
+
+    const bars = [...(node?.querySelectorAll('.ui-chart-bar') ?? [])] as HTMLElement[]
+    expect(bars[0]?.style.width).toBe('100%')
+    expect(bars[1]?.style.width).toBe('0%')
+    // The number is still there, and it carries the sign.
+    expect(node?.textContent).toContain('-£40')
+  })
+
+  it('draws nothing rather than dividing by a negative largest', () => {
+    const { node } = render('chart', { points: [{ label: 'Owed', value: -5 }] })
+    const bar = node?.querySelector('.ui-chart-bar') as HTMLElement
+
+    expect(bar.style.width).toBe('0%')
+    expect(node?.textContent).toContain('-5')
+  })
+})

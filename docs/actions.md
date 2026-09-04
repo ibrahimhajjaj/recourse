@@ -177,7 +177,9 @@ much, per month", which a bar answers and a line, a pie and an axis library do
 not answer any better in a panel 400 pixels wide. The numbers are printed
 beside the bars, because a chart nobody can read the values off is a picture of
 a table. The scale runs from zero to the largest bar: starting it at the
-smallest value makes a 2% gap look total.
+smallest value makes a 2% gap look total. A number below zero gets no bar at
+all, because one drawn the same length as its positive says the opposite of
+what it means; the number beside it carries the sign.
 
 ### The id is what makes it change
 

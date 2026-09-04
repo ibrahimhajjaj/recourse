@@ -412,7 +412,12 @@ const chart: UiRenderer = (data) => {
   // Against the largest bar, and against zero rather than the smallest. A
   // scale that starts at the smallest value makes a 2% difference look like
   // everything, which is the oldest way to mislead with a chart.
-  const largest = Math.max(...points.map((point) => Math.abs(point.value)), 0)
+  //
+  // Negatives get no length. A balance of minus twenty drawn as a bar the same
+  // size as plus twenty says the opposite of what it means, and there is no
+  // room here for an axis to sit the difference either side of. The number is
+  // printed beside it and carries the sign, which is the honest half.
+  const largest = Math.max(...points.map((point) => Math.max(point.value, 0)), 0)
 
   const rows = document.createElement('dl')
   rows.className = 'ui-chart-rows'
@@ -428,7 +433,7 @@ const chart: UiRenderer = (data) => {
     track.className = 'ui-chart-track'
     const bar = document.createElement('div')
     bar.className = 'ui-chart-bar'
-    bar.style.width = `${largest === 0 ? 0 : (Math.abs(point.value) / largest) * 100}%`
+    bar.style.width = `${largest <= 0 ? 0 : (Math.max(point.value, 0) / largest) * 100}%`
     track.appendChild(bar)
     cell.appendChild(track)
     // The formatted value if the sender wrote one, since 1200 may be £1,200
