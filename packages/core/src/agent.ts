@@ -157,6 +157,24 @@ export interface AgentOptions {
    */
   reasoning?: boolean
   /**
+   * Offer follow-up questions after every reply, rather than when the model
+   * remembers to ask for them.
+   *
+   * `suggestedMessages` is an action, so it fires on the model's judgment, and
+   * a smaller model's judgment about a housekeeping tool is poor: it answers
+   * well and forgets the follow-ups on most turns. This asks separately, after
+   * the answer, so they appear every time.
+   *
+   * It costs a second model call on every reply. That is the trade, and it is
+   * why this is off unless you set it: it is a real per-message cost for
+   * something the customer may never click.
+   *
+   * Skipped when the model already offered some itself, when the reply is
+   * empty, and when the conversation has been handed to a person, who does not
+   * need a widget proposing what to say to them.
+   */
+  followUps?: boolean | { max?: number }
+  /**
    * How many model round trips one question may take. Each action call costs
    * one, so this caps a runaway loop rather than the useful work.
    */
@@ -438,6 +456,7 @@ export function createAgent(options: AgentOptions) {
   // Off unless asked for. See `reasoning` on the options for why that is not a
   // matter of taste.
   const showsReasoning = options.reasoning === true
+  const followUps = options.followUps === true ? {} : options.followUps === false ? null : (options.followUps ?? null)
   const takeover = options.takeover === true ? {} : options.takeover === false ? null : (options.takeover ?? null)
 
   // Which procedures this agent can run at all. Which of their actions are
@@ -689,6 +708,8 @@ export function createAgent(options: AgentOptions) {
     // client while they do. They cannot yield from here, so they push frames
     // into this queue and the loop below drains it between model chunks.
     const pending: StreamFrame[] = []
+    /** Set when an action put a person on the conversation partway through. */
+    let handedOver = false
     /** Kept so the transcript records what the agent actually did, not just said. */
     const ran: Array<{ name: string; input: unknown; output: unknown }> = []
 
@@ -700,7 +721,10 @@ export function createAgent(options: AgentOptions) {
       signal,
       store: options.store,
       webhooks: options.webhooks,
-      emit: (frame) => pending.push(frame),
+      emit: (frame) => {
+        if (frame.type === 'handoff') handedOver = true
+        pending.push(frame)
+      },
     }
 
     // streamText reports provider failures to onError and ends the stream
@@ -1026,7 +1050,23 @@ export function createAgent(options: AgentOptions) {
       const diagnosis = describeFailure(failure, prepared !== null)
       logFailure(diagnosis, failure, { conversation: conversationId, model: nameOf(spoke) })
       yield { type: 'error', message: `${diagnosis.message} (reference ${diagnosis.reference})` }
-    } else yield { type: 'done' }
+      return
+    }
+
+    // After the answer, never before: the customer reads the reply while this
+    // runs, and a turn that waited on it would be slower for the sake of
+    // something they may never click.
+    if (followUps && answered.trim() && !handedOver && !ran.some((call) => call.name === 'suggest_replies')) {
+      const proposed = await proposeFollowUps(spoke, question, answered, followUps.max ?? 3, signal)
+      if (proposed.items.length > 0) yield { type: 'suggestions', items: proposed.items }
+      // Billed like any other call, because it is one, on every reply. A cap
+      // that did not see this would be off by a call per message.
+      if (options.budget && (proposed.usage.inputTokens || proposed.usage.outputTokens)) {
+        await options.budget.record(nameOf(spoke), proposed.usage)
+      }
+    }
+
+    yield { type: 'done' }
   }
 
   /** Streams the answer as frames. Use this wherever a person is waiting. */
@@ -1135,3 +1175,50 @@ export type Agent = ReturnType<typeof createAgent>
  * written, which nothing noticed because no example was ever typechecked.
  */
 export type { Embedder, KnowledgeIndex, Match, Message, SourceRef, StreamFrame }
+
+/**
+ * Follow-up questions to offer under an answer.
+ *
+ * Its own call rather than part of the turn, because the alternative is asking
+ * the model to answer and to think about what comes next in one breath, and
+ * what suffers is the answer. Cheap: two short strings in, one line out.
+ *
+ * Anything that goes wrong here returns nothing. A missing row of buttons is
+ * not worth failing a reply the customer already has.
+ */
+async function proposeFollowUps(
+  model: LanguageModel,
+  question: string,
+  answer: string,
+  max: number,
+  signal?: AbortSignal,
+): Promise<{ items: string[]; usage: Usage }> {
+  try {
+    const { generateText } = await import('ai')
+    const { text, usage } = await generateText({
+      model,
+      temperature: 0.3,
+      maxOutputTokens: 120,
+      instructions:
+        `You are proposing what a customer might ask next. Reply with at most ${max} short questions, ` +
+        'separated by a pipe character, and nothing else. Write them in the customer\'s own voice and in ' +
+        'the language they used, as questions they would ask, never as instructions to them. ' +
+        'Each under sixty characters. Propose only what the answer above leaves genuinely open. ' +
+        'Reply with nothing at all if the exchange is finished, if they were told a person will take over, ' +
+        'or if the honest follow-ups are ones you could not answer.',
+      prompt: `Customer: ${question}\nAgent: ${answer}`,
+      ...(signal ? { abortSignal: signal } : {}),
+    })
+
+    return {
+      items: text
+        .split('|')
+        .map((item) => item.trim().replace(/^[-*\d.\s]+/, ''))
+        .filter((item) => item.length > 0 && item.length <= 80)
+        .slice(0, max),
+      usage: { inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens },
+    }
+  } catch {
+    return { items: [], usage: {} }
+  }
+}

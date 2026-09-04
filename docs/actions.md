@@ -32,6 +32,20 @@ Built in: `collectLeads`, `collectData`, `escalate`, `suggestedMessages`,
 `slackNotify`, `scheduleMeeting`, `stripeBilling`, `shopifyOrders`, `liveChat`,
 `transferToPhone`.
 
+A small model answers well and forgets the housekeeping tool, so the follow-ups
+appear on some turns and not others. `followUps: true` on the agent asks for
+them separately, after the answer, so they appear every time:
+
+```ts
+import { createAgent } from '@recourse-ai/core'
+
+createAgent({ ..., followUps: true })
+```
+
+It costs a second model call on every reply, which is the trade. It is skipped
+when the model offered some itself, when the reply is empty, and once a person
+has the conversation.
+
 `suggestedMessages({ pickOne: true })` takes the text box away while its
 suggestions are on screen, so the only way on is to choose one. For a guided
 step with a fixed set of answers. Leave it off for ordinary support: a customer
