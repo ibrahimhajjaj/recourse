@@ -276,3 +276,47 @@ describe('mounted on the management API', () => {
     expect(seen).toEqual([{ path: '/mcp', status: 200 }])
   })
 })
+
+describe('working through a backlog', () => {
+  /** Two tickets, opened a month apart. */
+  async function withTickets(): Promise<Store> {
+    const store = memoryStore()
+
+    for (const [subject, createdAt] of [
+      ['older', '2026-01-01T00:00:00.000Z'],
+      ['newer', '2026-02-01T00:00:00.000Z'],
+    ] as const) {
+      const ticket = await store.createTicket({
+        subject,
+        description: subject,
+        statusId: 'new',
+        statusCategory: 'new',
+        customer: { email: 'sam@example.com' },
+        channel: 'web',
+        metadata: {},
+        createdAt,
+        updatedAt: createdAt,
+      })
+      await store.updateTicket(ticket.ticketNumber, { createdAt, updatedAt: createdAt })
+    }
+
+    return store
+  }
+
+  it('hands back the newest first by default', async () => {
+    const store = await withTickets()
+    const mcp = createMcp({ store, helpdesk: createHelpdesk({ store }) })
+    const answer = await call(mcp, 'tools/call', { name: 'list_tickets', arguments: {} })
+
+    expect((payload(answer) as Array<{ subject: string }>).map((one) => one.subject)).toEqual(['newer', 'older'])
+  })
+
+  it('turns the queue round when asked for the oldest', async () => {
+    // What an assistant told to work through a backlog actually wants.
+    const store = await withTickets()
+    const mcp = createMcp({ store, helpdesk: createHelpdesk({ store }) })
+    const answer = await call(mcp, 'tools/call', { name: 'list_tickets', arguments: { oldestFirst: true } })
+
+    expect((payload(answer) as Array<{ subject: string }>).map((one) => one.subject)).toEqual(['older', 'newer'])
+  })
+})
