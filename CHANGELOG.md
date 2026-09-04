@@ -23,6 +23,32 @@ replaced the first: the agent was handed a tool that behaved like the wrong one
 and nothing said so. Every built-in now takes a `name` for exactly this, since
 two of the same kind is a real configuration rather than a mistake.
 
+**A dashboard that reassigns a conversation has to say so.** `assignAgent` now
+refuses when somebody else already holds it, and returns whether it took it:
+
+```ts
+const took = await assignAgent(store, conversationId, 'Marcus')
+if (!took.assigned) return `${took.heldBy} already has this one.`
+```
+
+Code that reassigns deliberately — a manager moving a conversation rather than
+two people racing for it — passes `{ takeFrom: true }` and behaves as before.
+Without one of those two changes, a reassignment that used to work now silently
+does nothing.
+
+**A custom store has new assertions to pass.** `storeConformance` gained the
+ticket queue, the contact lookup, and two paging rules every store here already
+had to follow in SQL and now has to follow everywhere: the cursor is looked up
+among all rows rather than the matching ones, and a tie on the timestamp is
+broken by the id. `pageAfter` and `byNewest` from `@recourse-ai/core/store` are
+the shared way to satisfy both. A store that cannot yet can decline the ticket
+half with `supports: { tickets: false }`, which is said out loud in the suite
+rather than skipped quietly.
+
+**`GET /sources` no longer returns a cursor.** It returns every source, because
+a list that silently stopped at two hundred was how a rebuild lost the rest. A
+client paging it should read `data` and stop.
+
 ### Behaviour that changed without an API change
 
 **One procedure runs per turn**, the one the customer turned to most recently.
@@ -77,10 +103,6 @@ and ten on general support are not the same shape.
 
 **Routing rules and triggers match a named address** with `email`, not only its
 domain.
-
-**A second takeover is refused** rather than quietly swapping who owns the
-conversation. `assignAgent` returns `{ assigned, heldBy }`; a manager
-reassigning deliberately passes `{ takeFrom: true }`.
 
 **`ticketSource`** indexes tickets your team already answered, with a Zendesk
 reader that takes solved tickets and their last public reply.
