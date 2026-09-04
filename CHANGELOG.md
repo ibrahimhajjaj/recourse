@@ -4,6 +4,12 @@ What changed between releases, and what it means for a deployment that already
 runs this. Written for somebody upgrading, so the breaking parts come first and
 each one says what to do rather than only what moved.
 
+## 0.3.1 (unreleased)
+
+### Fixed
+
+**The WordPress plugin no longer ships a CDN address.** The widget loads a voice runtime from jsDelivr the first time somebody places a vendor-carried call, and that address reached the copy of the bundle inside the plugin even though the plugin never turns calls on. The plugin directory does not allow a plugin to fetch code from another host, so the widget now builds a second bundle, `dist/wordpress`, compiled without the loader; the plugin build copies that one and both build steps fail if a remote address appears in it. `call.load` is still there for a site that wants to supply its own runtime, on that build or any other.
+
 ## 0.3.0 (2026-09-04)
 
 ### You have to change something

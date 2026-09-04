@@ -23,6 +23,7 @@
   ],
   "files": [
     "dist",
+    "!dist/wordpress",
     "README.md",
     "LICENSE"
   ],

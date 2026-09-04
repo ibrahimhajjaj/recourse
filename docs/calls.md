@@ -30,6 +30,14 @@ Drop `data-call-transport` and the vendor carries it instead. Everything else
 is the same, because both satisfy the same interface and the widget does not
 know which one is running.
 
+One build is the exception. The vendor path fetches its runtime from a CDN the
+first time somebody clicks, and the copy of the widget inside the WordPress
+plugin is compiled without that: the plugin directory does not allow a plugin
+to load code from another host. The hosted transport works there unchanged,
+since it only ever talks to your own server. If you want the vendor path from
+that build, hand it a loader through `call.load` and it will use yours. That is
+the same seam a site with a strict content security policy uses.
+
 
 ## Naming the pieces
 

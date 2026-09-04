@@ -211,15 +211,40 @@ export function createCall(options: CallOptions): Call {
 }
 
 /**
- * Where the runtime is fetched from, pinned.
+ * Whether this build may fetch the voice runtime over the network.
+ *
+ * True everywhere except the WordPress build. A plugin distributed through the
+ * plugin directory may not load code from anybody else's server at runtime,
+ * and an address sitting unreachable inside a shipped file is still an address
+ * somebody reviewing that file has to take on trust. Replaced at build time,
+ * so the branch below folds away and the URL leaves the bundle rather than
+ * staying in it unused.
+ *
+ * A site that wants a call from the plugin build supplies its own loader
+ * through `call.load`, which is the same seam a strict content policy uses.
+ */
+declare const __RECOURSE_FETCH_RUNTIME__: boolean
+
+/**
+ * Where the runtime is fetched from, pinned. Empty in the WordPress build.
  *
  * A floating version in a script a browser executes is somebody else's release
  * schedule deciding when this widget breaks, on every site that embeds it.
+ *
+ * The conditional is what removes the address from the plugin bundle. Guarding
+ * the branch that uses it is not enough: the constant survives on its own and
+ * the URL stays in the file, which is the thing being avoided.
  */
-export const RUNTIME_URL = 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.23.0/+esm'
+export const RUNTIME_URL = __RECOURSE_FETCH_RUNTIME__
+  ? 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.23.0/+esm'
+  : ''
 
 /** The default loader, and the only place the runtime is named. */
 async function loadRuntime(): Promise<VoiceRuntime> {
+  if (!RUNTIME_URL) {
+    throw new Error('this build does not fetch a voice runtime; pass call.load with your own')
+  }
+
   // Held in a variable rather than written inline, so the compiler treats it
   // as a runtime specifier instead of a module it should try to resolve.
   const source = RUNTIME_URL

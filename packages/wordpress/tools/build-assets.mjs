@@ -5,18 +5,22 @@
  * of anything compiled to be available: either in the zip or linked from the
  * readme. Shipping the readable file next to the minified one costs 30KB and
  * answers the question before it is asked.
+ *
+ * From `dist/wordpress` rather than `dist`, which is the same widget compiled
+ * without the loader that pulls a voice runtime from a CDN. A plugin may not
+ * fetch code from a remote host, and the general build names one.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const built = join(root, '..', 'widget', 'dist')
+const built = join(root, '..', 'widget', 'dist', 'wordpress')
 const assets = join(root, 'assets')
 
 if (!existsSync(join(built, 'recourse.min.js'))) {
-  console.error('No widget build found. Run `pnpm --filter @recourse-ai/widget build` first.')
+  console.error('No WordPress widget build found. Run `pnpm --filter @recourse-ai/widget build` first.')
   process.exit(1)
 }
 
@@ -70,4 +74,26 @@ for (const stale of readdirSync(assets)) {
 for (const file of GENERATED) {
   copyFileSync(join(built, file), join(assets, file))
   console.log(`  ${file}  ${(statSync(join(assets, file)).size / 1024).toFixed(1)} KB`)
+}
+
+// Checked here as well as in the widget's own build, because this is the step
+// that decides what lands in the zip. Pointing it back at `dist` by accident
+// would put a CDN address in the plugin and nothing else would notice.
+/**
+ * The XML namespaces, which look like addresses and are not.
+ *
+ * `createElementNS` needs the SVG one to draw an icon. Nothing is fetched from
+ * any of them, and counting them as remote dependencies fails the build over a
+ * paperclip.
+ */
+const NAMESPACES = ['http://www.w3.org/2000/svg', 'http://www.w3.org/1999/xhtml', 'http://www.w3.org/1999/xlink']
+
+for (const file of GENERATED) {
+  const found = readFileSync(join(assets, file), 'utf8').match(/\bhttps?:\/\/[^\s'"`]+/g) ?? []
+  const remote = [...new Set(found)].filter((address) => !NAMESPACES.includes(address))
+  if (remote.length === 0) continue
+
+  console.error(`assets/${file} names a remote address, which the plugin directory does not allow:`)
+  for (const address of remote) console.error(`  ${address}`)
+  process.exit(1)
 }
