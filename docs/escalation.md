@@ -139,7 +139,11 @@ if (!took.assigned) return `${took.heldBy} already has this one.`
 ```
 
 A manager reassigning deliberately passes `{ takeFrom: true }`, because that is
-a decision rather than a race. `heldBy(store, conversationId)` reads it back.
+a decision rather than a race. `heldBy(store, conversationId)` reads it back,
+and answers `undefined` when it cannot tell as readily as when nobody holds it,
+which is why the takeover check does its own read and lets a store failure
+through: "I could not tell" must not become "nobody has it" at the moment two
+people are both trying to take the same conversation.
 
 The gap between the two is also the only way to measure how long people queue.
 

@@ -71,3 +71,47 @@ describe('a second person taking over', () => {
     expect(await heldBy(await conversation(), 'c1')).toBeUndefined()
   })
 })
+
+describe('when the store cannot answer', () => {
+  it('refuses to guess who owns the conversation', async () => {
+    // Answering "nobody has it" when the truth is "I could not tell" turns the
+    // check off exactly when it is needed, and two people end up owning the
+    // same conversation.
+    const store = await conversation()
+    await assignAgent(store, 'c1', 'ana')
+
+    const broken: Store = {
+      ...store,
+      getConversation: async () => {
+        throw new Error('the store is having a moment')
+      },
+    }
+
+    await expect(assignAgent(broken, 'c1', 'marcus')).rejects.toThrow(/having a moment/)
+  })
+
+  it('still lets a deliberate reassignment through, which asked no question', async () => {
+    const store = await conversation()
+    await assignAgent(store, 'c1', 'ana')
+
+    const broken: Store = {
+      ...store,
+      getConversation: async () => {
+        throw new Error('the store is having a moment')
+      },
+    }
+
+    expect((await assignAgent(broken, 'c1', 'marcus', { takeFrom: true })).assigned).toBe(true)
+  })
+
+  it('leaves the read-only lookup lenient, since it only shows a name', async () => {
+    const broken: Store = {
+      ...(await conversation()),
+      getConversation: async () => {
+        throw new Error('the store is having a moment')
+      },
+    }
+
+    expect(await heldBy(broken, 'c1')).toBeUndefined()
+  })
+})

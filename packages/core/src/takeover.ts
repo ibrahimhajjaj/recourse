@@ -200,7 +200,15 @@ export async function assignAgent(
   // is a far smaller thing than the silent overwrite it replaces, and the
   // ticket the takeover creates is the durable record either way.
   if (!options.takeFrom) {
-    const holder = await heldBy(store, conversationId)
+    // Read here rather than through `heldBy`, which answers "nobody" when it
+    // cannot tell. That is fine for a caller asking who has a conversation and
+    // wrong for the one deciding whether to take it: a store that hiccups
+    // would quietly turn the check off and let two people own the same
+    // conversation, which is the failure this exists to prevent. Let it throw,
+    // and the dashboard says "could not take that over" instead.
+    const thread = await store.getConversation(conversationId)
+    const holder = nameOfHolder(thread?.conversation.meta?.[ASSIGNED_KEY])
+
     if (holder && holder !== who) return { assigned: false, heldBy: holder }
   }
 
@@ -222,13 +230,19 @@ export async function assignAgent(
 export async function heldBy(store: Store, conversationId: string): Promise<string | undefined> {
   try {
     const thread = await store.getConversation(conversationId)
-    const holder = thread?.conversation.meta?.[ASSIGNED_KEY]
-
-    if (typeof holder === 'string' && holder) return holder
-    return holder === true ? 'somebody on the team' : undefined
+    return nameOfHolder(thread?.conversation.meta?.[ASSIGNED_KEY])
   } catch {
+    // A read that failed is not the same as nobody holding it, and this says
+    // the second thing. That is why the takeover check does its own read: a
+    // caller only displaying a name can live with the ambiguity, one deciding
+    // who owns a conversation cannot.
     return undefined
   }
+}
+
+function nameOfHolder(holder: unknown): string | undefined {
+  if (typeof holder === 'string' && holder) return holder
+  return holder === true ? 'somebody on the team' : undefined
 }
 
 /** Whether somebody is actually on this conversation, rather than asked for. */
