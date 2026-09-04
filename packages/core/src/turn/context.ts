@@ -73,7 +73,11 @@ export function resolveContext(input: {
   // that reads like two conversations shuffled together.
   const running = chooseProcedure(
     matched,
-    input.messages.map((message) => message.content),
+    // The customer's words only. The agent's own reply names the flow it is
+    // working through, so scoring on both would let it hold its own procedure
+    // open, and worse, let a helpful aside ("I can also look at returns")
+    // switch the conversation to a flow nobody asked for.
+    input.messages.filter((message) => message.role === 'user').map((message) => message.content),
   )
   const applicable = running ? [running] : []
   const unlocked = unlockedBy(applicable)

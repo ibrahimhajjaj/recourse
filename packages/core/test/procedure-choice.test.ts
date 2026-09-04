@@ -103,6 +103,44 @@ function context(channel: string) {
   })
 }
 
+describe('what the agent says about itself', () => {
+  const issue: Action = { name: 'issue_refund', whenToUse: 'Refund it.', execute: async () => ({}) }
+  const track: Action = { name: 'track_parcel', whenToUse: 'Track it.', execute: async () => ({}) }
+
+  function turn(messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
+    return resolveContext({
+      messages,
+      found: [],
+      procedures: [refund, shipping],
+      actions: [issue, track],
+      passageThreshold: null,
+      logger: quiet,
+    })
+  }
+
+  it('cannot switch the flow with a helpful aside', () => {
+    // The agent offering to look at a parcel is not the customer asking about
+    // one, and a flow that can be steered by its own reply is not a flow.
+    const running = turn([
+      { role: 'user', content: 'I want my money back' },
+      { role: 'assistant', content: 'Of course. I can also tell you where your parcel has got to.' },
+      { role: 'user', content: 'LUM-1234' },
+    ])
+
+    expect(running.applicable.map((p) => p.name)).toEqual(['refund_an_order'])
+  })
+
+  it('still switches when the customer does', () => {
+    const running = turn([
+      { role: 'user', content: 'I want my money back' },
+      { role: 'assistant', content: 'What is the order number?' },
+      { role: 'user', content: 'actually, where has my parcel got to' },
+    ])
+
+    expect(running.applicable.map((p) => p.name)).toEqual(['where_is_my_parcel'])
+  })
+})
+
 describe('a turn where two procedures both match', () => {
   const issue: Action = { name: 'issue_refund', whenToUse: 'Refund it.', execute: async () => ({}) }
   const track: Action = { name: 'track_parcel', whenToUse: 'Track it.', execute: async () => ({}) }

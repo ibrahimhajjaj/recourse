@@ -138,11 +138,12 @@ export function unlockedBy(procedures: Procedure[], conversation?: string): Set<
  * number twice and to do two contradictory things with it, and the customer
  * gets a reply that reads like two conversations shuffled together.
  *
- * The one that wins is the one the conversation turned to most recently.
- * Scanned newest message first, so a customer three steps into a refund who
- * says "actually, where is my parcel" gets the shipping flow on that turn, and
- * one who says "LUM-1234" is still in the refund: their message names neither
- * trigger, so the most recent one that was named still holds.
+ * The one that wins is the one the conversation turned to most recently, judged
+ * on what the customer said rather than on the whole transcript. Scanned newest
+ * first, so a customer three steps into a refund who says "actually, where is
+ * my parcel" gets the shipping flow on that turn, and one who says "LUM-1234"
+ * is still in the refund: their message names neither trigger, so the most
+ * recent one they did name still holds.
  *
  * Ties go to the procedure that shares more words with that message, and then
  * to the order they were declared in, so the choice is stable rather than
