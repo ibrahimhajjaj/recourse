@@ -151,38 +151,36 @@ it back in the queue" watched it never happen with nothing to read that said
 why. Rules can also match on what an update *moved*, with `changed`, which is
 the question most of them actually ask.
 
-**Paging could end a walk early, in the memory and file stores.** They looked
-the cursor up among the rows that matched the filter, so a ticket somebody
-closed, a source that finished re-crawling, or a conversation a new message
-pushed past your `until` took the rest of the list with it. The SQL stores were
-always right; the in-memory ones now match, and both behaviours are conformance
-assertions every store has to pass. Conversations also had no tiebreak, so two
-touched in the same millisecond could be handed over twice or never.
-
-**Four things read one page and treated it as the whole set.** A page is capped
+**Six things read one page and treated it as the whole set.** A page is capped
 below what these callers ask for, and asking for more is silently honoured as
-the cap, so each one produced a confident wrong number rather than an error: a
-rebuild that saw a fifth of the knowledge base, a report that said it had looked
-at five hundred conversations having seen two hundred, an agent workload count
-that made the busiest person on the desk look idle, and queue statistics for the
-first two hundred tickets. `upTo` from `@recourse-ai/core/store` is the shared
-way to read past a page.
+the cap, so every one produced a confident wrong number rather than an error:
 
-**A rebuild dropped every source past the first page.** `train()` asked for
-five hundred sources and a page is capped at two hundred, so a knowledge base
-larger than that rebuilt from a fraction of itself: the agent stopped knowing
-things, with no error anywhere and nothing to notice until the answers came
-back wrong. The source list and the summary had the same cap.
+- `train()` rebuilt from a fifth of a large knowledge base, so the agent
+  stopped knowing things with nothing to notice until the answers came back
+  wrong. The source list and the summary agreed with the broken index.
+- `outcomes()` said it had looked at five hundred conversations having seen two
+  hundred.
+- Agent workload was counted off the most recently touched tickets, so a
+  backlog of unclaimed work made the busiest person on the desk look idle.
+- `helpdesk.stats()` reported on the first two hundred tickets, and on the
+  first page of each thread, where the reply that answered the customer and the
+  event that closed the ticket both live at the end.
+- A stale insight on a quiet conversation sat behind fresher ones and was never
+  refreshed.
+- Paging in the memory and file stores ended a walk early whenever a row you
+  had already been handed stopped matching the filter.
+
+`upTo` and `pageAfter` from `@recourse-ai/core/store` are the shared ways to
+read past a page, and the last two are conformance assertions every store has
+to pass.
+
+**Two conversations touched in the same millisecond** could be handed over
+twice, or never: the list had no second thing to order by, so their order was
+whatever the sort happened to do.
 
 **A withheld action result still reached the page.** When a result read as an
 instruction the model was protected, but the `action` frame carrying it had
 already gone out, and the same call reported both `done` and `failed`.
-
-**How busy an agent is was counted off one page of the queue.** That page is
-the most recently touched tickets, so a backlog of unclaimed work filled it and
-made everybody look idle: the agent buried under a hundred and fifty open
-tickets was handed the next one, and a cap never tripped. It asks about each
-member of the team instead, which is exact and less work.
 
 **A tie in ticket assignment went alphabetically.** Two agents on the same load
 were separated by their id, so the one whose email sorted first took every tie
