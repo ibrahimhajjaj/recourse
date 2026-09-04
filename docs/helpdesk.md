@@ -21,7 +21,51 @@ const helpdesk = createHelpdesk({
 ```
 
 Every decision is recorded as an event on the thread, so why a ticket went where
-it did is answerable later. `helpdesk.draftReply(n)` writes a reply from the same
+it did is answerable later.
+
+## Rules that run themselves
+
+`routing` picks one destination when a ticket arrives. `triggers` are the
+housekeeping either side of that: every matching rule fires, in the order you
+wrote them, and a later one wins where two touch the same field.
+
+```ts
+createHelpdesk({
+  store,
+  triggers: [
+    {
+      name: 'Back in the queue when reopened',
+      on: ['updated'],
+      when: { changed: { statusCategory: { from: 'closed' } } },
+      then: { setAssigneeId: null, addNote: 'Reopened, so back in the queue.' },
+    },
+  ],
+})
+```
+
+`when` matches on what a ticket **is**: `contains` over the subject and
+description, `statusCategory`, `channel`, `teamId`, `unassigned`, `emailDomain`,
+and `custom` for anything else.
+
+`changed` matches on what an update **moved**, which is a different question and
+the one most real rules ask. A closed ticket looks identical whether it was
+closed a moment ago or last week, and an unassigned one looks identical whether
+somebody just dropped it or nobody ever picked it up:
+
+```ts
+{ changed: { statusCategory: { from: 'closed' } } }   // reopened
+{ changed: { assigneeId: { to: null } } }             // dropped back in the queue
+{ changed: { teamId: true } }                         // handed to another team
+```
+
+`true` is any move at all; `from` and `to` together mean both ends have to
+match. A rule with a `changed` condition never fires on creation, since there is
+no transition to compare against.
+
+`then` takes `setStatusCategory`, `setTeamId`, `setAssigneeId` (`null` to
+unassign), `addNote` for something only the team sees, and `setMetadata` for
+tagging. What a rule does reaches the store directly, so one firing cannot set
+off another round. `helpdesk.draftReply(n)` writes a reply from the same
 documentation the widget uses and never sends it, because the value is a person
 reading it first.
 

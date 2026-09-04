@@ -23,8 +23,41 @@ export interface TriggerCondition {
   /** True only when nobody has picked the ticket up. */
   unassigned?: boolean
   emailDomain?: string[]
-  custom?: (ticket: Ticket) => boolean
+  /**
+   * Fires only when this update moved something, and optionally where to.
+   *
+   * The two rules every desk eventually wants cannot be written any other way,
+   * because both are about a transition rather than a state. A ticket that is
+   * closed looks identical whether it was closed a moment ago or last week,
+   * and one that is unassigned looks identical whether somebody just dropped
+   * it or nobody ever picked it up.
+   *
+   * ```ts
+   * { changed: { statusCategory: { from: 'closed' } } }   // reopened
+   * { changed: { assigneeId: { to: null } } }             // dropped back in the queue
+   * { changed: { teamId: true } }                         // handed to another team
+   * ```
+   *
+   * Never matches on creation, and never matches when the caller did not say
+   * what the ticket looked like before: there is no transition to compare
+   * against, and firing anyway would run reopen rules on every new ticket.
+   */
+  changed?: {
+    statusCategory?: Change<StatusCategory>
+    assigneeId?: Change<string | null>
+    teamId?: Change<string | null>
+  }
+  custom?: (ticket: Ticket, previous?: Ticket) => boolean
 }
+
+/**
+ * A field that moved.
+ *
+ * `true` for any move at all, or `from` and `to` for a particular one. Both
+ * together mean both ends have to match, which is how you write "closed and
+ * then reopened by the customer" rather than "reopened from anywhere".
+ */
+export type Change<T> = true | { from?: T | T[]; to?: T | T[] }
 
 export interface TriggerAction {
   setStatusCategory?: StatusCategory
@@ -52,13 +85,15 @@ export function evaluateTriggers(
   ticket: Ticket,
   triggers: Trigger[],
   event: 'created' | 'updated',
+  /** What it looked like before this update, for the `changed` conditions. */
+  previous?: Ticket,
 ): FiredTrigger[] {
   return triggers
-    .filter((trigger) => trigger.on.includes(event) && matches(ticket, trigger.when))
+    .filter((trigger) => trigger.on.includes(event) && matches(ticket, trigger.when, previous))
     .map((trigger) => ({ name: trigger.name, action: trigger.then }))
 }
 
-function matches(ticket: Ticket, when: TriggerCondition): boolean {
+function matches(ticket: Ticket, when: TriggerCondition, previous?: Ticket): boolean {
   if (when.contains?.length) {
     const haystack = `${ticket.subject}\n${ticket.description}`.toLowerCase()
     if (!when.contains.some((needle) => haystack.includes(needle.toLowerCase()))) return false
@@ -83,9 +118,36 @@ function matches(ticket: Ticket, when: TriggerCondition): boolean {
     if (!domain || !when.emailDomain.some((allowed) => domain === allowed.toLowerCase())) return false
   }
 
-  if (when.custom && !when.custom(ticket)) return false
+  if (when.changed) {
+    // No before-picture, no transition. A create has none by definition, and a
+    // caller that did not supply one is not entitled to a reopen rule firing
+    // on every ticket it saves.
+    if (!previous) return false
+
+    const { statusCategory, assigneeId, teamId } = when.changed
+    if (statusCategory && !moved(previous.statusCategory, ticket.statusCategory, statusCategory)) return false
+    if (assigneeId && !moved(previous.assigneeId ?? null, ticket.assigneeId ?? null, assigneeId)) return false
+    if (teamId && !moved(previous.teamId ?? null, ticket.teamId ?? null, teamId)) return false
+  }
+
+  if (when.custom && !when.custom(ticket, previous)) return false
 
   return true
+}
+
+/** Whether a field moved, and whether it moved the way the rule asked for. */
+function moved<T>(before: T, after: T, wanted: Change<T>): boolean {
+  if (before === after) return false
+  if (wanted === true) return true
+
+  if (wanted.from !== undefined && !oneOf(before, wanted.from)) return false
+  if (wanted.to !== undefined && !oneOf(after, wanted.to)) return false
+
+  return true
+}
+
+function oneOf<T>(value: T, allowed: T | T[]): boolean {
+  return Array.isArray(allowed) ? allowed.includes(value) : value === allowed
 }
 
 export interface SavedView {

@@ -106,6 +106,12 @@ a sign-in that is meant to own the window.
 
 ### Fixed
 
+**Help desk rules written for `updated` now run.** They were only ever evaluated
+when a ticket was created, so a desk that wrote "when a ticket is reopened, put
+it back in the queue" watched it never happen with nothing to read that said
+why. Rules can also match on what an update *moved*, with `changed`, which is
+the question most of them actually ask.
+
 **A human's reply now reaches the customer.** `helpdesk({ deliver })` closes the
 loop: an agent posting on a ticket was saved and went nowhere.
 

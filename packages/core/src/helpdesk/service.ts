@@ -126,8 +126,13 @@ export function createHelpdesk(options: HelpdeskOptions) {
    * Runs after the ticket exists rather than on the draft, because a rule can
    * reasonably depend on the number, the assignee, or the routing decision.
    */
-  async function runTriggers(ticket: Ticket, event: 'created' | 'updated'): Promise<Ticket> {
-    const fired = evaluateTriggers(ticket, triggers, event)
+  async function runTriggers(
+    ticket: Ticket,
+    event: 'created' | 'updated',
+    /** What it looked like before, so a rule can match on what moved. */
+    previous?: Ticket,
+  ): Promise<Ticket> {
+    const fired = evaluateTriggers(ticket, triggers, event, previous)
     if (fired.length === 0) return ticket
 
     let current = ticket
@@ -298,7 +303,16 @@ export function createHelpdesk(options: HelpdeskOptions) {
 
     options.webhooks?.emit('ticket.updated', { ticket: updated, changed: resolved })
     await options.onTicketUpdated?.(updated, resolved)
-    return updated
+
+    // Rules written for `updated` used to be configuration that did nothing:
+    // they were only ever evaluated when a ticket was created, so a desk that
+    // wrote "when a ticket is reopened, put it back in the queue" watched it
+    // never happen and had nothing to read that said why. `existing` goes with
+    // it, since a rule about a transition needs both ends of one.
+    //
+    // Rules reach the store directly rather than coming back through here, so
+    // one firing cannot set off another round of the same rules.
+    return runTriggers(updated, 'updated', existing)
   }
 
   /**
