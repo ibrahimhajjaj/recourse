@@ -8,6 +8,14 @@ export interface WebSearchOptions {
   limit?: number
   /** Raises Firecrawl's rate limits. Search works without one. */
   apiKey?: string
+  /**
+   * Sites the search is confined to, as bare hosts: `['gov.uk', 'hmrc.gov.uk']`.
+   *
+   * Unset searches the open web, which is right for a general question and
+   * wrong for a shop whose answers should come from its own manufacturer and
+   * carrier pages rather than from whoever ranks well today.
+   */
+  sites?: string[]
 }
 
 /**
@@ -19,6 +27,8 @@ export interface WebSearchOptions {
  */
 export function webSearch(options: WebSearchOptions = {}): Action {
   const limit = options.limit ?? 4
+
+  const sites = (options.sites ?? []).map((site) => site.trim()).filter(Boolean)
 
   return defineAction({
     name: 'search_the_web',
@@ -41,14 +51,24 @@ export function webSearch(options: WebSearchOptions = {}): Action {
 
       const response = await fetchWithRetry(
         'https://api.firecrawl.dev/v2/search',
-        { method: 'POST', headers, body: JSON.stringify({ query: String(input.query ?? ''), limit }) },
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query: String(input.query ?? ''),
+            limit,
+            ...(sites.length > 0 ? { includeDomains: sites } : {}),
+          }),
+        },
         { signal: ctx.signal, attempts: 2 },
       )
 
       if (!response.ok) throw new Error(`web search unavailable (${response.status})`)
 
       const body = (await response.json()) as {
-        data?: { web?: Array<{ url?: string; title?: string; description?: string }> }
+        data?: {
+          web?: Array<{ url?: string; title?: string; description?: string }>
+        }
       }
 
       const results = (body.data?.web ?? []).slice(0, limit).map((item) => ({

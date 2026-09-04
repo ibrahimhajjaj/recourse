@@ -439,6 +439,28 @@ describe('web search', () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  it('confines the search to the named sites, and asks for nothing when none are named', async () => {
+    const sent: Array<Record<string, unknown>> = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      sent.push(JSON.parse(String((init as RequestInit).body)))
+      return new Response(JSON.stringify({ data: { web: [] } }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    try {
+      await webSearch({ sites: ['gov.uk', ' hmrc.gov.uk '] }).execute?.({ query: 'vat rate' }, ctx())
+      await webSearch({ sites: [] }).execute?.({ query: 'vat rate' }, ctx())
+      await webSearch().execute?.({ query: 'vat rate' }, ctx())
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    expect(sent[0]).toMatchObject({ query: 'vat rate', includeDomains: ['gov.uk', 'hmrc.gov.uk'] })
+    expect(sent[1]).not.toHaveProperty('includeDomains')
+    expect(sent[2]).not.toHaveProperty('includeDomains')
+  })
+
 })
 
 describe('the agent running actions', () => {
