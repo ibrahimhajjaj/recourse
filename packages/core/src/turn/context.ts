@@ -6,6 +6,7 @@ import { offeredActions } from '../actions/define.js'
 import { matchingProcedures, unlockedBy } from '../procedures/index.js'
 import { INPUT_RULES, runRules } from '../safety/rules.js'
 import { passageText } from '../server/prompt.js'
+import type { Channel } from '../store/types.js'
 
 export interface TurnContext {
   /** The passages, with any that carry instructions dropped. */
@@ -38,18 +39,24 @@ export function resolveContext(input: {
   actions: Action[]
   /** Null when no classifier is configured, in which case passages are not screened. */
   passageThreshold: number | null
+  /** Where this is happening, for the per-channel action and procedure limits. */
+  channel?: Channel
+  /** False where no browser can complete a client action's round trip. */
+  clientActions?: boolean
   logger: Logger
 }): TurnContext {
   const matches =
     input.passageThreshold === null ? input.found : withoutPoisoned(input.found, input.passageThreshold, input.logger)
 
   const said = input.messages.map((message) => message.content).join('\n')
-  const applicable = matchingProcedures(input.procedures, said)
+  const applicable = matchingProcedures(input.procedures, said, input.channel)
   const unlocked = unlockedBy(applicable)
 
   const offered = offeredActions(input.actions, {
     unlocked,
     conversation: `${said}\n${matches.map((match) => match.chunk.text).join('\n')}`,
+    ...(input.channel === undefined ? {} : { channel: input.channel }),
+    ...(input.clientActions === undefined ? {} : { clientActions: input.clientActions }),
   })
 
   return { matches, applicable, unlocked, offered }

@@ -644,6 +644,10 @@ export function createAgent(options: AgentOptions) {
       procedures,
       actions,
       passageThreshold: classifier ? passageThreshold : null,
+      channel,
+      // `buffered` is the non-streaming caller, which has no way to hand a
+      // client action to a browser and collect the answer.
+      clientActions: !buffered,
       logger: log,
     })
     onMatches(matches)
@@ -854,6 +858,8 @@ export function createAgent(options: AgentOptions) {
         tools: actionsToTools(offered, {
           context,
           unlocked,
+          channel,
+          clientActions: !buffered,
           ...(options.actionResults ? { results: options.actionResults } : {}),
           ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
         }),

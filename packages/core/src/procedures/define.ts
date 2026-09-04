@@ -1,6 +1,7 @@
 import { mentions } from '../relevance.js'
 import type { Action } from '../actions/types.js'
 import { ACTION_REFERENCE, MAX_BRANCHES, MAX_STEPS, type Decision, type Procedure, type Step } from './types.js'
+import type { Channel } from '../store/types.js'
 
 /**
  * Declares a procedure, checking the things that fail silently at runtime.
@@ -96,10 +97,17 @@ export function usableProcedures(
  * around nine hundred tokens, and almost none of them have anything to do with
  * what is being said.
  */
-export function matchingProcedures(procedures: Procedure[], conversation?: string): Procedure[] {
-  if (conversation === undefined) return procedures
+export function matchingProcedures(
+  procedures: Procedure[],
+  conversation?: string,
+  channel?: Channel,
+): Procedure[] {
+  return procedures.filter((procedure) => {
+    if (procedure.channels && channel !== undefined && !procedure.channels.includes(channel)) return false
+    if (conversation === undefined) return true
 
-  return procedures.filter((procedure) => mentions(procedure.trigger, conversation))
+    return mentions(procedure.trigger, conversation)
+  })
 }
 
 /**

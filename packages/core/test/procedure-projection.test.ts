@@ -121,3 +121,31 @@ describe('what the agent actually puts in the prompt', () => {
     expect(instructions).not.toContain('where_is_my_order')
   })
 })
+
+describe('a procedure limited to certain channels', () => {
+  const upload: Procedure = {
+    name: 'warranty_claim',
+    trigger: 'they want to claim on the warranty',
+    steps: ['Show them @warranty_form.', 'Call @open_claim with what it returns.'],
+    channels: ['web'],
+  }
+
+  const said = 'I want to claim on the warranty for my kettle'
+
+  it('runs where it was allowed and nowhere else', () => {
+    expect(matchingProcedures([upload], said, 'web').map((p) => p.name)).toEqual(['warranty_claim'])
+    expect(matchingProcedures([upload], said, 'whatsapp')).toEqual([])
+  })
+
+  it('still has to match the conversation on a channel it allows', () => {
+    expect(matchingProcedures([upload], 'where is my parcel', 'web')).toEqual([])
+  })
+
+  it('is unaffected when the caller did not say where it is', () => {
+    expect(matchingProcedures([upload], said).map((p) => p.name)).toEqual(['warranty_claim'])
+  })
+
+  it('leaves a procedure with no channels alone', () => {
+    expect(matchingProcedures([refund], 'I want my money back', 'sms').map((p) => p.name)).toEqual(['refund_an_order'])
+  })
+})

@@ -1,5 +1,5 @@
 import type { StreamFrame } from '../types.js'
-import type { Store } from '../store/types.js'
+import type { Channel, Store } from '../store/types.js'
 import type { Webhooks } from '../webhooks/index.js'
 
 /**
@@ -105,6 +105,24 @@ export interface Action {
    * worse failure than a wasted token.
    */
   relevantWhen?: string
+  /**
+   * The channels this action is offered on. Unset means all of them.
+   *
+   * Some actions only work in one place. A form is drawn by the widget, so on
+   * WhatsApp the model calls it and the customer sees nothing happen. Others
+   * are a policy rather than a capability: a refund you are happy to let the
+   * agent issue to somebody who signed in on the website is a different
+   * proposition over SMS, where the only identity on offer is a phone number.
+   *
+   * ```ts
+   * customForm({ name: 'warranty_claim', channels: ['web'], ... })
+   * ```
+   *
+   * This beats a procedure. An action a procedure unlocks is still withheld on
+   * a channel it is not offered on, because the procedure decided the flow
+   * applies, not that the tool works here.
+   */
+  channels?: Channel[]
   /**
    * `client` actions are executed by the browser rather than here, because they
    * need page context the server does not have. The server pauses, the widget

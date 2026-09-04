@@ -5,6 +5,7 @@ import { mentions } from '../relevance.js'
 import { runRules } from '../safety/rules.js'
 import { INPUT_RULES } from '../safety/index.js'
 import { getLogger } from '../diagnostics.js'
+import type { Channel } from '../store/types.js'
 
 /**
  * Declares an action. This is deliberately a thin identity function: it exists
@@ -50,6 +51,26 @@ export interface ToolBuildOptions {
    * set outside a conversation wants.
    */
   conversation?: string
+  /**
+   * Where this conversation is happening, for `Action.channels`.
+   *
+   * Left out, no action is withheld on channel grounds, which is what a caller
+   * building a tool set outside a conversation wants.
+   */
+  channel?: Channel
+  /**
+   * Whether the caller can carry a client action out.
+   *
+   * A client action is run by the browser: the turn pauses, the widget does the
+   * work, and the result comes back on the next request. A caller with no
+   * browser on the other end cannot complete that round trip, and offering the
+   * action anyway means the model calls it and the turn ends with no words in
+   * it. On WhatsApp that was silence: a customer who asked for the thing the
+   * form collects got no reply at all.
+   *
+   * Unset offers them, which is what the widget wants.
+   */
+  clientActions?: boolean
   context: ActionContext
   /** How much of a result reaches the model. */
   results?: ShrinkOptions
@@ -217,9 +238,18 @@ function reportedFailure(data: unknown): string | undefined {
 
 export function offeredActions(
   actions: Action[],
-  options: Pick<ToolBuildOptions, 'unlocked' | 'conversation'>,
+  options: Pick<ToolBuildOptions, 'unlocked' | 'conversation' | 'channel' | 'clientActions'>,
 ): Action[] {
   return actions.filter((action) => {
+    if (action.runs === 'client' && options.clientActions === false) return false
+
+    // Before the unlock check, deliberately. A procedure deciding its flow
+    // applies is not a statement that the tool works here, and an action that
+    // draws something in a widget is nothing at all over SMS.
+    if (action.channels && options.channel !== undefined && !action.channels.includes(options.channel)) {
+      return false
+    }
+
     if (action.procedureOnly && !options.unlocked?.has(action.name)) return false
 
     // Unlocked wins: a procedure that reached this action has already decided

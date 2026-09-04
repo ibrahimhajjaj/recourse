@@ -107,3 +107,48 @@ describe('what the retriever found is part of what the turn is about', () => {
     expect(offeredActions([stock], { conversation: withPassages }).map((a) => a.name)).toEqual(['check_stock'])
   })
 })
+
+describe('an action limited to certain channels', () => {
+  const form = action({ name: 'warranty_claim', runs: 'client', channels: ['web'] })
+  const anywhere = action({ name: 'order_status' })
+
+  it('is offered on a channel it names and withheld on one it does not', () => {
+    expect(offeredActions([form, anywhere], { channel: 'web' }).map((a) => a.name)).toEqual([
+      'warranty_claim',
+      'order_status',
+    ])
+    expect(offeredActions([form, anywhere], { channel: 'whatsapp' }).map((a) => a.name)).toEqual(['order_status'])
+  })
+
+  it('stays withheld even when a procedure unlocked it', () => {
+    // A procedure deciding its flow applies is not a claim that a form can be
+    // drawn on WhatsApp. Without this the model is handed a tool that cannot
+    // work and the turn ends with nothing in it.
+    const locked = action({ name: 'refund', procedureOnly: true, channels: ['web'] })
+    const unlocked = new Set(['refund'])
+
+    expect(offeredActions([locked], { channel: 'web', unlocked }).map((a) => a.name)).toEqual(['refund'])
+    expect(offeredActions([locked], { channel: 'sms', unlocked })).toEqual([])
+  })
+
+  it('withholds nothing when the caller did not say where it is', () => {
+    expect(offeredActions([form, anywhere], {}).map((a) => a.name)).toEqual(['warranty_claim', 'order_status'])
+  })
+})
+
+describe('client actions where no browser is listening', () => {
+  const form = action({ name: 'warranty_claim', runs: 'client' })
+  const lookup = action({ name: 'order_status' })
+
+  it('are withheld from a caller that cannot run them', () => {
+    expect(offeredActions([form, lookup], { clientActions: false }).map((a) => a.name)).toEqual(['order_status'])
+  })
+
+  it('are offered when nothing said otherwise', () => {
+    expect(offeredActions([form, lookup], {}).map((a) => a.name)).toEqual(['warranty_claim', 'order_status'])
+    expect(offeredActions([form, lookup], { clientActions: true }).map((a) => a.name)).toEqual([
+      'warranty_claim',
+      'order_status',
+    ])
+  })
+})

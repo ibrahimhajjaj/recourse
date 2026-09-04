@@ -1,3 +1,5 @@
+import type { Channel } from '../store/types.js'
+
 /**
  * A procedure is a standard operating procedure for the agent: a trigger that
  * says when it applies, and an ordered list of steps to work through.
@@ -32,6 +34,14 @@ export interface Procedure {
   steps: Step[]
   /** Turns the procedure off without deleting it. */
   enabled?: boolean
+  /**
+   * The channels this procedure runs on. Unset means all of them.
+   *
+   * A flow written around a form, a file upload or a button is a flow that only
+   * works where those exist. Restricting the procedure is better than letting
+   * it match on WhatsApp and stall at the step nothing can carry out.
+   */
+  channels?: Channel[]
 }
 
 /** Matches `@action_name` inside a step. */
