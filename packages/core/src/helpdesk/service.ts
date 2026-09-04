@@ -29,6 +29,16 @@ export interface HelpdeskOptions {
   /** Ordered, first-match. Falls back to the default team. */
   routing?: RoutingRule[]
   assignment?: AssignmentAlgorithm
+  /**
+   * How many open tickets one agent may hold before auto-assignment stops
+   * giving them more. Unset means no limit.
+   *
+   * Matters most under `round_robin`, which rotates without looking at load:
+   * an agent sitting on forty open tickets keeps being handed the next one.
+   * A ticket nobody is eligible for stays unassigned, which is the honest
+   * outcome and the one the unassigned queue exists for.
+   */
+  maxOpenPerAgent?: number
   /** Fires after a ticket is opened. Send the email, ping Slack, page someone. */
   onTicketOpened?: (ticket: Ticket) => void | Promise<void>
   /** Fires whenever a ticket changes, with the fields that changed. */
@@ -223,6 +233,7 @@ export function createHelpdesk(options: HelpdeskOptions) {
             ? availabilityAt(new Date(now), options.schedule, loads)
             : loads,
           lastAssignedId,
+          ...(options.maxOpenPerAgent === undefined ? {} : { maxOpen: options.maxOpenPerAgent }),
         })
         if (assignee) {
           draft.assigneeId = assignee

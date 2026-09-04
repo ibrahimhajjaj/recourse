@@ -112,6 +112,12 @@ it back in the queue" watched it never happen with nothing to read that said
 why. Rules can also match on what an update *moved*, with `changed`, which is
 the question most of them actually ask.
 
+**A tie in ticket assignment went alphabetically.** Two agents on the same load
+were separated by their id, so the one whose email sorted first took every tie
+there would ever be. It goes to whoever has waited longest now, with somebody
+never assigned anything counting as the longest wait. `maxOpenPerAgent` also
+stops an agent being handed more once they hold that many.
+
 **A human's reply now reaches the customer.** `helpdesk({ deliver })` closes the
 loop: an agent posting on a ticket was saved and went nowhere.
 

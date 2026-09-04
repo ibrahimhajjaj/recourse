@@ -69,6 +69,25 @@ off another round. `helpdesk.draftReply(n)` writes a reply from the same
 documentation the widget uses and never sends it, because the value is a person
 reading it first.
 
+## Who gets the next one
+
+`assignment` takes `least_busy` (the default), `round_robin` or `manual`.
+
+Two ties matter more than they look. On equal load the ticket goes to whoever
+has waited longest since their last one, not to whoever sorts first
+alphabetically: that is invisible on any one assignment and unmistakable over a
+month, where `ana@` takes every tie and `zoe@` takes none. Somebody who has
+never been assigned anything counts as having waited longest, so a new
+teammate starts at the front rather than at the back forever.
+
+`maxOpenPerAgent` stops an agent being handed more once they hold that many
+open. It matters most under `round_robin`, which rotates without looking at
+load at all: an agent sitting on forty open tickets keeps being handed the next
+one, and the queue is fair in a way that helps nobody. A ticket nobody is
+eligible for stays unassigned, which is what the unassigned queue is for. Only
+auto-assignment respects it; a manager assigning by hand is making a decision
+and is entitled to.
+
 ## Nobody is awake at three in the morning
 
 `assignTicket` always took availability per candidate; until now the host had
