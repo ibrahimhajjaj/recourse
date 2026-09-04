@@ -39,6 +39,7 @@ export {
   type TicketMessageType,
   type TicketMessageSender,
   type TicketFilter,
+  type TicketSort,
 } from './types.js'
 export {
   zendesk,
@@ -61,3 +62,11 @@ export {
   type SalesforceOptions,
   type OdooOptions,
 } from './connectors.js'
+export {
+  orderingOf,
+  ticketCursor,
+  ticketCursorAt,
+  sortedAt,
+  sortColumn,
+  type TicketOrdering,
+} from './ordering.js'

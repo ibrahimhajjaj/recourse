@@ -47,6 +47,8 @@ export interface StoreCapabilities {
   feedback?: boolean
   /** `updateConversation` persists `meta`, which the handover flag rides on. */
   conversationMeta?: boolean
+  /** The help desk half: `createTicket`, `updateTicket` and `listTickets`. */
+  tickets?: boolean
 }
 
 /** The two functions every test runner has, however it spells the rest. */
@@ -87,6 +89,7 @@ export function storeConformance(options: ConformanceOptions): void {
     filters: true,
     feedback: true,
     conversationMeta: true,
+    tickets: true,
     ...options.supports,
   }
 
@@ -424,6 +427,118 @@ export function storeConformance(options: ConformanceOptions): void {
         expect(stats.activeUsers.daily).toBe(1)
         expect(stats.activeUsers.weekly).toBe(2)
         expect(stats.activeUsers.stickiness).toBe(0.5)
+      })
+    }
+
+    // ---- the queue, and the order it comes back in ----
+
+    if (can.tickets) {
+      /** Three tickets, opened, touched and replied to in three orders. */
+      async function queue(): Promise<Store> {
+        const store = await make()
+
+        for (const [subject, createdAt, updatedAt, lastMessageAt] of [
+          ['first', '2026-01-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z'],
+          ['second', '2026-01-02T00:00:00.000Z', '2026-01-05T00:00:00.000Z', undefined],
+          ['third', '2026-01-03T00:00:00.000Z', '2026-02-01T00:00:00.000Z', '2026-04-01T00:00:00.000Z'],
+        ] as const) {
+          const ticket = await store.createTicket({
+            subject,
+            description: subject,
+            statusId: 'new',
+            statusCategory: 'new',
+            customer: { email: 'sam@example.com' },
+            channel: 'web',
+            metadata: {},
+            createdAt,
+            updatedAt,
+            ...(lastMessageAt ? { lastMessageAt } : {}),
+          })
+
+          // Stores stamp their own times on create, so put the fixture's back.
+          await store.updateTicket(ticket.ticketNumber, {
+            createdAt,
+            updatedAt,
+            ...(lastMessageAt ? { lastMessageAt } : {}),
+          })
+        }
+
+        return store
+      }
+
+      const subjects = (page: { items: Array<{ subject: string }> }) => page.items.map((one) => one.subject)
+
+      it('lists the most recently touched ticket first', async () => {
+        expect(subjects(await (await queue()).listTickets())).toEqual(['first', 'third', 'second'])
+      })
+
+      it('lists oldest first when asked, which is the order a queue is worked in', async () => {
+        const page = await (await queue()).listTickets({ sortBy: 'created', order: 'asc' })
+        expect(subjects(page)).toEqual(['first', 'second', 'third'])
+      })
+
+      it('sorts by the last reply, putting one nobody answered at the old end', async () => {
+        // "second" has no last message, so it falls back to when it was opened
+        // rather than sorting as though it had no date at all.
+        expect(subjects(await (await queue()).listTickets({ sortBy: 'lastMessage' }))).toEqual([
+          'third',
+          'first',
+          'second',
+        ])
+      })
+
+      it('honours a timestamp the caller supplied rather than stamping now', async () => {
+        // Every store, or the same queue comes back in a different order
+        // depending on where it is kept.
+        const store = await queue()
+        const [oldest] = (await store.listTickets({ sortBy: 'created', order: 'asc' })).items
+
+        expect(oldest?.createdAt).toBe('2026-01-01T00:00:00.000Z')
+        expect(oldest?.updatedAt).toBe('2026-03-01T00:00:00.000Z')
+      })
+
+      it('counts what matched, not what came back, and only when asked', async () => {
+        const store = await queue()
+        const page = await store.listTickets({ limit: 1, includeTotal: true })
+
+        expect(page.items).toHaveLength(1)
+        expect(page.total).toBe(3)
+        expect((await store.listTickets({ limit: 1 })).total).toBeUndefined()
+      })
+
+      it('walks the whole queue a page at a time, handing over each ticket once', async () => {
+        const store = await queue()
+        const seen: string[] = []
+        let cursor: string | undefined
+
+        do {
+          const page = await store.listTickets({
+            limit: 2,
+            sortBy: 'created',
+            order: 'asc',
+            ...(cursor ? { cursor } : {}),
+          })
+          seen.push(...page.items.map((one) => one.subject))
+          cursor = page.cursor
+        } while (cursor)
+
+        expect(seen).toEqual(['first', 'second', 'third'])
+      })
+
+      it('refuses a cursor from a different ordering rather than paging into nonsense', async () => {
+        // The cursor is a position in one ordering. Used against another it
+        // points at a row that has moved, and the page is quietly wrong.
+        const store = await queue()
+        const first = await store.listTickets({ limit: 1, sortBy: 'created', order: 'asc' })
+
+        let refused = false
+        try {
+          await store.listTickets({ limit: 1, cursor: first.cursor as string })
+        } catch {
+          refused = true
+        }
+
+        expect(refused).toBe(true)
       })
     }
   })

@@ -79,6 +79,37 @@ createChatHandler({
 Read fresh every turn, because a value read once at startup would have a
 procedure offering live chat all night.
 
+## Reading the queue
+
+`listTickets` filters on status, status category, assignee (`null` for
+unclaimed), team, channel and a date range, and pages with a cursor.
+
+It comes back most recently touched first, which is what an inbox wants and the
+wrong thing for anything walking every ticket. `sortBy` takes `created`,
+`updated` or `lastMessage`, and `order` takes `asc` or `desc`:
+
+```ts
+// The order a queue is actually worked in.
+await helpdesk.listTickets({ openOnly: true, sortBy: 'created', order: 'asc' })
+```
+
+`created` is the only one of the three that cannot move. Sorting by a mutable
+field means a page window is not a snapshot: a ticket somebody replies to while
+you are paging jumps to the front, and the one behind it is never handed to you.
+So an export sorts by `created`, or by `updated` ascending while remembering the
+last timestamp it saw.
+
+A cursor carries the ordering it was issued for, and using it against a
+different one is refused rather than silently returning a wrong page. Start the
+walk again instead of mixing the two.
+
+`includeTotal: true` puts the number of matching tickets on the page. It costs a
+second query, so a queue screen showing twenty does not pay for it and a
+dashboard saying "342 open" does.
+
+Over HTTP the same thing is `?sortBy=`, `?order=` and `?includeTotal=true` on
+`GET /helpdesk/tickets`.
+
 Escalating into a desk you already run is its own page:
 [docs/escalation.md](escalation.md). Handling a customer who does not write
 English is [docs/languages.md](languages.md).

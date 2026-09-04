@@ -2,6 +2,7 @@ import type { Ticket, TicketFilter, TicketMessage } from '../helpdesk/types.js'
 import { RESOLVED_CATEGORIES } from '../helpdesk/types.js'
 import type { ListOptions, Page } from './types.js'
 import { paginate } from './paginate.js'
+import { orderingOf, sortedAt, ticketCursor, ticketCursorAt } from '../helpdesk/ordering.js'
 
 /**
  * The ticket half of a store, kept here so the memory and file implementations
@@ -39,15 +40,34 @@ export function applyFilter(tickets: Ticket[], filter: TicketFilter = {}): Ticke
   })
 }
 
-export function sortTickets(tickets: Ticket[]): Ticket[] {
-  return [...tickets].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+export function sortTickets(tickets: Ticket[], ordering = orderingOf()): Ticket[] {
+  const direction = ordering.order === 'asc' ? 1 : -1
+
+  return [...tickets].sort((a, b) => {
+    const compared = sortedAt(a, ordering.sortBy).localeCompare(sortedAt(b, ordering.sortBy))
+    // The ticket number breaks a tie, and it has to break it the same way the
+    // dates were ordered or two tickets opened in the same millisecond swap
+    // places between pages and one of them is never handed over.
+    return direction * (compared || a.ticketNumber - b.ticketNumber)
+  })
 }
 
 export function pageTickets(tickets: Ticket[], filter: TicketFilter = {}): Page<Ticket> {
-  const listOptions: ListOptions = { limit: filter.limit, cursor: filter.cursor }
-  return paginate(sortTickets(applyFilter(tickets, filter)), listOptions, (ticket) =>
-    String(ticket.ticketNumber),
-  )
+  const ordering = orderingOf(filter)
+  const matching = applyFilter(tickets, filter)
+  const sorted = sortTickets(matching, ordering)
+
+  const listOptions: ListOptions = { limit: filter.limit }
+  if (filter.cursor) listOptions.cursor = String(ticketCursorAt(filter.cursor, ordering))
+
+  const page = paginate(sorted, listOptions, (ticket) => String(ticket.ticketNumber))
+  const last = page.items[page.items.length - 1]
+
+  return {
+    items: page.items,
+    ...(page.cursor && last ? { cursor: ticketCursor(ordering, last.ticketNumber) } : {}),
+    ...(filter.includeTotal ? { total: matching.length } : {}),
+  }
 }
 
 /**

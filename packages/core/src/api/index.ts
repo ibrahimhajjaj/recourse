@@ -2,7 +2,7 @@ import type { Store } from '../store/types.js'
 import type { CorrectionStore } from '../corrections.js'
 import type { Helpdesk } from '../helpdesk/service.js'
 import type { KnowledgeBase } from '../knowledge/base.js'
-import type { StatusCategory } from '../helpdesk/types.js'
+import type { StatusCategory, TicketSort } from '../helpdesk/types.js'
 import { corsHeaders, type CorsOptions } from '../server/cors.js'
 import { outcomes } from '../outcomes.js'
 import { createRouter } from './router.js'
@@ -547,9 +547,13 @@ export function createApiHandler(options: ApiOptions) {
       // `?assigneeId=none` is how a queue asks for unclaimed work.
       assigneeId: assignee === 'none' ? null : (assignee ?? undefined),
       openOnly: url.searchParams.get('open') === 'true',
+      ...ordering(url),
+      includeTotal: url.searchParams.get('includeTotal') === 'true',
     })
 
-    return ok(page.items, { pagination: { cursor: page.cursor } })
+    return ok(page.items, {
+      pagination: { cursor: page.cursor, ...(page.total === undefined ? {} : { total: page.total }) },
+    })
   })
 
   router.post('/helpdesk/tickets', async (request) => {
@@ -800,3 +804,21 @@ function withCors(response: Response, cors: Record<string, string>): Response {
 export { createHelpPage, type HelpPageOptions } from './helppage.js'
 export { createRouter } from './router.js'
 export type { Params, RouteHandler } from './router.js'
+
+/**
+ * `?sortBy=` and `?order=`, checked rather than passed through.
+ *
+ * An unknown value falls back to the default rather than erroring, because the
+ * alternative is a queue screen that goes blank over a typo in a query string.
+ * A cursor carries the ordering it was issued for, so a caller who changes one
+ * mid-walk is told plainly instead of being handed a wrong page.
+ */
+function ordering(url: URL): { sortBy?: TicketSort; order?: 'asc' | 'desc' } {
+  const sortBy = url.searchParams.get('sortBy')
+  const order = url.searchParams.get('order')
+
+  return {
+    ...(sortBy === 'created' || sortBy === 'updated' || sortBy === 'lastMessage' ? { sortBy } : {}),
+    ...(order === 'asc' || order === 'desc' ? { order } : {}),
+  }
+}

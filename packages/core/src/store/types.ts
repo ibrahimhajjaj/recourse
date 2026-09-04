@@ -75,6 +75,8 @@ export interface Page<T> {
   items: T[]
   /** Absent when there is nothing more to read. */
   cursor?: string
+  /** How many matched, when the caller asked for the count. */
+  total?: number
 }
 
 export interface Store {

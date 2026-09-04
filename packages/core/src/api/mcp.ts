@@ -295,6 +295,10 @@ function buildTools(options: McpOptions): Tool[] {
           limit: { type: 'number', description: 'How many to return. Default 20.' },
           status: { type: 'string', description: 'new, on_you, on_customer, on_hold, closed or cancelled.' },
           assigneeId: { type: 'string', description: 'Only tickets assigned to this person.' },
+          oldestFirst: {
+            type: 'boolean',
+            description: 'Oldest first, by when it was opened. The order a queue is worked in.',
+          },
         },
         additionalProperties: false,
       },
@@ -303,6 +307,10 @@ function buildTools(options: McpOptions): Tool[] {
           limit: limitOf(args),
           ...(typeof args.status === 'string' ? { statusCategory: args.status as never } : {}),
           ...(typeof args.assigneeId === 'string' ? { assigneeId: args.assigneeId } : {}),
+          // One flag rather than two fields: an assistant asked to work
+          // through a backlog wants the oldest, and nothing else about the
+          // ordering is worth spending a tool argument on.
+          ...(args.oldestFirst === true ? { sortBy: 'created' as const, order: 'asc' as const } : {}),
         })
         return page.items
       },

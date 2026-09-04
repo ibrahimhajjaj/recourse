@@ -28,6 +28,7 @@ import type {
   TicketMessage,
 } from '@recourse-ai/core'
 import { pageSize } from '@recourse-ai/core/store'
+import { orderingOf, sortColumn, ticketCursor, ticketCursorAt } from '@recourse-ai/core'
 import { SCHEMA } from './schema.js'
 
 /**
@@ -556,11 +557,28 @@ export function d1Store(options: D1StoreOptions): Store {
         where.push('updated_at <= ?')
         values.push(filter.until)
       }
+      // Counted before the cursor is applied: the total is how many match the
+      // query, not how many are left after where you have read up to.
+      const matching = filter.includeTotal
+        ? await first<{ total: number }>(
+            `SELECT COUNT(*) AS total FROM tickets ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`,
+            [...values],
+          )
+        : null
+
+      const ordering = orderingOf(filter)
+      const column = sortColumn(ordering.sortBy)
+      const direction = ordering.order === 'asc' ? 'ASC' : 'DESC'
+
       if (filter.cursor) {
+        // Row values against the same expression the ordering uses, so a tie on
+        // the timestamp falls to the ticket number the same way both times.
+        const after = ordering.order === 'asc' ? '>' : '<'
         where.push(
-          `(updated_at, ticket_number) < (SELECT updated_at, ticket_number FROM tickets WHERE ticket_number = ?)`,
+          `(${column}, ticket_number) ${after} ` +
+            `(SELECT ${column}, ticket_number FROM tickets WHERE ticket_number = ?)`,
         )
-        values.push(Number(filter.cursor))
+        values.push(ticketCursorAt(filter.cursor, ordering))
       }
 
       const limit = capLimit(filter.limit)
@@ -569,12 +587,19 @@ export function d1Store(options: D1StoreOptions): Store {
       const rows = await all<TicketRow>(
         `SELECT * FROM tickets
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
-         ORDER BY updated_at DESC, ticket_number DESC
+         ORDER BY ${column} ${direction}, ticket_number ${direction}
          LIMIT ?`,
         values,
       )
 
-      return toPage(rows.map(toTicket), rows.length > limit, limit, (item) => String(item.ticketNumber))
+      const page = toPage(rows.map(toTicket), rows.length > limit, limit, (item) => String(item.ticketNumber))
+      const last = page.items[page.items.length - 1]
+
+      return {
+        items: page.items,
+        ...(page.cursor && last ? { cursor: ticketCursor(ordering, last.ticketNumber) } : {}),
+        ...(matching ? { total: Number(matching.total) } : {}),
+      }
     },
 
     async updateTicket(ticketNumber, patch) {

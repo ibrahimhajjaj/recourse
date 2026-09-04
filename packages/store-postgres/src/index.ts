@@ -24,6 +24,7 @@ import type {
   Ticket,
   TicketMessage,
 } from '@recourse-ai/core'
+import { orderingOf, sortColumn, ticketCursor, ticketCursorAt } from '@recourse-ai/core'
 import { pageSize } from '@recourse-ai/core/store'
 import { SCHEMA } from './schema.js'
 
@@ -516,10 +517,27 @@ export function postgresStore(options: PostgresStoreOptions): Store {
         values.push(filter.until)
         where.push(`updated_at <= $${values.length}`)
       }
+      // Counted before the cursor narrows anything: the total is how many
+      // match the query, not how many are left after where you have read to.
+      const counted = filter.includeTotal
+        ? await query<{ total: string }>(
+            `SELECT COUNT(*) AS total FROM tickets ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`,
+            [...values],
+          )
+        : null
+
+      const ordering = orderingOf(filter)
+      const column = sortColumn(ordering.sortBy)
+      const direction = ordering.order === 'asc' ? 'ASC' : 'DESC'
+
       if (filter.cursor) {
-        values.push(Number(filter.cursor))
+        values.push(ticketCursorAt(filter.cursor, ordering))
+        // Compared against the same expression the ordering uses, so a tie on
+        // the timestamp falls to the ticket number the same way both times.
+        const after = ordering.order === 'asc' ? '>' : '<'
         where.push(
-          `(updated_at, ticket_number) < (SELECT updated_at, ticket_number FROM tickets WHERE ticket_number = $${values.length})`,
+          `(${column}, ticket_number) ${after} ` +
+            `(SELECT ${column}, ticket_number FROM tickets WHERE ticket_number = $${values.length})`,
         )
       }
 
@@ -529,12 +547,19 @@ export function postgresStore(options: PostgresStoreOptions): Store {
       const rows = await query<TicketRow>(
         `SELECT * FROM tickets
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
-         ORDER BY updated_at DESC, ticket_number DESC
+         ORDER BY ${column} ${direction}, ticket_number ${direction}
          LIMIT $${values.length}`,
         values,
       )
 
-      return toPage(rows.map(toTicket), rows.length > limit, limit, (item) => String(item.ticketNumber))
+      const page = toPage(rows.map(toTicket), rows.length > limit, limit, (item) => String(item.ticketNumber))
+      const last = page.items[page.items.length - 1]
+
+      return {
+        items: page.items,
+        ...(page.cursor && last ? { cursor: ticketCursor(ordering, last.ticketNumber) } : {}),
+        ...(counted?.[0] ? { total: Number(counted[0].total) } : {}),
+      }
     },
 
     async updateTicket(ticketNumber, patch) {

@@ -122,6 +122,11 @@ export {
   loadOf,
   STATUS_CATEGORIES,
   RESOLVED_CATEGORIES,
+  orderingOf,
+  ticketCursor,
+  ticketCursorAt,
+  sortedAt,
+  sortColumn,
 } from './helpdesk/index.js'
 export type {
   Helpdesk,
@@ -143,6 +148,8 @@ export type {
   TicketMessage,
   TicketMessageSender,
   TicketFilter,
+  TicketSort,
+  TicketOrdering,
 } from './helpdesk/index.js'
 
 export {

@@ -113,4 +113,32 @@ export interface TicketFilter {
   until?: string
   limit?: number
   cursor?: string
+  /**
+   * What to order the queue by. `updated` unless set.
+   *
+   * `created` is the only one of the three that cannot move. The other two
+   * change as the queue is worked, which means a page window is not a
+   * snapshot: a ticket somebody replies to while you are paging jumps to the
+   * front, and the ticket that was behind it is never handed to you. For a
+   * screen that is fine, and it is the ordering an inbox wants. For anything
+   * walking every ticket exactly once, either sort by `created`, or use
+   * `updated` ascending and remember the last timestamp you saw.
+   *
+   * `lastMessage` falls back to when the ticket was opened, since a ticket
+   * nobody has replied to has no last message and belongs at the old end
+   * rather than nowhere.
+   */
+  sortBy?: TicketSort
+  /** `desc` unless set, newest first. */
+  order?: 'asc' | 'desc'
+  /**
+   * Puts the number of matching tickets on the page.
+   *
+   * A second query, so it is off by default: a queue screen showing twenty
+   * tickets does not need to know there are four thousand, and a dashboard
+   * that says "342 open" does.
+   */
+  includeTotal?: boolean
 }
+
+export type TicketSort = 'created' | 'updated' | 'lastMessage'
