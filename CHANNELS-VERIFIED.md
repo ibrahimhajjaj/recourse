@@ -82,6 +82,11 @@ wrong verify token       401
 Sending: five approved templates listed off the Graph API, `hello_world`
 delivered in 1.4s to a verified recipient.
 
+The listing follows `paging.next` to the end, which five templates never
+exercised: one page held them all. That path is driven from fixtures in the
+test suite and has not been seen against a real account with more than a
+hundred templates on it.
+
 Two things the documentation does not tell you. A number Meta gives you is not
 registered with the Cloud API, and every send fails `(#133010)` until one POST
 fixes it. And subscribing through the Graph API is more reliable than the
