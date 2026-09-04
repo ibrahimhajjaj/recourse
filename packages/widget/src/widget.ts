@@ -8,6 +8,7 @@ import { styles } from './styles.js'
 import { resolveStrings, fill } from './strings.js'
 import { openDeepLink } from './deeplink.js'
 import type {
+  Chrome,
   ChatMessage,
   ClientActionHandler,
   EventName,
@@ -96,7 +97,7 @@ export function createWidget(options: WidgetOptions) {
     controller: null,
     // Groups this tab's turns into one thread in the transcript log.
     conversationId: `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`,
-    suggestions: options.suggestions ?? [],
+    suggestions: [...(options.suggestions ?? [])],
     pickOne: false,
     staged: [],
   }
@@ -138,13 +139,12 @@ export function createWidget(options: WidgetOptions) {
   const heading = document.createElement('div')
   heading.className = 'grow'
   const title = document.createElement('h2')
-  title.textContent = options.title ?? strings.title
   heading.appendChild(title)
-  if (options.subtitle) {
-    const subtitle = document.createElement('p')
-    subtitle.textContent = options.subtitle
-    heading.appendChild(subtitle)
-  }
+  // Built whether or not there is one to show, and hidden when there is not.
+  // A node created only when the initial options had a subtitle is a node the
+  // page can never fill in later.
+  const subtitle = document.createElement('p')
+  heading.appendChild(subtitle)
   header.appendChild(heading)
 
   // Forgetting the conversation, when the host allows it. Before the close
@@ -391,7 +391,6 @@ export function createWidget(options: WidgetOptions) {
    */
   const footnote = document.createElement('p')
   footnote.className = 'footnote'
-  if (strings.footnote) footnote.textContent = strings.footnote
 
   /**
    * One line under the composer for whichever of the mic and the call is
@@ -421,7 +420,7 @@ export function createWidget(options: WidgetOptions) {
     statusText.textContent = text
   }
 
-  panel.append(header, log, suggestions, errorBox, tray, composer, status, ...(strings.footnote ? [footnote] : []))
+  panel.append(header, log, suggestions, errorBox, tray, composer, status, footnote)
   if (uploads) panel.appendChild(picker)
   if (!inline) root.append(launcher, panel)
   else root.append(panel)
@@ -459,6 +458,37 @@ export function createWidget(options: WidgetOptions) {
       event.preventDefault()
       void stage(files)
     })
+  }
+
+  /**
+   * The parts of the widget a page may change after it is running.
+   *
+   * A single-page app changes what the widget should say without reloading it:
+   * a different header on the billing page, a different set of starters on
+   * checkout. Seeded from the options it was built with, so a page that never
+   * touches this sees exactly what it configured.
+   */
+  const live: Chrome = {
+    title: options.title ?? strings.title,
+    subtitle: options.subtitle ?? '',
+    placeholder: strings.placeholder,
+    footnote: strings.footnote ?? '',
+    greeting: options.greeting ?? '',
+    suggestions: options.suggestions ?? [],
+  }
+
+  /** What it was built with, so an override can be taken back off. */
+  const built: Chrome = { ...live, suggestions: [...live.suggestions] }
+
+  /** Puts the live values on screen. Cheap enough to run for any of them. */
+  function paintChrome() {
+    title.textContent = live.title
+    panel.setAttribute('aria-label', live.title)
+    subtitle.textContent = live.subtitle
+    subtitle.hidden = live.subtitle === ''
+    footnote.textContent = live.footnote
+    footnote.hidden = live.footnote === ''
+    paintComposer()
   }
 
   function setOpen(open: boolean) {
@@ -683,7 +713,7 @@ export function createWidget(options: WidgetOptions) {
   function paintComposer() {
     const locked = state.busy || state.pickOne
     input.disabled = state.pickOne
-    input.placeholder = state.pickOne ? strings.choosePlaceholder : strings.placeholder
+    input.placeholder = state.pickOne ? strings.choosePlaceholder : live.placeholder
     send.disabled = locked
   }
 
@@ -693,8 +723,10 @@ export function createWidget(options: WidgetOptions) {
     // a bubble in the corner of one. Only while it is empty: once there is a
     // conversation, the space belongs to the conversation.
     if (options.greetingArt && state.messages.length === 0) paintEmptyState()
-    else if (options.greeting) paintMessage({ role: 'assistant', content: options.greeting })
-    for (const message of state.messages) paintMessage(message)
+    else if (live.greeting) paintMessage({ role: 'assistant', content: live.greeting })
+    for (const message of state.messages) {
+      if (!message.unseen) paintMessage(message)
+    }
     paintSuggestions()
   }
 
@@ -710,9 +742,9 @@ export function createWidget(options: WidgetOptions) {
     art.decoding = 'async'
     empty.appendChild(art)
 
-    if (options.greeting) {
+    if (live.greeting) {
       const line = document.createElement('p')
-      line.textContent = options.greeting
+      line.textContent = live.greeting
       empty.appendChild(line)
     }
 
@@ -764,7 +796,7 @@ export function createWidget(options: WidgetOptions) {
   /** Empties this tab. Everything here, nothing anywhere else. */
   function forgetLocally() {
     state.messages = []
-    state.suggestions = options.suggestions ?? []
+    state.suggestions = [...live.suggestions]
     // A wiped conversation is not still mid-flow, so the box comes back.
     state.pickOne = false
     state.conversationId = `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
@@ -861,7 +893,7 @@ export function createWidget(options: WidgetOptions) {
     }
   }
 
-  async function ask(question: string) {
+  async function ask(question: string, how: { show?: boolean } = {}) {
     const text = question.trim()
     // A photo on its own is a perfectly good question; the server fills in the
     // words. Anything else empty is not worth a round trip.
@@ -886,9 +918,14 @@ export function createWidget(options: WidgetOptions) {
 
     const outgoing: ChatMessage = { role: 'user', content: text }
     if (sending.length > 0) outgoing.attachments = sending
+    // Still pushed when it is not shown: it is what the agent is answering, so
+    // leaving it out would send a turn with no question in it.
+    if (how.show === false) outgoing.unseen = true
     state.messages.push(outgoing)
-    paintMessage(outgoing)
-    emit('message', { text })
+    if (!outgoing.unseen) {
+      paintMessage(outgoing)
+      emit('message', { text })
+    }
 
     // Starters belong to the blank slate; the server can offer new ones later.
     state.suggestions = []
@@ -1348,12 +1385,75 @@ function readable(name: string): string {
     if ((event as KeyboardEvent).key === 'Escape' && !inline) setOpen(false)
   })
 
+  paintChrome()
   repaint()
 
   const api = {
-    open: () => setOpen(true),
+    /**
+     * Opens the panel, and optionally asks something on the way in.
+     *
+     * `quietly` sends the question without showing it and leaves the panel
+     * closed until the answer starts arriving, so what the visitor sees is the
+     * agent saying something unprompted rather than a question they never
+     * typed appearing in their name.
+     */
+    open(opening?: { ask?: string; quietly?: boolean }) {
+      const question = opening?.ask?.trim()
+      if (!question) {
+        setOpen(true)
+        return
+      }
+
+      if (!opening?.quietly) {
+        setOpen(true)
+        void ask(question)
+        return
+      }
+
+      const opened = api.on('response', () => {
+        opened()
+        setOpen(true)
+      })
+
+      void ask(question, { show: false })
+    },
     close: () => setOpen(false),
-    ask,
+    ask: (question: string) => ask(question),
+
+    /**
+     * Changes what the widget says, without rebuilding it.
+     *
+     * Only the keys given move; the rest stay as they were. Nothing here is
+     * persisted, so a reload is back to what the page was built with, and so
+     * is `resetOptions`.
+     */
+    setOptions(changes: Partial<Chrome>) {
+      Object.assign(live, changes)
+      if (changes.suggestions) {
+        live.suggestions = [...changes.suggestions]
+        // Only when nothing has been said yet. Replacing what the agent just
+        // offered with a page's starters is the page talking over the answer.
+        if (state.messages.length === 0) state.suggestions = [...changes.suggestions]
+      }
+      paintChrome()
+      repaint()
+    },
+
+    /** Puts them back to what the widget was built with. */
+    resetOptions(fields?: Partial<Record<keyof Chrome, boolean>>) {
+      const wanted = (Object.keys(built) as Array<keyof Chrome>).filter((key) => !fields || fields[key])
+      for (const key of wanted) {
+        if (key === 'suggestions') live.suggestions = [...built.suggestions]
+        else live[key] = built[key]
+      }
+
+      if (wanted.includes('suggestions') && state.messages.length === 0) {
+        state.suggestions = [...built.suggestions]
+      }
+
+      paintChrome()
+      repaint()
+    },
 
     /** Subscribes to widget events. Returns an unsubscribe function. */
     on<K extends EventName>(name: K, listener: (payload: WidgetEvents[K]) => void): () => void {

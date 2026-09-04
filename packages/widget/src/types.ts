@@ -200,6 +200,13 @@ export type StreamFrame =
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  /**
+   * Sent to the agent but never drawn.
+   *
+   * For a question the page asked on the visitor's behalf, where showing it
+   * would put words in their mouth that they never typed.
+   */
+  unseen?: boolean
   sources?: SourceRef[]
   /**
    * The `[n]` each entry of `sources` was cited by, in the same order.
@@ -218,4 +225,21 @@ export interface OutgoingAttachment {
   mimeType: string
   dataUrl: string
   bytes: number
+}
+
+/**
+ * The parts of a running widget a page may change.
+ *
+ * Deliberately a short list. Anything that decides how the widget talks to the
+ * server, what it may upload or who it says it is belongs in the options it
+ * was built with, where it can be reasoned about once; a page changing those
+ * at runtime is a page that can change them from anywhere.
+ */
+export interface Chrome {
+  title: string
+  subtitle: string
+  placeholder: string
+  footnote: string
+  greeting: string
+  suggestions: string[]
 }

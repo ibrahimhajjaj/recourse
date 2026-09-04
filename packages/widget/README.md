@@ -88,8 +88,34 @@ Actions can then refuse to answer an unverified session rather than trusting the
 id it was handed.
 
 `window.recourse` exposes `open()`, `close()`, `ask(question)`, `clear()`,
-`destroy()`, `handle(name, fn)` for a client action, and `on(event, fn)`, which
-returns its own unsubscribe function.
+`destroy()`, `handle(name, fn)` for a client action, `setOptions` and
+`resetOptions`, and `on(event, fn)`, which returns its own unsubscribe
+function.
+
+`open()` can arrive with a question already in it:
+
+```js
+window.recourse.open({ ask: 'What does it cost?' })
+
+// Or without showing it, so what the visitor sees is the agent speaking first.
+// The panel stays shut until the answer starts arriving.
+window.recourse.open({ ask: 'What does it cost?', quietly: true })
+```
+
+`setOptions` changes what a running widget says, for pages that move between
+sections without rebuilding it. `title`, `subtitle`, `placeholder`, `footnote`,
+`greeting` and `suggestions`, any subset:
+
+```js
+window.recourse.setOptions({ title: 'Acme billing', suggestions: ['Download an invoice'] })
+window.recourse.resetOptions({ title: true }) // or resetOptions() for all of them
+```
+
+Nothing there is persisted: a reload is back to what the page was built with.
+New starters replace the old ones only while the conversation is still empty,
+since replacing what the agent just offered is the page talking over it. The
+endpoint, the identity and what may be uploaded are not on the list, because a
+page that can change those at runtime can change them from anywhere.
 
 The events are `message`, `response`, `action`, `captured`, `handoff`, `error`,
 `open` and `close`:

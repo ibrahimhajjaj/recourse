@@ -369,9 +369,13 @@ describe('the disclosure line', () => {
   })
 
   it('shows nothing when none was set', () => {
+    // The node is there so a page can fill it in later; what matters is that
+    // nothing is on screen until something does.
     const { root } = mount({ endpoint: '/api/chat' })
+    const footnote = root.querySelector('.footnote') as HTMLElement
 
-    expect(root.querySelector('.footnote')).toBeNull()
+    expect(footnote.hidden).toBe(true)
+    expect(footnote.textContent).toBe('')
   })
 
   it('renders it as text, never as markup', () => {
