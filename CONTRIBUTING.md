@@ -158,6 +158,13 @@ fix: index scripts that write no spaces between words
 Keep the pull request to one concern. If you found a second thing on the way,
 that is a second pull request, and I will be glad you found it.
 
+## Cutting a release
+
+[`RELEASE.md`](RELEASE.md), which is the decisions rather than the commands:
+which number to move, why all five artefacts share one, and the steps that have
+no undo. `node scripts/release.mjs check` is the preflight and reports what is
+in the way before anything is written.
+
 ## There are people here
 
 Every issue and pull request is read by a person. Arriving with something you
