@@ -4,6 +4,115 @@ What changed between releases, and what it means for a deployment that already
 runs this. Written for somebody upgrading, so the breaking parts come first and
 each one says what to do rather than only what moved.
 
+## Unreleased
+
+### You have to change something
+
+**Two actions may no longer share a name.** `createAgent` refuses to start and
+says which name it is:
+
+```ts
+actions: [
+  escalate({ name: 'escalate_web', channels: ['web'], helpdesk }),
+  escalate({ name: 'escalate_social', channels: ['instagram'], helpdesk }),
+]
+```
+
+The tool set is keyed on the name, so two actions sharing one meant the second
+replaced the first: the agent was handed a tool that behaved like the wrong one
+and nothing said so. Every built-in now takes a `name` for exactly this, since
+two of the same kind is a real configuration rather than a mistake.
+
+### Behaviour that changed without an API change
+
+**One procedure runs per turn**, the one the customer turned to most recently.
+Two procedures matching at once used to be described together and have both
+their action sets unlocked, and following both interleaves their steps into a
+reply that reads like two conversations shuffled together. The choice is judged
+on what the customer said rather than the whole transcript, so the agent's own
+"I can also look at returns" cannot switch the flow.
+
+**A procedure is dropped on a channel that cannot run one of its actions**,
+branches included, rather than starting and stranding the customer at the step
+nothing there can carry out.
+
+**Client actions are no longer offered to a caller that cannot run them.** They
+need a browser to do the work and hand the result back, so on WhatsApp the model
+used to call a form nothing could render and the turn ended with no text in it.
+The customer got silence.
+
+**The memory and file stores honour an `updatedAt` passed to `updateTicket`**,
+which the SQL stores already did. Stamping "now" in one store and not another is
+how the same queue comes back in a different order depending on where it lives.
+
+### Added
+
+**Per-channel limits.** `Action.channels` and `Procedure.channels` hold either to
+the places it works. A limit beats a procedure: an action a procedure unlocks is
+still withheld where it was not offered.
+
+**Follow-up questions after every reply.** `followUps: true` asks for them
+separately once the answer is done, rather than relying on the model to reach
+for the tool, which smaller models forget. It costs a second call per reply, so
+it is off unless you ask, and it is skipped once a person has the conversation.
+
+**A retry control** under the newest answer. It drops that answer from what the
+model sees so the second attempt starts clean, re-sends any photo that came with
+the question, and keeps the rejected answer in the transcript, where it is a
+documented case of this agent answering badly.
+
+**Ticket queues sort.** `sortBy` takes `created`, `updated` or `lastMessage` and
+`order` takes `asc` or `desc`, so a queue can come back in the order it is
+worked. `includeTotal` adds the count. A cursor carries the ordering it was
+issued for and is refused against another, rather than paging into nonsense.
+
+**`ticketSource`** indexes tickets your team already answered, with a Zendesk
+reader that takes solved tickets and their last public reply.
+
+**`sendWhatsAppTemplate`** and **`whatsAppTemplates`**, because WhatsApp will not
+carry a message you wrote to somebody who has not written to you in a day.
+
+**`GET /conversations/export`** returns whole transcripts a page at a time, and
+`?contactId=` on the conversation list is everything one person ever asked.
+
+**Forms take more than a text box**: `date`, `email`, `tel` and `multiline`
+controls, `multiple` and grouped `options`, and `pattern`, `minLength`,
+`maxLength`, `min`, `max` with a message saying what a good answer looks like.
+
+**A `chart` component**, bars only, with the numbers printed beside them.
+
+**Markdown images render** in an answer, over https only.
+
+**`webSearch({ sites })`** confines a search to the sites you name, and
+`{ images: true }` lets an answer show a picture where seeing the thing is the
+answer.
+
+**`suggestedMessages({ pickOne: true })`** takes the text box away while its
+suggestions are on screen, for a guided step with a fixed set of answers.
+
+**`setOptions` and `resetOptions`** change what a running widget says, and
+`open({ ask, quietly })` opens it with a question already in it.
+
+**`actionDetail: true`** sends what an action was called with and what it
+returned to the page, for one that has to show the booking rather than merely
+know one happened.
+
+**A custom button can take the tab it is in** with `sameTab`, for a checkout or
+a sign-in that is meant to own the window.
+
+### Fixed
+
+**A human's reply now reaches the customer.** `helpdesk({ deliver })` closes the
+loop: an agent posting on a ticket was saved and went nowhere.
+
+**A handover the clock ran out on ends**, and the customer is told, rather than
+the agent starting to talk again with no explanation.
+
+**`collectData` saves to the store** when no handler was given, as a lead
+already did.
+
+**Every chat error carries a code**, and the rate limit takes a `message`.
+
 ## 0.2.0 (2026-09-03)
 
 ### You have to change something
