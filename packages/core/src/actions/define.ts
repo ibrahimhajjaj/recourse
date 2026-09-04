@@ -236,19 +236,34 @@ function reportedFailure(data: unknown): string | undefined {
   return reported.ok === false && typeof reported.error === 'string' ? reported.error : undefined
 }
 
+/**
+ * Whether this action can run here at all, whatever the conversation is about.
+ *
+ * Separate from the rest of the filtering because it answers a different
+ * question. `procedureOnly` and `relevantWhen` are about whether to offer the
+ * action on this turn; this is about whether the thing can work, and a caller
+ * deciding which procedures are runnable needs that half on its own: a
+ * procedure-only action is exactly what a procedure is allowed to reach.
+ */
+export function worksHere(
+  action: Action,
+  options: Pick<ToolBuildOptions, 'channel' | 'clientActions'>,
+): boolean {
+  if (action.runs === 'client' && options.clientActions === false) return false
+  if (action.channels && options.channel !== undefined && !action.channels.includes(options.channel)) return false
+
+  return true
+}
+
 export function offeredActions(
   actions: Action[],
   options: Pick<ToolBuildOptions, 'unlocked' | 'conversation' | 'channel' | 'clientActions'>,
 ): Action[] {
   return actions.filter((action) => {
-    if (action.runs === 'client' && options.clientActions === false) return false
-
     // Before the unlock check, deliberately. A procedure deciding its flow
     // applies is not a statement that the tool works here, and an action that
     // draws something in a widget is nothing at all over SMS.
-    if (action.channels && options.channel !== undefined && !action.channels.includes(options.channel)) {
-      return false
-    }
+    if (!worksHere(action, options)) return false
 
     if (action.procedureOnly && !options.unlocked?.has(action.name)) return false
 

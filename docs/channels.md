@@ -192,6 +192,8 @@ the widget, so on WhatsApp the agent calls it and the customer sees nothing.
 Name the channels and the action is only ever offered there:
 
 ```ts
+import { customForm } from '@recourse-ai/core'
+
 customForm({ name: 'warranty_claim', channels: ['web'], ... })
 ```
 
@@ -199,6 +201,8 @@ Procedures take the same field, for a flow built around something only one
 channel has:
 
 ```ts
+import { defineProcedure } from '@recourse-ai/core'
+
 defineProcedure({
   name: 'Warranty claim',
   trigger: 'they want to claim on the warranty',

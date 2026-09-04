@@ -2,8 +2,8 @@ import type { Match, Message } from '../types.js'
 import type { Action } from '../actions/types.js'
 import type { Procedure } from '../procedures/types.js'
 import type { Logger } from '../diagnostics.js'
-import { offeredActions } from '../actions/define.js'
-import { matchingProcedures, unlockedBy } from '../procedures/index.js'
+import { offeredActions, worksHere } from '../actions/define.js'
+import { chooseProcedure, matchingProcedures, unlockedBy, usableProcedures } from '../procedures/index.js'
 import { INPUT_RULES, runRules } from '../safety/rules.js'
 import { passageText } from '../server/prompt.js'
 import type { Channel } from '../store/types.js'
@@ -49,14 +49,39 @@ export function resolveContext(input: {
     input.passageThreshold === null ? input.found : withoutPoisoned(input.found, input.passageThreshold, input.logger)
 
   const said = input.messages.map((message) => message.content).join('\n')
-  const applicable = matchingProcedures(input.procedures, said, input.channel)
+  const here = {
+    ...(input.channel === undefined ? {} : { channel: input.channel }),
+    ...(input.clientActions === undefined ? {} : { clientActions: input.clientActions }),
+  }
+
+  // Which procedures can run at all here, before asking which one this turn is
+  // about. A procedure is all or nothing: reaching one step it cannot carry out
+  // strands the customer mid-flow, so a procedure naming an action this channel
+  // does not offer is dropped rather than started. Branches count, including
+  // ones this conversation would never reach, because whether it reaches them
+  // is not knowable until it has already begun.
+  const { usable, dropped } = usableProcedures(
+    input.procedures,
+    input.actions.filter((action) => worksHere(action, here)),
+  )
+  for (const { name, missing } of dropped) {
+    input.logger.warn(`procedure ${name} is not available here`, { missing: missing.join(', ') })
+  }
+
+  const matched = matchingProcedures(usable, said, input.channel)
+  // One, never two. Two procedures followed at once interleave into a reply
+  // that reads like two conversations shuffled together.
+  const running = chooseProcedure(
+    matched,
+    input.messages.map((message) => message.content),
+  )
+  const applicable = running ? [running] : []
   const unlocked = unlockedBy(applicable)
 
   const offered = offeredActions(input.actions, {
     unlocked,
     conversation: `${said}\n${matches.map((match) => match.chunk.text).join('\n')}`,
-    ...(input.channel === undefined ? {} : { channel: input.channel }),
-    ...(input.clientActions === undefined ? {} : { clientActions: input.clientActions }),
+    ...here,
   })
 
   return { matches, applicable, unlocked, offered }
