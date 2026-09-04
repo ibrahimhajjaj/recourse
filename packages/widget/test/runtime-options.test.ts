@@ -195,6 +195,26 @@ describe('opening with a question already in it', () => {
     expect((root.querySelector('.panel') as HTMLElement).dataset.open).toBe('true')
   })
 
+  it('stays shut when the quiet ask fails, and does not open on the next one', async () => {
+    // The listener that opens the panel has to go whatever happened, or a
+    // failed proactive message opens the panel on whatever the visitor asks
+    // next, which reads as the widget opening itself at random.
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })))
+    const { widget, root } = floating()
+    const panel = () => (root.querySelector('.panel') as HTMLElement).dataset.open
+
+    widget.open({ ask: 'what does it cost?', quietly: true })
+    await settle()
+    expect(panel()).toBe('false')
+
+    const sent: string[] = []
+    stub(sent)
+    await widget.ask('and delivery?')
+    await settle()
+
+    expect(panel()).toBe('false')
+  })
+
   it('just opens when given nothing', () => {
     const { widget, root } = floating()
     widget.open()

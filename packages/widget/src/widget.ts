@@ -1488,12 +1488,30 @@ function readable(name: string): string {
         return
       }
 
-      const opened = api.on('response', () => {
-        opened()
-        setOpen(true)
-      })
+      // Both outcomes unsubscribe, and only one of them opens. A turn that
+      // fails leaves nothing worth showing, and a listener that outlives it
+      // would open the panel on whatever the visitor asked next.
+      let done = false
+      const stop = [
+        api.on('response', () => {
+          if (done) return
+          done = true
+          stop.forEach((off) => off())
+          setOpen(true)
+        }),
+        api.on('error', () => {
+          done = true
+          stop.forEach((off) => off())
+        }),
+      ]
 
-      void ask(question, { show: false })
+      void ask(question, { show: false }).finally(() => {
+        // Nothing was sent: the widget was already mid-turn, so `ask` returned
+        // without doing anything and neither event will ever arrive.
+        if (done) return
+        done = true
+        stop.forEach((off) => off())
+      })
     },
     close: () => setOpen(false),
     ask: (question: string) => ask(question),
