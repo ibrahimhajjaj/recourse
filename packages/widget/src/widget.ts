@@ -480,6 +480,21 @@ export function createWidget(options: WidgetOptions) {
   /** What it was built with, so an override can be taken back off. */
   const built: Chrome = { ...live, suggestions: [...live.suggestions] }
 
+  /**
+   * Redraws whatever a change to the live values touched.
+   *
+   * Not a blanket repaint. Rebuilding the transcript throws away the thumbs
+   * and the retry control, which are attached as each answer arrives and not
+   * restored afterwards, so a page renaming its header would silently take
+   * them off every answer already on screen.
+   */
+  function applied(changes: Partial<Chrome>) {
+    paintChrome()
+    if (changes.suggestions) paintSuggestions()
+    // Only ever visible on an empty panel, so only worth a rebuild there.
+    if (changes.greeting !== undefined && state.messages.length === 0) repaint()
+  }
+
   /** Puts the live values on screen. Cheap enough to run for any of them. */
   function paintChrome() {
     title.textContent = live.title
@@ -1498,8 +1513,7 @@ function readable(name: string): string {
         // offered with a page's starters is the page talking over the answer.
         if (state.messages.length === 0) state.suggestions = [...changes.suggestions]
       }
-      paintChrome()
-      repaint()
+      applied(changes)
     },
 
     /** Puts them back to what the widget was built with. */
@@ -1514,8 +1528,7 @@ function readable(name: string): string {
         state.suggestions = [...built.suggestions]
       }
 
-      paintChrome()
-      repaint()
+      applied(Object.fromEntries(wanted.map((key) => [key, live[key]])) as Partial<Chrome>)
     },
 
     /** Subscribes to widget events. Returns an unsubscribe function. */

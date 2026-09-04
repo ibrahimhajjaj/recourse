@@ -38,6 +38,47 @@ beforeEach(() => {
   vi.restoreAllMocks()
 })
 
+describe('what a change must not take away', () => {
+  it('leaves the controls on answers already on screen', async () => {
+    // The thumbs and the retry control are attached as each answer arrives and
+    // never restored afterwards, so a blanket rebuild for a renamed header
+    // would silently strip them off the whole conversation.
+    const { widget, root } = mount()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('data: {"type":"delta","text":"We refund within 30 days."}\n\ndata: {"type":"done"}\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+      ),
+    )
+
+    ;(root.querySelector('textarea') as HTMLTextAreaElement).value = 'do you do refunds?'
+    ;(root.querySelector('form.composer') as HTMLFormElement).dispatchEvent(new Event('submit', { cancelable: true }))
+    for (let tick = 0; tick < 60; tick++) await new Promise((resolve) => setTimeout(resolve, 5))
+
+    const before = root.querySelectorAll('.feedback button').length
+    expect(before).toBeGreaterThan(0)
+
+    widget.setOptions({ title: 'Acme billing' })
+
+    expect(root.querySelectorAll('.feedback button')).toHaveLength(before)
+    expect(root.textContent).toContain('We refund within 30 days.')
+  })
+
+  it('still redraws the greeting, which only shows on an empty panel', () => {
+    const { widget, root } = mount({ greeting: 'Ask us anything about billing.' })
+
+    expect(root.textContent).toContain('Ask us anything about billing.')
+    widget.setOptions({ greeting: 'Ask us anything about delivery.' })
+
+    expect(root.textContent).toContain('Ask us anything about delivery.')
+    expect(root.textContent).not.toContain('about billing')
+  })
+})
+
 describe('changing what the widget says', () => {
   it('moves only the keys it was given', () => {
     const { widget, root } = mount()
