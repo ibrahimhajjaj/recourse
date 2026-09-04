@@ -71,6 +71,17 @@ backlog, tickets by channel and status, and median first-reply, reply and
 time-to-close. None of those was a field on a ticket, so nothing could answer
 them before.
 
+**A team can hand work out its own way.** `assignment` and `maxOpenPerAgent`
+are settable per team, the team's value winning, because two people on billing
+and ten on general support are not the same shape.
+
+**Routing rules and triggers match a named address** with `email`, not only its
+domain.
+
+**A second takeover is refused** rather than quietly swapping who owns the
+conversation. `assignAgent` returns `{ assigned, heldBy }`; a manager
+reassigning deliberately passes `{ takeFrom: true }`.
+
 **`ticketSource`** indexes tickets your team already answered, with a Zendesk
 reader that takes solved tickets and their last public reply.
 
@@ -116,6 +127,18 @@ when a ticket was created, so a desk that wrote "when a ticket is reopened, put
 it back in the queue" watched it never happen with nothing to read that said
 why. Rules can also match on what an update *moved*, with `changed`, which is
 the question most of them actually ask.
+
+**Paging could end a walk early, in the memory and file stores.** They looked
+the cursor up among the rows that matched the filter, so a ticket somebody
+closed, a source that finished re-crawling, or a conversation a new message
+pushed past your `until` took the rest of the list with it. The SQL stores were
+always right; the in-memory ones now match, and both behaviours are conformance
+assertions every store has to pass. Conversations also had no tiebreak, so two
+touched in the same millisecond could be handed over twice or never.
+
+**A withheld action result still reached the page.** When a result read as an
+instruction the model was protected, but the `action` frame carrying it had
+already gone out, and the same call reported both `done` and `failed`.
 
 **A tie in ticket assignment went alphabetically.** Two agents on the same load
 were separated by their id, so the one whose email sorted first took every tie
