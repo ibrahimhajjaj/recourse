@@ -227,13 +227,17 @@ export function createHelpdesk(options: HelpdeskOptions) {
         const open = await store.listTickets({ openOnly: true, limit: 200 })
         const loads = loadOf(open.items, team.members)
 
+        const maxOpen = team.maxOpenPerAgent ?? options.maxOpenPerAgent
+
         const assignee = assignTicket({
-          algorithm: options.assignment,
+          // The team's own setting where it has one. A desk-wide default is
+          // right until the first team that is a different shape.
+          algorithm: team.assignment ?? options.assignment,
           candidates: options.schedule
             ? availabilityAt(new Date(now), options.schedule, loads)
             : loads,
           lastAssignedId,
-          ...(options.maxOpenPerAgent === undefined ? {} : { maxOpen: options.maxOpenPerAgent }),
+          ...(maxOpen === undefined ? {} : { maxOpen }),
         })
         if (assignee) {
           draft.assigneeId = assignee

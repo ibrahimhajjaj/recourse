@@ -1,4 +1,5 @@
 import type { Channel } from '../store/types.js'
+import type { AssignmentAlgorithm } from './assignment.js'
 
 /**
  * The help desk: what happens after the agent hands over.
@@ -41,6 +42,17 @@ export interface Team {
   isDefault: boolean
   /** Emails or ids of the people on it, used by the assignment algorithm. */
   members: string[]
+  /**
+   * How this team hands work out, when the desk-wide setting is wrong for it.
+   *
+   * Teams are different sizes doing different work. Two people on billing pick
+   * their own tickets and know each other's cases; ten on general support want
+   * them spread evenly and would rather not think about it. One setting across
+   * the desk makes one of those two wrong.
+   */
+  assignment?: AssignmentAlgorithm
+  /** This team's cap on open tickets per agent. Falls back to the desk's. */
+  maxOpenPerAgent?: number
 }
 
 export interface TicketCustomer {

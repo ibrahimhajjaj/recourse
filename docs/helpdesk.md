@@ -80,6 +80,19 @@ month, where `ana@` takes every tie and `zoe@` takes none. Somebody who has
 never been assigned anything counts as having waited longest, so a new
 teammate starts at the front rather than at the back forever.
 
+Both are also settable per team, and the team's own value wins. Teams are
+different sizes doing different work: two people on billing pick their own
+tickets and know each other's cases, ten on general support want them spread
+evenly and would rather not think about it, and one setting across the desk
+makes one of those wrong.
+
+```ts
+teams: [
+  { id: 'support', name: 'Support', isDefault: true, members: [...] },
+  { id: 'billing', name: 'Billing', isDefault: false, members: [...], assignment: 'manual' },
+]
+```
+
 `maxOpenPerAgent` stops an agent being handed more once they hold that many
 open. It matters most under `round_robin`, which rotates without looking at
 load at all: an agent sitting on forty open tickets keeps being handed the next

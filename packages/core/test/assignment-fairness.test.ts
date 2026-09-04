@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { assignTicket, loadOf } from '../src/helpdesk/index.js'
+import { assignTicket, createHelpdesk, loadOf } from '../src/helpdesk/index.js'
+import { memoryStore } from '../src/store/index.js'
 import type { Ticket } from '../src/helpdesk/index.js'
 
 /**
@@ -116,5 +117,67 @@ describe('reading the load off the tickets', () => {
     expect(load[1]).toMatchObject({ openTickets: 1, lastAssignedAt: '2026-02-01T00:00:00.000Z' })
     expect(load[2]).toMatchObject({ openTickets: 0 })
     expect(load[2]).not.toHaveProperty('lastAssignedAt')
+  })
+})
+
+describe('a team that works differently from the rest of the desk', () => {
+  const open = async (desk: Awaited<ReturnType<typeof helpdeskWith>>, subject: string) =>
+    desk.openTicket({ subject, description: subject, customer: { email: 'sam@example.com' }, channel: 'web' })
+
+  async function helpdeskWith(teams: Parameters<typeof createHelpdesk>[0]['teams']) {
+    return createHelpdesk({ store: memoryStore(), assignment: 'least_busy', teams })
+  }
+
+  it('picks its own tickets while the rest of the desk is automatic', async () => {
+    // Two people on billing know each other's cases; ten on general support
+    // would rather not think about it. One setting makes one of them wrong.
+    const desk = await helpdeskWith([
+      { id: 'support', name: 'Support', isDefault: true, members: ['ana@shop.example'] },
+      { id: 'billing', name: 'Billing', isDefault: false, members: ['cat@shop.example'], assignment: 'manual' },
+    ])
+
+    const auto = await desk.openTicket({
+      subject: 'Where is my order',
+      description: 'x',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+    })
+    expect(auto.assigneeId).toBe('ana@shop.example')
+
+    const manual = await desk.openTicket({
+      subject: 'Billing question',
+      description: 'x',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+      teamId: 'billing',
+    })
+    expect(manual.assigneeId).toBeUndefined()
+
+    void open
+  })
+
+  it('takes its own cap over the desk-wide one', async () => {
+    const desk = createHelpdesk({
+      store: memoryStore(),
+      assignment: 'least_busy',
+      maxOpenPerAgent: 50,
+      teams: [{ id: 'support', name: 'Support', isDefault: true, members: ['ana@shop.example'], maxOpenPerAgent: 1 }],
+    })
+
+    const first = await desk.openTicket({
+      subject: 'One',
+      description: 'x',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+    })
+    expect(first.assigneeId).toBe('ana@shop.example')
+
+    const second = await desk.openTicket({
+      subject: 'Two',
+      description: 'x',
+      customer: { email: 'sam@example.com' },
+      channel: 'web',
+    })
+    expect(second.assigneeId).toBeUndefined()
   })
 })
