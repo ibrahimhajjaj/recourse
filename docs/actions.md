@@ -32,6 +32,13 @@ Built in: `collectLeads`, `collectData`, `escalate`, `suggestedMessages`,
 `slackNotify`, `scheduleMeeting`, `stripeBilling`, `shopifyOrders`, `liveChat`,
 `transferToPhone`.
 
+The page is told an action started and finished, by name, so it can react
+without waiting for the answer. It is not told what the action was called with
+or what came back: the result of an order lookup has no business in JavaScript
+on a marketing page. `actionDetail: true` on the agent sends both, for a page
+that has to show the booking rather than merely know one happened. What goes
+out is the same shrunk and redacted result the model was given.
+
 A small model answers well and forgets the housekeeping tool, so the follow-ups
 appear on some turns and not others. `followUps: true` on the agent asks for
 them separately, after the answer, so they appear every time:

@@ -197,7 +197,15 @@ export type StreamFrame =
   | { type: 'done'; finishReason?: string }
   | { type: 'error'; message: string }
   /** A server action ran. Lets the client show progress and react. */
-  | { type: 'action'; name: string; status: 'running' | 'done' | 'failed'; summary?: string }
+  | {
+      type: 'action'
+      name: string
+      status: 'running' | 'done' | 'failed'
+      summary?: string
+      /** Only when the deployment asked for it. See `actionDetail`. */
+      input?: Record<string, unknown>
+      result?: unknown
+    }
   /**
    * The agent wants the browser to run something it cannot: read page state,
    * open a URL, call an API only the visitor is authenticated for. The client

@@ -1112,7 +1112,12 @@ function readable(name: string): string {
       // this and none of it is what the visitor asked for.
       showThought(frame.text)
     } else if (frame.type === 'action') {
-      emit('action', { name: frame.name, status: frame.status })
+      emit('action', {
+        name: frame.name,
+        status: frame.status,
+        ...(frame.input ? { input: frame.input } : {}),
+        ...(frame.result === undefined ? {} : { result: frame.result }),
+      })
       // The frame already crossed the whole stack to get here. Showing it is
       // the difference between three dots for five seconds and the visitor
       // seeing that something is actually happening on their behalf.

@@ -143,7 +143,7 @@ export interface WidgetEvents {
   /** The agent finished replying. */
   response: { text: string; sources: SourceRef[] }
   /** A server action ran. */
-  action: { name: string; status: string }
+  action: { name: string; status: string; input?: Record<string, unknown>; result?: unknown }
   /** Details were captured from the conversation. */
   captured: { kind: 'lead' | 'data'; name: string; values: Record<string, unknown> }
   /** The conversation was handed to a person. */
@@ -167,7 +167,15 @@ export type StreamFrame =
   | { type: 'delta'; text: string }
   | { type: 'done'; finishReason?: string }
   | { type: 'error'; message: string }
-  | { type: 'action'; name: string; status: 'running' | 'done' | 'failed'; summary?: string }
+  | {
+      type: 'action'
+      name: string
+      status: 'running' | 'done' | 'failed'
+      summary?: string
+      /** Present only where the server was told to send them. */
+      input?: Record<string, unknown>
+      result?: unknown
+    }
   /**
    * The model thinking, on a deployment that asked the server to send it.
    *

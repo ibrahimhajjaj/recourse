@@ -87,8 +87,24 @@ order, an invoice, an address.
 Actions can then refuse to answer an unverified session rather than trusting the
 id it was handed.
 
-`window.recourse` exposes `open()`, `close()`, `ask(question)`, `clear()` and
-`destroy()`.
+`window.recourse` exposes `open()`, `close()`, `ask(question)`, `clear()`,
+`destroy()`, `handle(name, fn)` for a client action, and `on(event, fn)`, which
+returns its own unsubscribe function.
+
+The events are `message`, `response`, `action`, `captured`, `handoff`, `error`,
+`open` and `close`:
+
+```js
+window.recourse.on('action', ({ name, status }) => {
+  if (name === 'add_to_basket' && status === 'done') refreshBasket()
+})
+```
+
+`action` carries a name and a status, and nothing else. An agent configured
+with `actionDetail` also sends what the action was called with and what it
+returned, which is what a page needs to show the booking rather than merely
+know one happened. It is off unless asked for, because it puts the result of a
+lookup into JavaScript on the page.
 
 ## Attachments
 

@@ -103,6 +103,21 @@ export interface ToolBuildOptions {
    * genuine transient failure and short of a spin. Zero turns it off.
    */
   failureLimit?: number
+  /**
+   * Sends what each action was called with, and what it returned, to the page.
+   *
+   * Off, and that default is the point. The `action` frame otherwise carries a
+   * name and a status, which is all a spinner needs, and the result of a
+   * lookup stays on the server where it was fetched. Turning this on puts a
+   * customer's order, their address, whatever the action returned, into
+   * JavaScript on a page you may not control every line of.
+   *
+   * On where the page has to react to what actually happened: refresh a basket
+   * once the agent changed it, record the ticket id, show the booking. What
+   * goes out is the shrunk and redacted result the model was given, not the
+   * raw one, so a token in a field never reaches either.
+   */
+  actionDetail?: boolean
 }
 
 /**
@@ -327,6 +342,7 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                 name: action.name,
                 status: 'running',
                 ...(label ? { summary: label } : {}),
+                ...(options.actionDetail ? { input } : {}),
               })
 
               try {
@@ -346,9 +362,18 @@ export function actionsToTools(actions: Action[], options: ToolBuildOptions): To
                   return { ok: false, error: redact(reported).slice(0, 500) }
                 }
 
-                options.context.emit?.({ type: 'action', name: action.name, status: 'done' })
-
                 const shrunk = shrink(data, options.results)
+
+                // The shrunk result, not the raw one. Whatever the page is
+                // told is the same thing the model was told, which keeps one
+                // redaction pass rather than two that can disagree.
+                options.context.emit?.({
+                  type: 'action',
+                  name: action.name,
+                  status: 'done',
+                  ...(options.actionDetail ? { result: shrunk } : {}),
+                })
+
                 const planted = instructionIn(shrunk, screenResults)
 
                 if (planted) {

@@ -175,6 +175,16 @@ export interface AgentOptions {
    */
   followUps?: boolean | { max?: number }
   /**
+   * Sends what each action was called with, and what it returned, to the page.
+   *
+   * The `action` frame otherwise carries a name and a status, which is all a
+   * spinner needs. Turn this on where the page has to react to what actually
+   * happened: refresh a basket the agent changed, record a ticket id, show a
+   * booking. It puts the action's result into JavaScript on the page, so it is
+   * off unless you ask.
+   */
+  actionDetail?: boolean
+  /**
    * How many model round trips one question may take. Each action call costs
    * one, so this caps a runaway loop rather than the useful work.
    */
@@ -884,6 +894,7 @@ export function createAgent(options: AgentOptions) {
           unlocked,
           channel,
           clientActions: !buffered,
+          ...(options.actionDetail ? { actionDetail: true } : {}),
           ...(options.actionResults ? { results: options.actionResults } : {}),
           ...(options.repeatLimit === undefined ? {} : { repeatLimit: options.repeatLimit }),
         }),
