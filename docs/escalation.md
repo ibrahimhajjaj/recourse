@@ -132,6 +132,55 @@ clicking "take over" in a dashboard and they are by definition present.
 
 The gap between the two is also the only way to measure how long people queue.
 
+### When nobody comes
+
+A handover assumes somebody is on the other end of it. Out of hours, or on a
+day the queue got away from the team, nobody is, and a customer who was told a
+colleague would reply shortly is left holding a paused conversation for as long
+as they are willing to sit there.
+
+```ts
+createAgent({
+  index,
+  store,
+  takeover: {
+    waitForPersonMs: 15 * 60 * 1000,
+    unansweredMessage: 'Nobody is free just now, so I will carry on and someone will follow up by email.',
+  },
+})
+```
+
+Once the wait runs out the agent takes the conversation back, records
+`nobody-came`, and says so before answering. The sentence matters as much as
+the timeout: without it the agent simply starts talking again after twenty
+silent minutes, which reads as the colleague never existing.
+
+Unset, there is no timeout and the conversation waits indefinitely, which is
+the right default for a desk with somebody on it.
+
+### The reply has to reach them
+
+A person answering on the ticket and a person answering the customer are not
+the same event. The reply is saved on the ticket either way; getting it to the
+customer means saying how, because they may be on WhatsApp, on SMS, or on a
+widget that closed an hour ago:
+
+```ts
+import { createHelpdesk } from '@recourse-ai/core'
+
+createHelpdesk({
+  store,
+  deliver: async ({ channel, conversationId, content }) => {
+    if (channel === 'whatsapp') await whatsapp.send(conversationId, content)
+  },
+})
+```
+
+Without it, an agent typing a reply into the ticket queue is writing into a
+record nobody outside the team will ever read. A delivery that throws is
+logged and the reply stays saved, because losing the record as well would be
+the worse half of a bad outcome.
+
 ### Why it ended
 
 ```ts

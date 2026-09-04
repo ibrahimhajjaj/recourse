@@ -210,6 +210,13 @@ Model output is rendered by building DOM nodes, never by assigning `innerHTML`.
 Script tags, event-handler attributes, iframes and `javascript:` links in model
 output are rendered as inert text. This is covered by the test suite.
 
+An answer may contain a picture, written `![description](url)`, which is what
+lets a web search with `images` on show the part rather than describe it. Only
+over https: a relative one resolves against whatever page the widget is
+embedded in, and unlike a link an image is fetched without anybody clicking it,
+so a bad address is requested on its own. Anything else keeps its description
+as text.
+
 MIT
 
 ## Speaking the customer's language
