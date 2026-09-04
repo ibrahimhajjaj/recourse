@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { memoryStore } from '../src/store/index.js'
 import { orderingOf, ticketCursor, ticketCursorAt } from '../src/helpdesk/ordering.js'
+import { pageTickets } from '../src/store/tickets.js'
+import type { Ticket } from '../src/helpdesk/types.js'
 import type { Store } from '../src/store/types.js'
 
 /**
@@ -165,5 +167,49 @@ describe('the stores agreeing with each other', () => {
 
     const touched = await store.updateTicket(ticket.ticketNumber, { subject: 'Renamed' })
     expect(touched?.updatedAt).not.toBe('2019-06-01T00:00:00.000Z')
+  })
+})
+
+describe('a cursor whose ticket has gone', () => {
+  const ticket = (ticketNumber: number, createdAt: string): Ticket => ({
+    ticketNumber,
+    subject: `t${ticketNumber}`,
+    description: '',
+    statusId: 'new',
+    statusCategory: 'new',
+    customer: { email: 'sam@example.com' },
+    channel: 'web',
+    metadata: {},
+    createdAt,
+    updatedAt: createdAt,
+  })
+
+  const three = [
+    ticket(1, '2026-01-01T00:00:00.000Z'),
+    ticket(2, '2026-01-02T00:00:00.000Z'),
+    ticket(3, '2026-01-03T00:00:00.000Z'),
+  ]
+
+  it('ends the listing rather than starting it again', () => {
+    // A caller looping until the cursor runs out would never finish if a gone
+    // cursor handed back a first page, and it would hand back the same rows
+    // forever without ever saying anything was wrong.
+    const ordering = orderingOf({ sortBy: 'created', order: 'asc' })
+    const gone = ticketCursor(ordering, 99)
+
+    const page = pageTickets(three, { sortBy: 'created', order: 'asc', cursor: gone })
+    expect(page.items).toEqual([])
+    expect(page.cursor).toBeUndefined()
+  })
+
+  it('still walks normally from a cursor that is still there', () => {
+    const ordering = orderingOf({ sortBy: 'created', order: 'asc' })
+    const page = pageTickets(three, {
+      sortBy: 'created',
+      order: 'asc',
+      cursor: ticketCursor(ordering, 1),
+    })
+
+    expect(page.items.map((one) => one.ticketNumber)).toEqual([2, 3])
   })
 })

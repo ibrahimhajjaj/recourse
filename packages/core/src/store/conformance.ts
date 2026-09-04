@@ -565,6 +565,31 @@ export function storeConformance(options: ConformanceOptions): void {
         expect(seen).toEqual(['third', 'first', 'second'])
       })
 
+      it('keeps walking when a ticket it already passed stops matching', async () => {
+        // The queue is being worked while it is being read. Somebody closing a
+        // ticket you have already been handed must not end the walk: the
+        // cursor points at it, and looking for it among only the open ones
+        // would fail and silently drop the rest of the queue.
+        const store = await queue()
+        const first = await store.listTickets({ limit: 1, openOnly: true, sortBy: 'created', order: 'asc' })
+        expect(first.items[0]?.subject).toBe('first')
+
+        await store.updateTicket(first.items[0]?.ticketNumber as number, {
+          statusId: 'closed',
+          statusCategory: 'closed',
+        })
+
+        const next = await store.listTickets({
+          limit: 5,
+          openOnly: true,
+          sortBy: 'created',
+          order: 'asc',
+          cursor: first.cursor as string,
+        })
+
+        expect(next.items.map((one) => one.subject)).toEqual(['second', 'third'])
+      })
+
       it('refuses a cursor from a different ordering rather than paging into nonsense', async () => {
         // The cursor is a position in one ordering. Used against another it
         // points at a row that has moved, and the page is quietly wrong.
