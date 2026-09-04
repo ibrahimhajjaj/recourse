@@ -48,8 +48,32 @@ storeConformance({
 
 The declaration is itself a named test, so a green tick never hides how much of
 the suite was skipped. What you can opt out of: `deletes`, `leads`, `stats`,
-`pagination`, `filters`, `feedback`, `conversationMeta`. Everything else is
-required, because everything else is something the agent calls without asking.
+`pagination`, `filters`, `feedback`, `conversationMeta`, `tickets`. Everything
+else is required, because everything else is something the agent calls without
+asking.
+
+Paging is the part that is harder than it looks, so the helper the built-in
+stores use is public:
+
+```ts
+import { pageAfter, byNewest } from '@recourse-ai/core/store'
+
+const matching = all.filter(mine)
+return pageAfter(all, matching, options, (row) => row.id, byNewest((row) => row.updatedAt))
+```
+
+Two things it does that a `slice` does not, and the suite checks both. The
+cursor is looked up among **every** row rather than only the matching ones,
+because a listing is read while the thing it lists is being written to: a
+source that finishes re-crawling, a ticket somebody closes, a conversation a
+new message pushes past your `until`. Looked for among the matching rows it is
+simply not there, and the walk ends with the rest undelivered. And the id
+breaks a tie on the timestamp, or two rows written in the same millisecond can
+come back either way round and paging hands one over twice and the other never.
+
+In SQL both fall out of `(updated_at, id) < (SELECT updated_at, id FROM t WHERE
+id = ?)` with a matching `ORDER BY`, which is why the two SQL stores here had
+neither bug.
 
 Be careful with `deletes` and `conversationMeta` in particular. A store that
 accepts `deleteConversation` and keeps the data has turned a legal obligation
