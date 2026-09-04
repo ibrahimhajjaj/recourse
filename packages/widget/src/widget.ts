@@ -497,6 +497,12 @@ export function createWidget(options: WidgetOptions) {
     if (changes.greeting !== undefined && state.messages.length === 0) repaint()
   }
 
+  /** The greeting as a list, however it was written. */
+  function greeting(): string[] {
+    const said = Array.isArray(live.greeting) ? live.greeting : [live.greeting]
+    return said.map((line) => line.trim()).filter(Boolean)
+  }
+
   /** Puts the live values on screen. Cheap enough to run for any of them. */
   function paintChrome() {
     title.textContent = live.title
@@ -740,7 +746,7 @@ export function createWidget(options: WidgetOptions) {
     // a bubble in the corner of one. Only while it is empty: once there is a
     // conversation, the space belongs to the conversation.
     if (options.greetingArt && state.messages.length === 0) paintEmptyState()
-    else if (live.greeting) paintMessage({ role: 'assistant', content: live.greeting })
+    else for (const line of greeting()) paintMessage({ role: 'assistant', content: line })
     for (const message of state.messages) {
       if (!message.unseen) paintMessage(message)
     }
@@ -759,9 +765,9 @@ export function createWidget(options: WidgetOptions) {
     art.decoding = 'async'
     empty.appendChild(art)
 
-    if (live.greeting) {
+    for (const said of greeting()) {
       const line = document.createElement('p')
-      line.textContent = live.greeting
+      line.textContent = said
       empty.appendChild(line)
     }
 
@@ -1540,8 +1546,13 @@ function readable(name: string): string {
     resetOptions(fields?: Partial<Record<keyof Chrome, boolean>>) {
       const wanted = (Object.keys(built) as Array<keyof Chrome>).filter((key) => !fields || fields[key])
       for (const key of wanted) {
+        // Copied per key rather than assigned across the union, and the arrays
+        // copied rather than shared: a page that reset once and then mutated
+        // what it got back would otherwise edit the defaults.
         if (key === 'suggestions') live.suggestions = [...built.suggestions]
-        else live[key] = built[key]
+        else if (key === 'greeting') {
+          live.greeting = Array.isArray(built.greeting) ? [...built.greeting] : built.greeting
+        } else live[key] = built[key]
       }
 
       if (wanted.includes('suggestions') && state.messages.length === 0) {

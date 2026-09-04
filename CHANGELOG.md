@@ -93,6 +93,10 @@ suggestions are on screen, for a guided step with a fixed set of answers.
 **`setOptions` and `resetOptions`** change what a running widget says, and
 `open({ ask, quietly })` opens it with a question already in it.
 
+**A greeting can be several messages.** `greeting` takes an array, and
+`data-greeting` splits on a pipe, because a greeting and then what the agent can
+actually help with reads better as two short messages than as one paragraph.
+
 **`actionDetail: true`** sends what an action was called with and what it
 returned to the page, for one that has to show the booking rather than merely
 know one happened.

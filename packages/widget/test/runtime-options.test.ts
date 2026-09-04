@@ -222,3 +222,37 @@ describe('opening with a question already in it', () => {
     expect((root.querySelector('.panel') as HTMLElement).dataset.open).toBe('true')
   })
 })
+
+describe('opening with more than one message', () => {
+  it('draws each as its own bubble rather than one paragraph', () => {
+    const { root } = mount({ greeting: ['Hi there.', 'I can help with orders and returns.'] })
+
+    expect(root.textContent).toContain('Hi there.')
+    expect(root.textContent).toContain('I can help with orders and returns.')
+    expect(root.querySelectorAll('.msg[data-role="assistant"]').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('still takes a single greeting', () => {
+    const { root } = mount({ greeting: 'Ask us anything.' })
+
+    expect(root.textContent).toContain('Ask us anything.')
+    expect(root.querySelectorAll('.msg[data-role="assistant"]')).toHaveLength(1)
+  })
+
+  it('drops an empty one rather than drawing a blank bubble', () => {
+    const { root } = mount({ greeting: ['Hi there.', '   ', ''] })
+
+    expect(root.querySelectorAll('.msg[data-role="assistant"]')).toHaveLength(1)
+  })
+
+  it('can be replaced and put back at runtime', () => {
+    const { widget, root } = mount({ greeting: 'Ask us anything.' })
+
+    widget.setOptions({ greeting: ['Looking at our pricing?', 'I can talk you through the plans.'] })
+    expect(root.textContent).toContain('talk you through the plans')
+
+    widget.resetOptions({ greeting: true })
+    expect(root.textContent).toContain('Ask us anything.')
+    expect(root.textContent).not.toContain('talk you through the plans')
+  })
+})

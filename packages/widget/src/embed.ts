@@ -38,7 +38,13 @@ function readConfig(): WidgetOptions | null {
     // composer. The one string reachable from a script tag, because it is the
     // one a deployment may be obliged to show rather than merely want to.
     ...(data.footnote ? { strings: { footnote: data.footnote } } : {}),
-    greeting: data.greeting,
+    // Split on the pipe, like the suggestions above, so a script tag can open
+    // with a greeting and then what this agent can actually help with. Two
+    // short messages read better than one paragraph, and a greeting with no
+    // pipe in it is unchanged.
+    greeting: data.greeting?.includes('|')
+      ? data.greeting.split('|').map((line) => line.trim()).filter(Boolean)
+      : data.greeting,
     // `data-greeting-art="/empty.png"` centres the greeting under a picture on
     // an empty panel. A path on your own site: nothing is fetched elsewhere.
     greetingArt: data.greetingArt,

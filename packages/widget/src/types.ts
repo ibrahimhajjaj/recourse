@@ -9,7 +9,7 @@ export interface WidgetOptions {
   /** One line under the title. */
   subtitle?: string
   /** Shown as the agent's opening message. */
-  greeting?: string
+  greeting?: string | string[]
   /**
    * A picture to put above the greeting, on an empty panel.
    *
@@ -249,6 +249,13 @@ export interface Chrome {
   subtitle: string
   placeholder: string
   footnote: string
-  greeting: string
+  /**
+   * What the agent says before anybody has typed anything.
+   *
+   * Several of them arrive as separate messages rather than one paragraph,
+   * because that is what a person opening a chat reads: a greeting, then what
+   * this agent can actually help with. One long block is a wall.
+   */
+  greeting: string | string[]
   suggestions: string[]
 }

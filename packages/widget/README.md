@@ -30,7 +30,7 @@ const widget = createWidget({
 | Attribute | Does |
 | --- | --- |
 | `data-endpoint` | Where to post. The only required one. |
-| `data-title`, `data-subtitle`, `data-greeting` | The header and the opening line. |
+| `data-title`, `data-subtitle`, `data-greeting` | The header and the opening line. Pipe-separate the greeting for several: `data-greeting="Hi there.|I can help with orders and returns."` reads better than one paragraph. |
 | `data-greeting-art` | A picture on your own site, centred above the greeting while the panel is empty. Transparent PNG, so it works in both colour schemes. |
 | `data-footnote` | A line under the composer, such as "You are chatting with an AI assistant". Several jurisdictions now expect a visitor to be told this without having to ask. |
 | `data-accent` | One colour; everything else is derived from it. |
