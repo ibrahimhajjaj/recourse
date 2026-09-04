@@ -1,4 +1,4 @@
-import { mentions } from '../relevance.js'
+import { mentions, sharedTerms } from '../relevance.js'
 import type { Action } from '../actions/types.js'
 import { ACTION_REFERENCE, MAX_BRANCHES, MAX_STEPS, type Decision, type Procedure, type Step } from './types.js'
 import type { Channel } from '../store/types.js'
@@ -130,3 +130,49 @@ export function unlockedBy(procedures: Procedure[], conversation?: string): Set<
   return names
 }
 
+/**
+ * The one procedure a turn runs.
+ *
+ * Two triggers can match at once, and following both is not a compromise
+ * between them: the steps interleave, the model is told to ask for an order
+ * number twice and to do two contradictory things with it, and the customer
+ * gets a reply that reads like two conversations shuffled together.
+ *
+ * The one that wins is the one the conversation turned to most recently.
+ * Scanned newest message first, so a customer three steps into a refund who
+ * says "actually, where is my parcel" gets the shipping flow on that turn, and
+ * one who says "LUM-1234" is still in the refund: their message names neither
+ * trigger, so the most recent one that was named still holds.
+ *
+ * Ties go to the procedure that shares more words with that message, and then
+ * to the order they were declared in, so the choice is stable rather than
+ * whatever the sort happened to do.
+ */
+export function chooseProcedure(procedures: Procedure[], messages: string[]): Procedure | undefined {
+  let best: { procedure: Procedure; recency: number; shared: number } | undefined
+
+  for (const procedure of procedures) {
+    let recency = -1
+    let shared = 0
+
+    for (let position = messages.length - 1; position >= 0; position--) {
+      const said = messages[position] as string
+      const count = sharedTerms(procedure.trigger, said)
+      if (count > 0) {
+        recency = position
+        shared = count
+        break
+      }
+    }
+
+    // Matched the conversation as a whole but no single message on its own,
+    // which a trigger spread across two turns will do. Still a candidate, and
+    // still behind anything a message actually named.
+    const candidate = { procedure, recency, shared }
+    if (!best || candidate.recency > best.recency || (candidate.recency === best.recency && candidate.shared > best.shared)) {
+      best = candidate
+    }
+  }
+
+  return best?.procedure
+}

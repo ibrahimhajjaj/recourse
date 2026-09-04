@@ -186,6 +186,29 @@ entirely, with a warning. Half a procedure is worse than none: the agent follows
 four steps, reaches a tool that is not there, and improvises the ending the
 procedure existed to prevent.
 
+The same applies per channel. An action limited with `channels`, or a client
+action on a channel with no browser to run it, is missing as far as a procedure
+is concerned, so a procedure naming one is dropped on that channel and runs
+everywhere else. References inside a branch count, even a branch this
+conversation would never take: whether it gets there is not knowable until the
+flow has already started.
+
+### One procedure a turn
+
+At most one runs. Two triggers can match at once, and following both is not a
+compromise between them: the steps interleave, the agent asks for the order
+number twice, and the customer reads a reply that is two conversations shuffled
+together.
+
+The one that wins is the one the conversation turned to most recently, and
+failing that the one the newest message shares the most words with. So the
+customer who says "LUM-1234" is still in the refund flow that asked for it,
+their message naming no trigger at all, and the one who says "actually, where is
+my parcel" is in the shipping flow from that turn on.
+
+Where two really do belong together, write them as one procedure with branches
+rather than two that hope to run at the same time.
+
 ## What the visitor sees while it runs
 
 A lookup can take five seconds. Every server action reports that it started,

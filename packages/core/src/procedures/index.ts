@@ -1,4 +1,11 @@
-export { defineProcedure, referencedActions, usableProcedures, unlockedBy, matchingProcedures } from './define.js'
+export {
+  defineProcedure,
+  referencedActions,
+  usableProcedures,
+  unlockedBy,
+  matchingProcedures,
+  chooseProcedure,
+} from './define.js'
 export { renderProcedures, resolveVariables, type VariableScope } from './render.js'
 export {
   MAX_STEPS,

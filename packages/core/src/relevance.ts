@@ -51,7 +51,7 @@ const GENERIC = new Set([
 
 /** Whether `conversation` shares a distinctive word with `about`. */
 export function mentions(about: string, conversation: string): boolean {
-  const wanted = new Set(tokenize(about).filter((term) => !GENERIC.has(term)))
+  const wanted = distinctive(about)
   if (wanted.size === 0) return true
 
   for (const term of tokenize(conversation)) {
@@ -59,4 +59,29 @@ export function mentions(about: string, conversation: string): boolean {
   }
 
   return false
+}
+
+/**
+ * How many of `about`'s distinctive words `text` contains.
+ *
+ * `mentions` answers whether at all, which is the right question when the
+ * decision is to offer a tool or not. Choosing between two things that both
+ * match needs a degree, and this is it. Zero for a phrase with no distinctive
+ * words, where `mentions` says yes to everything: something that matches
+ * everything cannot be evidence for one candidate over another.
+ */
+export function sharedTerms(about: string, text: string): number {
+  const wanted = distinctive(about)
+  if (wanted.size === 0) return 0
+
+  const found = new Set<string>()
+  for (const term of tokenize(text)) {
+    if (wanted.has(term)) found.add(term)
+  }
+
+  return found.size
+}
+
+function distinctive(about: string): Set<string> {
+  return new Set(tokenize(about).filter((term) => !GENERIC.has(term)))
 }
