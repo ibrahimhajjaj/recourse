@@ -102,8 +102,8 @@ for a reference page: the customer reads it and the conversation is still there
 behind it. Checkout and sign-in are the exceptions, because both are built to
 own the whole window and neither works well in a tab somebody forgets about.
 
-Four kinds ship: `button`, `card`, `table` and `list`, plus forms the customer
-can fill in. A form field takes an `input` when a plain text box is the wrong
+Five kinds ship: `button`, `card`, `table`, `list` and `chart`, plus forms the
+customer can fill in. A form field takes an `input` when a plain text box is the wrong
 control: `date` gets a picker, `email` and `tel` get the right keyboard on a
 phone and the browser's own checking, `multiline` gets somewhere to describe
 what happened. `type` stays what the model is told the value is, since a date
@@ -127,6 +127,31 @@ ctx.emit({
   data: { title: `Refund for ${orderNumber}`, subtitle: 'Requested', fields: [...] },
 })
 ```
+
+`chart` takes `points` of `{ label, value }`, with an optional `display` for a
+value that is really £1,200 rather than 1200:
+
+```ts
+ctx.emit({
+  type: 'ui',
+  kind: 'chart',
+  id: `spend_${account}`,
+  data: {
+    title: 'Spend per month',
+    points: [
+      { label: 'June', value: 40, display: '£40' },
+      { label: 'July', value: 80, display: '£80' },
+    ],
+  },
+})
+```
+
+Bars, and only bars. A support answer that needs a chart is nearly always "how
+much, per month", which a bar answers and a line, a pie and an axis library do
+not answer any better in a panel 400 pixels wide. The numbers are printed
+beside the bars, because a chart nobody can read the values off is a picture of
+a table. The scale runs from zero to the largest bar: starting it at the
+smallest value makes a 2% gap look total.
 
 ### The id is what makes it change
 

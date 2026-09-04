@@ -415,3 +415,62 @@ describe('picking more than one, and picking from headings', () => {
     expect(one.ctx.responded[0]).toEqual({ where: 'York' })
   })
 })
+
+describe('a chart', () => {
+  const draw = (data: Record<string, unknown>) => render('chart', data).node
+
+  it('draws a bar and the number beside it for each point', () => {
+    const node = draw({
+      title: 'Spend per month',
+      points: [
+        { label: 'June', value: 40, display: '£40' },
+        { label: 'July', value: 80, display: '£80' },
+      ],
+    })
+
+    expect(node?.querySelector('h3')?.textContent).toBe('Spend per month')
+    expect(node?.querySelectorAll('.ui-chart-bar')).toHaveLength(2)
+    // Read off the page, not guessed from the length. A bar chart nobody can
+    // read the values off is a picture of a table.
+    expect(node?.textContent).toContain('£40')
+    expect(node?.textContent).toContain('£80')
+  })
+
+  it('scales against the largest bar, from zero', () => {
+    // Starting the scale at the smallest value makes a 2% gap look total,
+    // which is the oldest way to mislead with a chart.
+    const node = draw({
+      points: [
+        { label: 'June', value: 98 },
+        { label: 'July', value: 100 },
+      ],
+    })
+
+    const bars = [...(node?.querySelectorAll('.ui-chart-bar') ?? [])] as HTMLElement[]
+    expect(bars[0]?.style.width).toBe('98%')
+    expect(bars[1]?.style.width).toBe('100%')
+  })
+
+  it('falls back to the raw number when nothing formatted it', () => {
+    expect(draw({ points: [{ label: 'June', value: 40 }] })?.textContent).toContain('40')
+  })
+
+  it('drops points that are not numbers, and draws nothing at all if none are', () => {
+    const node = draw({
+      points: [
+        { label: 'June', value: 'lots' },
+        { label: 'July', value: 3 },
+      ],
+    })
+
+    expect(node?.querySelectorAll('.ui-chart-bar')).toHaveLength(1)
+    expect(draw({ points: [{ label: 'June', value: 'lots' }] })).toBeNull()
+    expect(draw({})).toBeNull()
+  })
+
+  it('survives every value being zero', () => {
+    const node = draw({ points: [{ label: 'June', value: 0 }] })
+
+    expect((node?.querySelector('.ui-chart-bar') as HTMLElement).style.width).toBe('0%')
+  })
+})

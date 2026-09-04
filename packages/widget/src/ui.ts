@@ -384,7 +384,64 @@ export function renderForm(
   return form
 }
 
-export const RENDERERS: Record<string, UiRenderer> = { button, card, table, list }
+/**
+ * A row of labelled bars.
+ *
+ * Deliberately the only chart there is, and deliberately drawn rather than
+ * plotted. A support answer that needs a chart is almost always "how much, per
+ * month" or "how many, per plan", which a bar answers and a line, a pie and an
+ * axis library do not answer any better. It is also 400 pixels wide on a
+ * phone: anything with a legend and gridlines is unreadable there.
+ *
+ * The numbers are shown as text beside the bars, not only as length. A bar
+ * chart nobody can read the values off is a picture of a table.
+ */
+const chart: UiRenderer = (data) => {
+  const points = (Array.isArray(data.points) ? data.points : [])
+    .map((raw) => raw as { label?: unknown; value?: unknown; display?: unknown })
+    .map((point) => ({ label: str(point.label), value: Number(point.value), display: str(point.display) }))
+    .filter((point) => point.label !== '' && Number.isFinite(point.value))
+    .slice(0, 12)
+
+  if (points.length === 0) return null
+
+  const root = document.createElement('div')
+  root.className = 'ui-chart'
+  if (data.title) root.appendChild(text('h3', str(data.title)))
+
+  // Against the largest bar, and against zero rather than the smallest. A
+  // scale that starts at the smallest value makes a 2% difference look like
+  // everything, which is the oldest way to mislead with a chart.
+  const largest = Math.max(...points.map((point) => Math.abs(point.value)), 0)
+
+  const rows = document.createElement('dl')
+  rows.className = 'ui-chart-rows'
+
+  for (const point of points) {
+    rows.appendChild(text('dt', point.label))
+
+    const cell = document.createElement('dd')
+    // A track the bar is a percentage of, rather than the row: the row also
+    // holds the number, so a full-length bar measured against it would push
+    // the number off the end.
+    const track = document.createElement('div')
+    track.className = 'ui-chart-track'
+    const bar = document.createElement('div')
+    bar.className = 'ui-chart-bar'
+    bar.style.width = `${largest === 0 ? 0 : (Math.abs(point.value) / largest) * 100}%`
+    track.appendChild(bar)
+    cell.appendChild(track)
+    // The formatted value if the sender wrote one, since 1200 may be £1,200
+    // and only they know. Otherwise the number itself.
+    cell.appendChild(text('span', point.display || String(point.value)))
+    rows.appendChild(cell)
+  }
+
+  root.appendChild(rows)
+  return root
+}
+
+export const RENDERERS: Record<string, UiRenderer> = { button, card, table, list, chart }
 
 /** Renders a ui frame, or null when nothing knows how to draw it. */
 export function renderUi(frame: UiFrame, context: UiContext): HTMLElement | null {

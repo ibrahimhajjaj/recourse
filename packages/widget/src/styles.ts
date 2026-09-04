@@ -538,6 +538,29 @@ export const styles = `
 .ui-button:hover { border-color: var(--rc-accent); color: var(--rc-accent); }
 .ui-button:focus-visible { outline: 2px solid var(--rc-accent); outline-offset: 1px; }
 
+.ui-chart { display: flex; flex-direction: column; gap: 8px; }
+.ui-chart h3 { margin: 0; font-size: 14.5px; font-weight: 620; }
+.ui-chart-rows {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  font-size: 13px;
+}
+.ui-chart-rows dt { color: var(--rc-muted); overflow-wrap: anywhere; }
+.ui-chart-rows dd { margin: 0; display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* A minimum width so a value near zero is still a mark rather than nothing,
+   which reads as missing data. */
+.ui-chart-track { flex: 1; min-width: 0; }
+.ui-chart-bar {
+  height: 10px;
+  min-width: 2px;
+  border-radius: 999px;
+  background: var(--rc-accent);
+}
+.ui-chart-rows dd span { white-space: nowrap; color: var(--rc-ink); }
+
 .ui-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--rc-line); border-radius: 10px; }
 .ui-table { border-collapse: collapse; font-size: 13px; width: 100%; }
 .ui-table th, .ui-table td { text-align: start; padding: 7px 10px; white-space: nowrap; }
