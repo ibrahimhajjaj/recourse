@@ -84,7 +84,7 @@ filter. It is there by default rather than absent.
 
 == Source code ==
 
-The widget script shipped as `assets/recourse.min.js` is built from the TypeScript sources at https://github.com/ibrahimhajjaj/recourse, under `packages/widget/src`. The readable build is shipped alongside it as `assets/recourse.js`. Build it yourself with `npm install && npm run build` in that directory.
+The widget script shipped as `assets/recourse.min.js` is built from the TypeScript sources at https://github.com/ibrahimhajjaj/recourse, under `packages/widget/src`. The readable build is shipped alongside it as `assets/recourse.js`. Build both yourself with `npm install && npm run build` in `packages/widget`, then take them from `dist/wordpress`. That is the same source as the general build, compiled without the loader that would fetch a voice runtime from a content delivery network, since a plugin may not fetch code from another host.
 
 == Installation ==
 
